@@ -1,11 +1,54 @@
 #include <pebble.h>
 
 // ============================================================
-// CONFIGURATION (defaults, overridden by user settings)
+// SETTINGS
 // ============================================================
+#define SETTINGS_KEY  1
 #define DEFAULT_STEP_GOAL 10000
 
-static int s_step_goal = DEFAULT_STEP_GOAL;
+typedef struct {
+GColor BackgroundColor;
+GColor TextColor;
+GColor BatteryColor;
+GColor StepsColor;
+GColor TickHourColor;
+GColor TickMinuteColor;
+GColor RingEmptyColor;
+int    StepGoal;
+} RadiumSettings;
+
+static RadiumSettings s_settings;
+
+static void prv_default_settings(void) {
+#if defined(PBL_COLOR)
+s_settings.BackgroundColor = GColorBlack;
+s_settings.TextColor       = GColorWhite;
+s_settings.BatteryColor    = GColorLightGray;
+s_settings.StepsColor      = GColorTiffanyBlue;
+s_settings.TickHourColor   = GColorWhite;
+s_settings.TickMinuteColor = GColorTiffanyBlue;
+s_settings.RingEmptyColor  = GColorDarkGray;
+#else
+// B&W platforms: Aplite, Diorite, Flint
+s_settings.BackgroundColor = GColorBlack;
+s_settings.TextColor       = GColorWhite;
+s_settings.BatteryColor    = GColorWhite;
+s_settings.StepsColor      = GColorWhite;
+s_settings.TickHourColor   = GColorWhite;
+s_settings.TickMinuteColor = GColorWhite;
+s_settings.RingEmptyColor  = GColorDarkGray;
+#endif
+s_settings.StepGoal = DEFAULT_STEP_GOAL;
+}
+
+static void prv_save_settings(void) {
+persist_write_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
+}
+
+static void prv_load_settings(void) {
+prv_default_settings();
+persist_read_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
+}
 
 // ============================================================
 // STATE
@@ -13,55 +56,19 @@ static int s_step_goal = DEFAULT_STEP_GOAL;
 static Window *s_window;
 static Layer  *s_canvas_layer;
 
-static int s_hour    = 0;
-static int s_minute  = 0;
-static int s_battery = 100;
-static int s_steps   = 0;
+static int  s_hour    = 0;
+static int  s_minute  = 0;
+static int  s_battery = 100;
+static int  s_steps   = 0;
 
 static char s_time_buffer[16];
 static char s_day_buffer[16];
 static char s_date_buffer[16];
 
 // ============================================================
-// COLORS  (gracefully degrade to B&W on Aplite/Diorite/Flint)
-// ============================================================
-static GColor COLOR_BACKGROUND;
-static GColor COLOR_TEXT;
-static GColor COLOR_OUTER_EMPTY;
-static GColor COLOR_BATTERY_FILLED;
-static GColor COLOR_STEPS_FILLED;
-static GColor COLOR_TICK_EMPTY;
-static GColor COLOR_TICK_HOUR;
-static GColor COLOR_TICK_MINUTE;
-
-static void init_colors(void) {
-#if defined(PBL_COLOR)
-COLOR_BACKGROUND     = GColorBlack;
-COLOR_TEXT           = GColorWhite;
-COLOR_OUTER_EMPTY    = GColorDarkGray;
-COLOR_BATTERY_FILLED = GColorLightGray;
-COLOR_STEPS_FILLED   = GColorTiffanyBlue;
-COLOR_TICK_EMPTY     = GColorDarkGray;
-COLOR_TICK_HOUR      = GColorWhite;
-COLOR_TICK_MINUTE    = GColorTiffanyBlue;
-#else
-// B&W platforms: Aplite (OG Pebble), Diorite (Pebble 2), Flint (Pebble 2 Duo)
-COLOR_BACKGROUND     = GColorBlack;
-COLOR_TEXT           = GColorWhite;
-COLOR_OUTER_EMPTY    = GColorDarkGray;
-COLOR_BATTERY_FILLED = GColorWhite;
-COLOR_STEPS_FILLED   = GColorWhite;
-COLOR_TICK_EMPTY     = GColorDarkGray;
-COLOR_TICK_HOUR      = GColorWhite;
-COLOR_TICK_MINUTE    = GColorWhite;
-#endif
-}
-
-// ============================================================
 // HELPERS
 // ============================================================
-static const char* get_day_name(int wday) {
-// tm_wday: 0=Sunday … 6=Saturday
+static const char *get_day_name(int wday) {
 switch (wday) {
 case 0: return “SUNDAY”;
 case 1: return “MONDAY”;
@@ -74,14 +81,12 @@ default: return “”;
 }
 }
 
-static const char* get_month_abbr(int mon) {
-// tm_mon: 0=Jan … 11=Dec
+static const char *get_month_abbr(int mon) {
 static const char *months[] = {
 “JAN”,“FEB”,“MAR”,“APR”,“MAY”,“JUN”,
 “JUL”,“AUG”,“SEP”,“OCT”,“NOV”,“DEC”
 };
-if (mon >= 0 && mon < 12) return months[mon];
-return “”;
+return (mon >= 0 && mon < 12) ? months[mon] : “”;
 }
 
 // ============================================================
@@ -92,26 +97,21 @@ GRect bounds = layer_get_unobstructed_bounds(layer);
 int w = bounds.size.w;
 int h = bounds.size.h;
 
-// On rectangular screens the drawable circle is limited by the shorter axis.
-// On round screens, w == h already.
+// Use the shorter axis as diameter so rings are always circular
 int diameter = (w < h) ? w : h;
-int cx       = w / 2;
-int cy       = h / 2;
+int cx = w / 2;
+int cy = h / 2;
 
-// Outer ring inset from the edge
-int outer_inset  = 2;
-int outer_thick  = 6;
-
-// Inner tick ring — inset further inside the outer ring
-int tick_margin  = outer_inset + outer_thick + 2;
-int tick_thick   = 19;  // matches original “overlay” mode
+int outer_inset = 2;
+int outer_thick = 6;
+int tick_margin = outer_inset + outer_thick + 2;
+int tick_thick  = 19;
 
 // ── Background ──────────────────────────────────────────
-graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+graphics_context_set_fill_color(ctx, s_settings.BackgroundColor);
 graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
-// ── Outer ring geometry ──────────────────────────────────
-// Centre the ring on the display regardless of aspect ratio
+// ── Outer ring frame ────────────────────────────────────
 GRect outer_frame = GRect(
 cx - diameter/2 + outer_inset,
 cy - diameter/2 + outer_inset,
@@ -119,44 +119,41 @@ diameter - 2*outer_inset,
 diameter - 2*outer_inset
 );
 
-// ── BATTERY arc  (right half: 0°→180°, fills from bottom-right to top) ──
-// Empty track
-graphics_context_set_fill_color(ctx, COLOR_OUTER_EMPTY);
+// ── BATTERY arc (right half: 3°→177°) ───────────────────
+graphics_context_set_fill_color(ctx, s_settings.RingEmptyColor);
 graphics_fill_radial(ctx, outer_frame, GOvalScaleModeFitCircle,
 outer_thick,
 DEG_TO_TRIGANGLE(3),
 DEG_TO_TRIGANGLE(180 - 3));
-// Filled portion (battery %)
-// Fills from the top-right (3°) clockwise proportional to battery level
-int32_t batt_end = DEG_TO_TRIGANGLE(3 + (int)((180 - 6) * s_battery / 100));
-graphics_context_set_fill_color(ctx, COLOR_BATTERY_FILLED);
+
+graphics_context_set_fill_color(ctx, s_settings.BatteryColor);
 if (s_battery > 0) {
+int32_t batt_end = DEG_TO_TRIGANGLE(3 + (180 - 6) * s_battery / 100);
 graphics_fill_radial(ctx, outer_frame, GOvalScaleModeFitCircle,
 outer_thick,
 DEG_TO_TRIGANGLE(3),
 batt_end);
 }
 
-// ── STEPS arc  (left half: 180°→360°, fills from bottom-left to top) ──
-// Empty track
-graphics_context_set_fill_color(ctx, COLOR_OUTER_EMPTY);
+// ── STEPS arc (left half: 183°→357°) ────────────────────
+graphics_context_set_fill_color(ctx, s_settings.RingEmptyColor);
 graphics_fill_radial(ctx, outer_frame, GOvalScaleModeFitCircle,
 outer_thick,
 DEG_TO_TRIGANGLE(180 + 3),
 DEG_TO_TRIGANGLE(360 - 3));
-// Filled portion (step goal %)
-int step_pct = (s_steps * 100) / s_step_goal;
+
+int step_pct = (s_steps * 100) / s_settings.StepGoal;
 if (step_pct > 100) step_pct = 100;
-int32_t steps_end = DEG_TO_TRIGANGLE(180 + 3 + (int)((180 - 6) * step_pct / 100));
-graphics_context_set_fill_color(ctx, COLOR_STEPS_FILLED);
+graphics_context_set_fill_color(ctx, s_settings.StepsColor);
 if (step_pct > 0) {
+int32_t steps_end = DEG_TO_TRIGANGLE(180 + 3 + (180 - 6) * step_pct / 100);
 graphics_fill_radial(ctx, outer_frame, GOvalScaleModeFitCircle,
 outer_thick,
 DEG_TO_TRIGANGLE(180 + 3),
 steps_end);
 }
 
-// ── Tick ring geometry ───────────────────────────────────
+// ── Tick ring frame ─────────────────────────────────────
 GRect tick_frame = GRect(
 cx - diameter/2 + tick_margin,
 cy - diameter/2 + tick_margin,
@@ -164,17 +161,15 @@ diameter - 2*tick_margin,
 diameter - 2*tick_margin
 );
 
-// ── MINUTE ticks (right half: 0°→180°, 60 ticks total → 30 per half) ──
-// 30 ticks fit in 177° (180° minus 3° gap on each side)
-// Each tick = 2° wide with 1° gap, plus every 5th has extra 5° space
-graphics_context_set_fill_color(ctx, COLOR_TICK_EMPTY);
+// ── MINUTE ticks (right half) ───────────────────────────
+graphics_context_set_fill_color(ctx, s_settings.RingEmptyColor);
 for (int i = 0; i < 60; i++) {
 graphics_fill_radial(ctx, tick_frame, GOvalScaleModeFitCircle,
 tick_thick,
 DEG_TO_TRIGANGLE(3 + 2*i + 5*(i/5)),
 DEG_TO_TRIGANGLE(3 + 2*i + 1 + 5*(i/5)));
 }
-graphics_context_set_fill_color(ctx, COLOR_TICK_MINUTE);
+graphics_context_set_fill_color(ctx, s_settings.TickMinuteColor);
 for (int i = 0; i < s_minute; i++) {
 graphics_fill_radial(ctx, tick_frame, GOvalScaleModeFitCircle,
 tick_thick,
@@ -182,15 +177,15 @@ DEG_TO_TRIGANGLE(3 + 2*i + 5*(i/5)),
 DEG_TO_TRIGANGLE(3 + 2*i + 1 + 5*(i/5)));
 }
 
-// ── HOUR ticks (left half: 180°→360°, 12 ticks) ──
-graphics_context_set_fill_color(ctx, COLOR_TICK_EMPTY);
+// ── HOUR ticks (left half) ──────────────────────────────
+graphics_context_set_fill_color(ctx, s_settings.RingEmptyColor);
 for (int i = 0; i < 12; i++) {
 graphics_fill_radial(ctx, tick_frame, GOvalScaleModeFitCircle,
 tick_thick,
 DEG_TO_TRIGANGLE(180 + 3 + 15*i),
 DEG_TO_TRIGANGLE(180 + 3 + 15*i + 9));
 }
-graphics_context_set_fill_color(ctx, COLOR_TICK_HOUR);
+graphics_context_set_fill_color(ctx, s_settings.TickHourColor);
 for (int i = 0; i < s_hour; i++) {
 graphics_fill_radial(ctx, tick_frame, GOvalScaleModeFitCircle,
 tick_thick,
@@ -198,31 +193,27 @@ DEG_TO_TRIGANGLE(180 + 3 + 15*i),
 DEG_TO_TRIGANGLE(180 + 3 + 15*i + 9));
 }
 
-// ── Centre text ──────────────────────────────────────────
-// Scale font area relative to display size
-// Original was 33px tall time text on a 180px display
-int text_h_time = (h * 33) / 180;
-int text_h_sub  = (h * 11) / 180;
-int text_y_base = (h - text_h_time) / 2 - 4;
+// ── Centre text ─────────────────────────────────────────
+int text_y_base = (h - 33) / 2 - 4;
 
-graphics_context_set_text_color(ctx, COLOR_TEXT);
+graphics_context_set_text_color(ctx, s_settings.TextColor);
 
 // Time
 graphics_draw_text(ctx, s_time_buffer,
 fonts_get_system_font(FONT_KEY_LECO_28_LIGHT_NUMBERS),
-GRect(0, text_y_base, w, text_h_time + 4),
+GRect(0, text_y_base, w, 36),
 GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
-// Day name
+// Day
 graphics_draw_text(ctx, s_day_buffer,
 fonts_get_system_font(FONT_KEY_GOTHIC_14),
-GRect(0, text_y_base + text_h_time + 2, w, text_h_sub + 4),
+GRect(0, text_y_base + 36, w, 16),
 GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
 // Date
 graphics_draw_text(ctx, s_date_buffer,
 fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-GRect(0, text_y_base + text_h_time + text_h_sub + 4, w, text_h_sub + 4),
+GRect(0, text_y_base + 52, w, 16),
 GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
@@ -233,11 +224,9 @@ static void tick_handler(struct tm *t, TimeUnits units_changed) {
 s_hour   = t->tm_hour % 12;
 s_minute = t->tm_min;
 
-snprintf(s_time_buffer, sizeof(s_time_buffer),
-“%02d:%02d”,
+snprintf(s_time_buffer, sizeof(s_time_buffer), “%02d:%02d”,
 clock_is_24h_style() ? t->tm_hour : t->tm_hour % 12,
 t->tm_min);
-
 snprintf(s_day_buffer,  sizeof(s_day_buffer),  “%s”, get_day_name(t->tm_wday));
 snprintf(s_date_buffer, sizeof(s_date_buffer), “%s %02d”,
 get_month_abbr(t->tm_mon), t->tm_mday);
@@ -254,16 +243,13 @@ layer_mark_dirty(s_canvas_layer);
 }
 
 // ============================================================
-// HEALTH / STEPS HANDLER
+// HEALTH / STEPS
 // ============================================================
 #if defined(PBL_HEALTH)
 static void update_steps(void) {
 HealthMetric metric = HealthMetricStepCount;
-time_t start        = time_start_of_today();
-time_t end          = time(NULL);
 HealthServiceAccessibilityMask mask =
-health_service_metric_accessible(metric, start, end);
-
+health_service_metric_accessible(metric, time_start_of_today(), time(NULL));
 if (mask & HealthServiceAccessibilityMaskAvailable) {
 s_steps = (int)health_service_sum_today(metric);
 } else {
@@ -277,31 +263,42 @@ if (event == HealthEventMovementUpdate) {
 update_steps();
 }
 }
-#endif  // PBL_HEALTH
+#endif
 
 // ============================================================
-// PERSISTENT STORAGE — user settings
-// ============================================================
-#define PERSIST_KEY_STEP_GOAL 1
-
-static void load_settings(void) {
-if (persist_exists(PERSIST_KEY_STEP_GOAL)) {
-s_step_goal = persist_read_int(PERSIST_KEY_STEP_GOAL);
-} else {
-s_step_goal = DEFAULT_STEP_GOAL;
-}
-}
-
-// ============================================================
-// APP MESSAGE — receive settings from phone config page
+// APP MESSAGE — receive Clay settings from phone
 // ============================================================
 static void inbox_received(DictionaryIterator *iter, void *context) {
-Tuple *goal_t = dict_find(iter, MESSAGE_KEY_StepGoal);
-if (goal_t) {
-s_step_goal = (int)goal_t->value->int32;
-persist_write_int(PERSIST_KEY_STEP_GOAL, s_step_goal);
+Tuple *t;
+
+#if defined(PBL_COLOR)
+t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
+if (t) s_settings.BackgroundColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_TextColor);
+if (t) s_settings.TextColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_BatteryColor);
+if (t) s_settings.BatteryColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_StepsColor);
+if (t) s_settings.StepsColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_TickHourColor);
+if (t) s_settings.TickHourColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_TickMinuteColor);
+if (t) s_settings.TickMinuteColor = GColorFromHEX(t->value->int32);
+
+t = dict_find(iter, MESSAGE_KEY_RingEmptyColor);
+if (t) s_settings.RingEmptyColor = GColorFromHEX(t->value->int32);
+#endif
+
+t = dict_find(iter, MESSAGE_KEY_StepGoal);
+if (t) s_settings.StepGoal = (int)t->value->int32;
+
+prv_save_settings();
 layer_mark_dirty(s_canvas_layer);
-}
 }
 
 // ============================================================
@@ -324,25 +321,22 @@ layer_destroy(s_canvas_layer);
 // INIT / DEINIT
 // ============================================================
 static void init(void) {
-load_settings();
-init_colors();
+prv_load_settings();
 
 s_window = window_create();
 window_set_window_handlers(s_window, (WindowHandlers){
 .load   = window_load,
 .unload = window_unload,
 });
-window_set_background_color(s_window, COLOR_BACKGROUND);
+window_set_background_color(s_window, s_settings.BackgroundColor);
 window_stack_push(s_window, true);
 
-// Seed current time immediately
+// Seed time immediately so face isn’t blank on first load
 time_t now = time(NULL);
 struct tm *t = localtime(&now);
 tick_handler(t, MINUTE_UNIT);
 
-// Subscribe to events
 tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-
 battery_state_service_subscribe(battery_handler);
 battery_handler(battery_state_service_peek());
 
@@ -351,9 +345,8 @@ health_service_events_subscribe(health_handler, NULL);
 update_steps();
 #endif
 
-// App message for phone-based settings
 app_message_register_inbox_received(inbox_received);
-app_message_open(128, 128);
+app_message_open(256, 64);
 }
 
 static void deinit(void) {
