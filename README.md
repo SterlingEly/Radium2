@@ -1,1 +1,105 @@
-# radium
+# Radium 2
+
+**A radium dial watchface for Pebble — glowing tick marks, clean geometry, and a hidden clock.**
+
+---
+
+## The idea
+
+Old radium dial watches are beautiful objects. The hour and minute markings glow independently of the hands, giving you a sense of time without needing to parse a needle position. Radium 2 brings that idea to Pebble: the right half of the screen fills with minute ticks, the left half with hour blocks, a thin outer ring tracks battery and steps — and in the center, optionally, a clean digital readout.
+
+The face works on two levels. With the overlay on, it reads like a normal watchface — time, date, day, done. Shake it, and the overlay disappears to reveal the full radial display: a pure starburst of glowing geometry that tells time in a completely different way. Shake again to bring it back.
+
+---
+
+## Features
+
+- **Radial time display** — right half: 60 minute ticks in groups of 5. Left half: 12 hour blocks (or 24 in 24h mode, each block split in two)
+- **Outer ring** — battery level on the right, step count on the left, both filling from 6 o'clock toward 12
+- **Shake to reveal** — overlay starts visible; shake toggles the digital readout off to show pure art mode, shake again to restore. Always resets to visible on reboot
+- **Art mode** — set overlay to "Always Off" and the tick ring fills the whole face, no center hole
+- **24h support** — each hour slot splits into two segments with a gap between them
+- **Full color customization** — 9 independently configurable colors (background, time text, date text, lit hours, lit minutes, lit battery, lit steps, dim ticks, dim ring)
+- **24 presets** in three rows (Dark, Light, Color) — one tap to apply
+- **B&W support** — Aplite, Diorite, and Flint get a clean high-contrast layout with optional invert toggle
+- **All 7 platforms** — Aplite, Basalt, Chalk, Diorite, Emery, Flint, Gabbro
+
+---
+
+## Reading the face
+
+```
+         12
+    ███░░░░░░░░░
+  █             ░
+ █   WEDNESDAY   ░
+ █    10:42      ░
+ █    MAR 02     ░
+  █             ░
+    ░░░████████
+         6
+```
+
+- **Right half (3→12 o'clock):** minutes, filling clockwise. Each group of 5 ticks is one 5-minute block
+- **Left half (9→12 o'clock):** hours, filling counter-clockwise. Each block = 1 hour (12h) or half-block = 1 hour (24h)
+- **Outer ring right:** battery, filling up from 6 toward 12
+- **Outer ring left:** steps toward daily goal, filling up from 6 toward 12
+- **Center:** day name, time, date — hidden in art mode
+
+---
+
+## Overlay modes
+
+| Mode | Behavior |
+|---|---|
+| Always On | Overlay always visible |
+| Shake | Starts visible; shake toggles. Resets to visible on reboot |
+| Always Off | Pure art mode — full starburst, no center hole |
+
+---
+
+## Platforms
+
+| Platform | Watch | Screen | Notes |
+|---|---|---|---|
+| Aplite | Pebble Classic, Steel | 144×168 B&W | High-contrast, invert option |
+| Basalt | Pebble Time | 144×168 color | |
+| Chalk | Pebble Time Round | 180×180 color | Round rendering |
+| Diorite | Pebble 2 | 144×168 B&W | High-contrast, invert option |
+| Emery | Pebble Time 2 | 200×228 color | Slightly larger overlay |
+| Flint | Pebble 2 Duo | 144×168 B&W | High-contrast, invert option |
+| Gabbro | Pebble Round 2 | 260×260 color | Round rendering, larger display |
+
+Center overlay circle is matched across form factors: 116px diameter on low-res rect/Chalk, 128px on Emery/Gabbro.
+
+---
+
+## Store
+
+- **Pebble Appstore:** [apps.repebble.com](https://apps.repebble.com)
+- **Rebble Appstore:** [apps.rebble.io](https://apps.rebble.io)
+
+*Submitted via the Rebble Developer Portal — appears in both stores automatically.*
+
+---
+
+## Building
+
+Built with the Pebble SDK (CloudPebble or local SDK). No external dependencies.
+
+```
+pebble build
+pebble install --emulator basalt
+```
+
+Source files:
+- `src/main.c` — all drawing, event handling, settings persistence
+- `src/js/config.js` — config page HTML/JS (built as a data URL)
+- `src/js/index.js` — PebbleKit JS: platform detection, settings relay
+- `appinfo.json` — message keys, target platforms
+
+---
+
+## License
+
+MIT
