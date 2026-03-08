@@ -19,10 +19,10 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 - **Shake to reveal** — overlay starts visible; shake toggles the digital readout off to show pure art mode, shake again to restore. Always resets to visible on reboot
 - **Art mode** — set overlay to "Always Off" and the tick ring fills the whole face, no center hole
 - **24h support** — each hour slot splits into two segments with a gap between them
-- **Full color customization** — 9 independently configurable colors (background, time text, date text, lit hours, lit minutes, lit battery, lit steps, dim ticks, dim ring)
-- **24 presets** in three rows (Dark, Light, Color) — one tap to apply
+- **Full color customization** — 12 independently configurable color slots across text, lit elements, unlit elements, and base colors
+- **40 presets** in five rows (Dark, Dark+, Light, Color, Special) — one tap to apply
 - **B&W support** — Aplite, Diorite, and Flint get a clean high-contrast layout with optional invert toggle
-- **All 7 platforms** — Aplite, Basalt, Chalk, Diorite, Emery, Flint, Gabbro
+- **All platforms** — Aplite, Basalt, Chalk, Diorite, Emery, Flint *(Gabbro support in progress)*
 
 ---
 
@@ -68,9 +68,27 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 | Diorite | Pebble 2 | 144×168 B&W | High-contrast, invert option |
 | Emery | Pebble Time 2 | 200×228 color | Slightly larger overlay |
 | Flint | Pebble 2 Duo | 144×168 B&W | High-contrast, invert option |
-| Gabbro | Pebble Round 2 | 260×260 color | Round rendering, larger display |
+| Gabbro | Pebble Round 2 | 260×260 color | Round rendering — support in progress |
 
 Center overlay circle is matched across form factors: 116px diameter on low-res rect/Chalk, 128px on Emery/Gabbro.
+
+---
+
+## History & credits
+
+Radium has a longer lineage than most Pebble watchfaces.
+
+**~2015 — Original design (Sterling Ely)**
+The concept was designed by Sterling Ely, originally conceived for the Pebble Time Round. The core idea: a radial bar graph where filled wedge segments encode time, battery, and steps — readable as pure geometry even without a digital readout. Design files predate any implementation.
+
+**2015 — Prototype implementation (Matthew Reiss)**
+Matthew Reiss built the first partial implementation based on the design. Development ended in December 2015.
+
+**2016 — v1.0 app store release (MicroByte)**
+MicroByte picked up from the earlier starter and developed the first complete, publicly released version of Radium, which shipped on the Pebble App Store. The v1 listing dates from December 2016. No GitHub repository is known to exist for this version; the Radium 2 repo branches from the earlier Matthew Reiss code.
+
+**2025–2026 — Radium 2 (Sterling Ely & Claude)**
+A full rebuild from scratch for all modern Pebble platforms. Sterling Ely led design and direction; Claude (Anthropic) handled technical implementation throughout. v2.0 restored the original concept across all seven platforms; v2.1 expanded the color system to 12 independent slots, added 40 presets, and introduced per-element dim colors, an independent overlay background color, and a ring show/hide toggle.
 
 ---
 
@@ -94,8 +112,8 @@ pebble install --emulator basalt
 
 Source files:
 - `src/main.c` — all drawing, event handling, settings persistence
-- `src/js/config.js` — config page HTML/JS (built as a data URL)
-- `src/js/index.js` — PebbleKit JS: platform detection, settings relay
+- `src/pkjs/config.js` — config page HTML/JS (built as a data URL)
+- `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay
 - `appinfo.json` — message keys, target platforms
 
 ---
