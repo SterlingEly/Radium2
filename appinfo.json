@@ -9,21 +9,10 @@
   "projectType": "native",
   "enableMultiJS": true,
   "targetPlatforms": [
-    "aplite",
-    "basalt",
-    "chalk",
-    "diorite",
-    "emery",
-    "flint",
-    "gabbro"
+    "aplite", "basalt", "chalk", "diorite", "emery", "flint", "gabbro"
   ],
-  "watchapp": {
-    "watchface": true
-  },
-  "capabilities": [
-    "configurable",
-    "health"
-  ],
+  "watchapp": { "watchface": true },
+  "capabilities": ["configurable", "health"],
   "appKeys": {
     "BackgroundColor":  0,
     "TimeTextColor":    1,
@@ -48,14 +37,14 @@
         "menuIcon": true,
         "type": "png",
         "name": "IMAGE_MENU_ICON",
-        "file": "images/menu_icon~bw.png",
+        "file": "images/menu_icon_bw.png",
         "targetPlatforms": ["aplite", "diorite", "flint"]
       },
       {
         "menuIcon": true,
         "type": "png",
         "name": "IMAGE_MENU_ICON",
-        "file": "images/menu_icon~color.png",
+        "file": "images/menu_icon_color.png",
         "targetPlatforms": ["basalt", "chalk", "emery", "gabbro"]
       }
     ]
