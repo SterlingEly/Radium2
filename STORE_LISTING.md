@@ -8,29 +8,28 @@ Radial bar graph watchface. Hours and minutes as arcs, battery and steps on the 
 
 ## Full Description
 
-A radial bar graph watchface.
-Time and energy flowing around your wrist - Hours and minutes as arcs, with battery and steps on the outer ring.
+A radial bar graph watchface — time and energy flowing around your wrist. Hours and minutes as arcs, with battery and steps on the outer ring.
 
 The left half of the face fills with hour blocks, one per hour, sweeping around clockwise from the bottom. The right half fills with minute ticks: 60 individual marks in groups of five, lighting up as each minute passes. The outer ring tracks step count toward your daily goal on the left side and battery level on the right.
 
-In the center, an optional overlay shows the time, day, and date as text. Shake to dismiss it and see the full radial display, a pure starburst of glowing geometry. Shake again to bring it back. (Or set the overlay to always-on or always-off in settings)
+In the center, an optional overlay shows the time, day, and date as text. Shake to dismiss it and see the full radial display, a pure starburst of glowing geometry. Shake again to bring it back. (Or set the overlay to always-on or always-off in settings.)
 
 Radium 2 is a complete rebuild of the original Radium watchface, designed for Pebble Time Round in 2015 and first published in 2016. Rebuilt for all Pebble platforms with 40 color presets and full per-element color customization.
 
 ---
 
-FEATURES
-- Radial bar graph display - hours on the left, minutes on the right
+**FEATURES**
+- Radial bar graph display — hours on the left, minutes on the right
 - Shake to toggle overlay on/off (or set always-on / always-off)
 - Art mode: set overlay to Always Off for a pure full-face starburst
 - 24h mode: each hour slot splits into two half-segments
-- Outer ring: step count (left half), and battery (right half)
+- Outer ring: step count (left half) and battery (right half)
 - Optional outer ring: hide it and tick art extends to the screen edge
 - 40 color presets in five rows: Dark, Dark+, Light, Color, Special
 - Full per-element color customization: 12 independent color slots
 - B&W invert mode for Pebble Classic, Pebble 2, and Pebble 2 Duo
 
-PLATFORMS:
+**PLATFORMS:**
 Pebble Classic/Steel · Pebble Time/Steel · Pebble Time Round · Pebble 2 · Pebble Time 2 · Pebble 2 Duo · Pebble Round 2
 
 ---
