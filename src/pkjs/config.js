@@ -1,111 +1,58 @@
 module.exports = {
   buildUrl: function(platform, currentSettings) {
 
-    // -------------------------------------------------------------------------
-    // PRESET SCHEMA (v2.1b)
-    // All 12 color slots defined per preset:
-    //   bg, obg                    — base (background, overlay bg)
-    //   timeText, dateText         — text
-    //   litH, litM, litB, litS     — lit (hours, minutes, battery, steps)
-    //   dimH, dimM, dimB, dimS     — unlit (hours, minutes, battery, steps)
-    // -------------------------------------------------------------------------
-    // Helper: build preset object. Standard patterns:
-    //   std1: black bg, dark grey dim, single active color, white text
-    //   std2: black bg, dark-color dim, light-color lit, white text
-    //   std3: white bg, light grey dim, color lit, black text
-    //   std4: white bg, light-color dim, dark-color lit, black text
-    //   std5: color bg, light-match dim, white lit, white text
-    function p(label, bg, obg, tt, dt, lH, lM, lB, lS, dH, dM, dB, dS) {
-      return { label:label, bg:bg, obg:obg, timeText:tt, dateText:dt,
-               litH:lH, litM:lM, litB:lB, litS:lS,
-               dimH:dH, dimM:dM, dimB:dB, dimS:dS };
-    }
-
     var presets = [
-      // ---- DARK (8): black bg, single or paired active colors ----
-      // Radium: brighter, more radioactive lime-green glow
-      p('Radium',    '#000000','#000000','#ffffff','#aaffaa', '#55ff00','#55ff00','#55ff00','#55ff00', '#005500','#005500','#005500','#005500'),
-      // Ember: warm orange, grey dim — the classic
-      p('Ember',     '#000000','#000000','#ffffff','#aaaaaa', '#ff5500','#ff5500','#ff5500','#ff5500', '#555555','#555555','#555555','#555555'),
-      // Cobalt: pure blue, grey dim
-      p('Cobalt',    '#000000','#000000','#ffffff','#aaaaaa', '#0055ff','#0055ff','#0055ff','#0055ff', '#555555','#555555','#555555','#555555'),
-      // Slate: neutral white/grey — understated, easy to read
-      p('Slate',     '#000000','#000000','#ffffff','#aaaaaa', '#ffffff','#aaaaaa','#aaaaaa','#aaaaaa', '#555555','#555555','#555555','#555555'),
-      // Radium+: pure green, deep green dim — deeper in the reactor
-      p('Radium+',   '#000000','#000000','#ffffff','#55aa55', '#00ff00','#00ff00','#00ff00','#00ff00', '#005500','#005500','#005500','#005500'),
-      // Crimson: the beloved red (kept exactly)
-      p('Crimson',   '#000000','#000000','#ffffff','#aa5555', '#ff5555','#ff5555','#ff5555','#ff5555', '#550000','#550000','#550000','#550000'),
-      // Ocean: cerulean blue, cobalt dim
-      p('Ocean',     '#000000','#000000','#ffffff','#0055aa', '#00aaff','#00aaff','#00aaff','#00aaff', '#0055aa','#0055aa','#0055aa','#0055aa'),
-      // Volt: electric yellow, dark yellow dim
-      p('Volt',      '#000000','#000000','#ffffff','#aaaa55', '#ffff00','#ffff00','#ffff00','#ffff00', '#555500','#555500','#555500','#555500'),
+      // ---- DARK (8) ----
+      { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaffaa', lH:'#55ff00',lM:'#55ff00',lB:'#55ff00',lS:'#55ff00', dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500', tH:'#aaffaa',tM:'#aaffaa' },
+      { label:'Ember',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ff5500',lM:'#ff5500',lB:'#ff5500',lS:'#ff5500', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Cobalt',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#0055ff',lM:'#0055ff',lB:'#0055ff',lS:'#0055ff', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#aaaaff',tM:'#aaaaff' },
+      { label:'Slate',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ffffff',lM:'#aaaaaa',lB:'#aaaaaa',lS:'#aaaaaa', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Radium+', bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#55aa55', lH:'#00ff00',lM:'#00ff00',lB:'#00ff00',lS:'#00ff00', dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500', tH:'#aaffaa',tM:'#aaffaa' },
+      { label:'Crimson', bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aa5555', lH:'#ff5555',lM:'#ff5555',lB:'#ff5555',lS:'#ff5555', dH:'#550000',dM:'#550000',dB:'#550000',dS:'#550000', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Ocean',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#0055aa', lH:'#00aaff',lM:'#00aaff',lB:'#00aaff',lS:'#00aaff', dH:'#0055aa',dM:'#0055aa',dB:'#0055aa',dS:'#0055aa', tH:'#aaffff',tM:'#aaffff' },
+      { label:'Volt',    bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaa55', lH:'#ffff00',lM:'#ffff00',lB:'#ffff00',lS:'#ffff00', dH:'#555500',dM:'#555500',dB:'#555500',dS:'#555500', tH:'#ffffff',tM:'#ffffff' },
 
-      // ---- DARK+ (8): color theory pairs on black ----
-      // Dusk: monochrome magenta/purple
-      p('Dusk',      '#000000','#000000','#ffffff','#aa00aa', '#ff55ff','#ff55ff','#ff55ff','#ff55ff', '#550055','#550055','#550055','#550055'),
-      // Horizon: complementary blue/orange — hours vs minutes
-      p('Horizon',   '#000000','#0000aa','#ffaa55','#aaaaaa', '#0055ff','#ff5500','#0055aa','#aa5500', '#0000aa','#550000','#0000aa','#550000'),
-      // Reactor: complementary cyan/red — high energy
-      p('Reactor',   '#000000','#000000','#ffffff','#aaaaaa', '#00ffff','#ff0000','#00aaff','#ff5500', '#005555','#550000','#005555','#550000'),
-      // Venom: complementary chartreuse/violet
-      p('Venom',     '#000000','#000000','#ffffff','#aaaaaa', '#aaff00','#aa00ff','#55ff00','#5500aa', '#005500','#550055','#005500','#550055'),
-      // Blossom: split-complementary — mint hours, rose minutes (flanks of red, base=green)
-      p('Blossom',   '#000000','#000000','#ffffff','#aaaaaa', '#aaffaa','#ff55aa','#55ffaa','#ff0055', '#005500','#550055','#005500','#aa0055'),
-      // Solar: analogous warm arc — orange→yellow→chartreuse across elements
-      p('Solar',     '#000000','#000000','#ffffff','#ffaa00', '#ff5500','#ffaa00','#ffff00','#aaff00', '#550000','#555500','#555500','#005500'),
-      // Aurora: analogous cool arc — cyan→springgreen→blue
-      p('Aurora',    '#000000','#000000','#ffffff','#aaffff', '#00ffff','#00ff55','#00aaff','#aaffaa', '#005555','#005500','#005555','#005500'),
-      // Neon: complementary green/magenta with cyan battery, pink steps
-      p('Neon',      '#000000','#000000','#ffffff','#aaaaaa', '#00ff00','#ff00ff','#00ffff','#ff55ff', '#005500','#550055','#005555','#550055'),
+      // ---- DARK+ (8) ----
+      { label:'Dusk',    bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aa00aa', lH:'#ff55ff',lM:'#ff55ff',lB:'#ff55ff',lS:'#ff55ff', dH:'#550055',dM:'#550055',dB:'#550055',dS:'#550055', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Horizon', bg:'#000000',obg:'#0000aa',tt:'#ffaa55',dt:'#aaaaaa', lH:'#0055ff',lM:'#ff5500',lB:'#0055aa',lS:'#aa5500', dH:'#0000aa',dM:'#550000',dB:'#0000aa',dS:'#550000', tH:'#aaaaff',tM:'#ffaa55' },
+      { label:'Reactor', bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#00ffff',lM:'#ff0000',lB:'#00aaff',lS:'#ff5500', dH:'#005555',dM:'#550000',dB:'#005555',dS:'#550000', tH:'#aaffff',tM:'#ffaaaa' },
+      { label:'Venom',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#aaff00',lM:'#aa00ff',lB:'#55ff00',lS:'#5500aa', dH:'#005500',dM:'#550055',dB:'#005500',dS:'#550055', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Blossom', bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#aaffaa',lM:'#ff55aa',lB:'#55ffaa',lS:'#ff0055', dH:'#005500',dM:'#550055',dB:'#005500',dS:'#aa0055', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Solar',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#ffaa00', lH:'#ff5500',lM:'#ffaa00',lB:'#ffff00',lS:'#aaff00', dH:'#550000',dM:'#555500',dB:'#555500',dS:'#005500', tH:'#ffff00',tM:'#ffffff' },
+      { label:'Aurora',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaffff', lH:'#00ffff',lM:'#00ff55',lB:'#00aaff',lS:'#aaffaa', dH:'#005555',dM:'#005500',dB:'#005555',dS:'#005500', tH:'#ffffff',tM:'#aaffff' },
+      { label:'Neon',    bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#00ff00',lM:'#ff00ff',lB:'#00ffff',lS:'#ff55ff', dH:'#005500',dM:'#550055',dB:'#005555',dS:'#550055', tH:'#aaffaa',tM:'#ffffff' },
 
-      // ---- LIGHT (8): white/light bg ----
-      // std3: white bg, light grey dim, dark/color active, black text
-      p('Paper',     '#ffffff','#ffffff','#000000','#555555', '#000000','#000000','#000000','#000000', '#aaaaaa','#aaaaaa','#aaaaaa','#aaaaaa'),
-      p('Jade',      '#ffffff','#ffffff','#000000','#555555', '#00aa55','#00aa55','#00aa55','#00aa55', '#aaaaaa','#aaaaaa','#aaaaaa','#aaaaaa'),
-      p('Sapphire',  '#ffffff','#ffffff','#000000','#555555', '#0055aa','#0055aa','#0055aa','#0055aa', '#aaaaaa','#aaaaaa','#aaaaaa','#aaaaaa'),
-      p('Ruby',      '#ffffff','#ffffff','#000000','#555555', '#aa0000','#aa0000','#aa0000','#aa0000', '#aaaaaa','#aaaaaa','#aaaaaa','#aaaaaa'),
-      // std4: white bg, light-color dim, dark active, black text
-      p('Mint',      '#ffffff','#ffffff','#000000','#005500', '#005500','#005500','#005500','#005500', '#aaffaa','#aaffaa','#aaffaa','#aaffaa'),
-      p('Rose',      '#ffffff','#ffffff','#550000','#550000', '#550000','#550000','#550000','#550000', '#ffaaaa','#ffaaaa','#ffaaaa','#ffaaaa'),
-      p('Sky',       '#ffffff','#ffffff','#000000','#0000aa', '#0000aa','#0000aa','#0000aa','#0000aa', '#aaaaff','#aaaaff','#aaaaff','#aaaaff'),
-      p('Sepia',     '#ffffaa','#ffffaa','#000000','#aa5500', '#550000','#550000','#550000','#550000', '#ffaa55','#ffaa55','#ffaa55','#ffaa55'),
+      // ---- LIGHT (8) ----
+      { label:'Paper',    bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#555555', lH:'#000000',lM:'#000000',lB:'#000000',lS:'#000000', dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa', tH:'#555555',tM:'#555555' },
+      { label:'Jade',     bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#555555', lH:'#00aa55',lM:'#00aa55',lB:'#00aa55',lS:'#00aa55', dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa', tH:'#005500',tM:'#005500' },
+      { label:'Sapphire', bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#555555', lH:'#0055aa',lM:'#0055aa',lB:'#0055aa',lS:'#0055aa', dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa', tH:'#000055',tM:'#000055' },
+      { label:'Ruby',     bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#555555', lH:'#aa0000',lM:'#aa0000',lB:'#aa0000',lS:'#aa0000', dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa', tH:'#550000',tM:'#550000' },
+      { label:'Mint',     bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#005500', lH:'#005500',lM:'#005500',lB:'#005500',lS:'#005500', dH:'#aaffaa',dM:'#aaffaa',dB:'#aaffaa',dS:'#aaffaa', tH:'#000000',tM:'#000000' },
+      { label:'Rose',     bg:'#ffffff',obg:'#ffffff',tt:'#550000',dt:'#550000', lH:'#550000',lM:'#550000',lB:'#550000',lS:'#550000', dH:'#ffaaaa',dM:'#ffaaaa',dB:'#ffaaaa',dS:'#ffaaaa', tH:'#000000',tM:'#000000' },
+      { label:'Sky',      bg:'#ffffff',obg:'#ffffff',tt:'#000000',dt:'#0000aa', lH:'#0000aa',lM:'#0000aa',lB:'#0000aa',lS:'#0000aa', dH:'#aaaaff',dM:'#aaaaff',dB:'#aaaaff',dS:'#aaaaff', tH:'#000000',tM:'#000000' },
+      { label:'Sepia',    bg:'#ffffaa',obg:'#ffffaa',tt:'#000000',dt:'#aa5500', lH:'#550000',lM:'#550000',lB:'#550000',lS:'#550000', dH:'#ffaa55',dM:'#ffaa55',dB:'#ffaa55',dS:'#ffaa55', tH:'#000000',tM:'#000000' },
 
-      // ---- COLOR (8): saturated/dark backgrounds ----
-      p('Teal',      '#00aaaa','#00aaaa','#ffffff','#ffffff', '#ffffff','#ffffff','#ffffff','#ffffff', '#005555','#005555','#005555','#005555'),
-      p('Flame',     '#ff5500','#ff5500','#ffffff','#ffffff', '#ffffff','#ffffff','#ffffff','#ffffff', '#aa5500','#aa5500','#aa5500','#aa5500'),
-      p('Plum',      '#550055','#550055','#ffffff','#ff55ff', '#ff55ff','#ff55ff','#ff55ff','#ff55ff', '#aa00aa','#aa00aa','#aa00aa','#aa00aa'),
-      p('Forest',    '#005500','#005500','#ffffff','#55ff00', '#55ff00','#55ff00','#55ff00','#55ff00', '#55aa00','#55aa00','#55aa00','#55aa00'),
-      // Midnight: deep navy bg, cyan lit, cobalt dim — monochromatic blue
-      p('Midnight',  '#0000aa','#0000aa','#aaaaff','#aaaaff', '#00ffff','#aaaaff','#00aaff','#aaaaff', '#0055aa','#0055aa','#0055aa','#0055aa'),
-      // Cinnabar: dark red bg, amber/orange lit — smoldering
-      p('Cinnabar',  '#550000','#550000','#ffffff','#ffaa55', '#ffaa55','#ff5500','#ffaa00','#ff5500', '#aa0000','#aa0000','#aa5500','#aa0000'),
-      // Ultraviolet: deep violet bg, violet/magenta lit — high-energy UV
-      p('Ultraviolet','#550055','#550055','#ffffff','#ff55ff', '#aa00ff','#ff00ff','#ff55ff','#aa00ff', '#5500aa','#550055','#5500aa','#550055'),
-      // Ash: mid-grey bg — calm, neutral, unobtrusive
-      p('Ash',       '#555555','#555555','#ffffff','#ffffff', '#ffffff','#ffffff','#ffffff','#ffffff', '#aaaaaa','#aaaaaa','#aaaaaa','#aaaaaa'),
+      // ---- COLOR (8) ----
+      { label:'Teal',         bg:'#00aaaa',obg:'#00aaaa',tt:'#ffffff',dt:'#ffffff', lH:'#ffffff',lM:'#ffffff',lB:'#ffffff',lS:'#ffffff', dH:'#005555',dM:'#005555',dB:'#005555',dS:'#005555', tH:'#aaffff',tM:'#aaffff' },
+      { label:'Flame',        bg:'#ff5500',obg:'#ff5500',tt:'#ffffff',dt:'#ffffff', lH:'#ffffff',lM:'#ffffff',lB:'#ffffff',lS:'#ffffff', dH:'#aa5500',dM:'#aa5500',dB:'#aa5500',dS:'#aa5500', tH:'#ffff00',tM:'#ffff00' },
+      { label:'Plum',         bg:'#550055',obg:'#550055',tt:'#ffffff',dt:'#ff55ff', lH:'#ff55ff',lM:'#ff55ff',lB:'#ff55ff',lS:'#ff55ff', dH:'#aa00aa',dM:'#aa00aa',dB:'#aa00aa',dS:'#aa00aa', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Forest',       bg:'#005500',obg:'#005500',tt:'#ffffff',dt:'#55ff00', lH:'#55ff00',lM:'#55ff00',lB:'#55ff00',lS:'#55ff00', dH:'#55aa00',dM:'#55aa00',dB:'#55aa00',dS:'#55aa00', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Midnight',     bg:'#0000aa',obg:'#0000aa',tt:'#aaaaff',dt:'#aaaaff', lH:'#00ffff',lM:'#aaaaff',lB:'#00aaff',lS:'#aaaaff', dH:'#0055aa',dM:'#0055aa',dB:'#0055aa',dS:'#0055aa', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Cinnabar',     bg:'#550000',obg:'#550000',tt:'#ffffff',dt:'#ffaa55', lH:'#ffaa55',lM:'#ff5500',lB:'#ffaa00',lS:'#ff5500', dH:'#aa0000',dM:'#aa0000',dB:'#aa5500',dS:'#aa0000', tH:'#ffffff',tM:'#ffff00' },
+      { label:'Ultraviolet',  bg:'#550055',obg:'#550055',tt:'#ffffff',dt:'#ff55ff', lH:'#aa00ff',lM:'#ff00ff',lB:'#ff55ff',lS:'#aa00ff', dH:'#5500aa',dM:'#550055',dB:'#5500aa',dS:'#550055', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Ash',          bg:'#555555',obg:'#555555',tt:'#ffffff',dt:'#ffffff', lH:'#ffffff',lM:'#ffffff',lB:'#ffffff',lS:'#ffffff', dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa', tH:'#ffffff',tM:'#ffffff' },
 
-      // ---- SPECIAL (8): full 12-color and themed ----
-      // Nest Heat: orange/amber spectrum, warm text — thermostat inspired
-      p('Hearth'  , '#000000','#000000','#ffaa55','#aa5500', '#ff5500','#ff5500','#ffaa00','#ffaa00', '#550000','#550000','#aa5500','#550000'),
-      // Nest Cool: cyan/blue spectrum, dark navy overlay — thermostat cool mode
-      p('Boreal'  , '#000000','#0000aa','#aaaaff','#0055aa', '#00aaff','#55ffff','#00ffff','#55aaff', '#0000aa','#005555','#005555','#0000aa'),
-      // GoldenEye: white time, green overlay+ring, orange/blue hours/minutes, green date
-      p('GoldEye',   '#000000','#005500','#ffffff','#00ff00', '#ff5500','#00aaff','#00ff00','#00ff00', '#550000','#0000aa','#005500','#005500'),
-      // Viper: cold 12-color — cyan hours, springgreen mins, blue batt, mint steps
-      p('Viper',     '#000000','#0000aa','#ffffff','#aaffff', '#00ffff','#00ff55','#0055ff','#aaffaa', '#005555','#005500','#0000aa','#005500'),
-      // Inferno: ascending heat spectrum — red→orange→yellow→chartreuse
-      p('Inferno',   '#000000','#000000','#ffffff','#ffaa00', '#ff0000','#ff5500','#ffaa00','#aaff00', '#550000','#550000','#555500','#005500'),
-      // Cosmos: deep space — violet hours, magenta mins, rose batt, pink steps, navy bg
-      p('Cosmos',    '#0000aa','#0000aa','#aaaaff','#ff55ff', '#aa00ff','#ff00ff','#ff55aa','#ff0055', '#550055','#550055','#550055','#550000'),
-      // Triadic: primary triad — red hours, blue mins, green batt, violet steps
-      p('Triadic',   '#000000','#000000','#ffffff','#aaaaaa', '#ff0000','#0055ff','#00ff00','#aa00ff', '#550000','#0000aa','#005500','#550055'),
-      // Rainbow: every element a distinct hue — full spectrum chaos
-      p('Rainbow',   '#000000','#000000','#ffffff','#aaaaaa', '#ff0000','#ffaa00','#00ff00','#00ffff', '#550000','#aa5500','#005500','#005555'),
+      // ---- SPECIAL (8) ----
+      { label:'Hearth',   bg:'#000000',obg:'#000000',tt:'#ffaa55',dt:'#aa5500', lH:'#ff5500',lM:'#ff5500',lB:'#ffaa00',lS:'#ffaa00', dH:'#550000',dM:'#550000',dB:'#aa5500',dS:'#550000', tH:'#ffff00',tM:'#ffff00' },
+      { label:'Boreal',   bg:'#000000',obg:'#0000aa',tt:'#aaaaff',dt:'#0055aa', lH:'#00aaff',lM:'#55ffff',lB:'#00ffff',lS:'#55aaff', dH:'#0000aa',dM:'#005555',dB:'#005555',dS:'#0000aa', tH:'#ffffff',tM:'#aaffff' },
+      { label:'GoldEye',  bg:'#000000',obg:'#005500',tt:'#ffffff',dt:'#00ff00', lH:'#ff5500',lM:'#00aaff',lB:'#00ff00',lS:'#00ff00', dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#005500', tH:'#ffff00',tM:'#aaffff' },
+      { label:'Viper',    bg:'#000000',obg:'#0000aa',tt:'#ffffff',dt:'#aaffff', lH:'#00ffff',lM:'#00ff55',lB:'#0055ff',lS:'#aaffaa', dH:'#005555',dM:'#005500',dB:'#0000aa',dS:'#005500', tH:'#ffffff',tM:'#aaffaa' },
+      { label:'Inferno',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#ffaa00', lH:'#ff0000',lM:'#ff5500',lB:'#ffaa00',lS:'#aaff00', dH:'#550000',dM:'#550000',dB:'#555500',dS:'#005500', tH:'#ffff00',tM:'#ffff00' },
+      { label:'Cosmos',   bg:'#0000aa',obg:'#0000aa',tt:'#aaaaff',dt:'#ff55ff', lH:'#aa00ff',lM:'#ff00ff',lB:'#ff55aa',lS:'#ff0055', dH:'#550055',dM:'#550055',dB:'#550055',dS:'#550000', tH:'#ffffff',tM:'#ffffff' },
+      { label:'Triadic',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ff0000',lM:'#0055ff',lB:'#00ff00',lS:'#aa00ff', dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#550055', tH:'#ffaa55',tM:'#aaaaff' },
+      { label:'Rainbow',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ff0000',lM:'#ffaa00',lB:'#00ff00',lS:'#00ffff', dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555', tH:'#ffff00',tM:'#ffffff' },
     ];
 
-    // -------------------------------------------------------------------------
-    // PALETTE
-    // -------------------------------------------------------------------------
     var palette = [
       '#000000','#555555','#aaaaaa','#ffffff','#550000','#aa5555','#aa0000','#ffaaaa',
       '#ff5555','#ff0000','#aa5500','#ffaa55','#ff5500','#ffaa00','#555500','#aaaa55',
@@ -140,7 +87,6 @@ module.exports = {
     var presetsData = 'var PRESETS=' + JSON.stringify(presets) + ';';
     var paletteData = 'var PALETTE=' + JSON.stringify(palette) + ';var PALETTE_NAMES=' + JSON.stringify(paletteNames) + ';';
 
-    // Preset rows: 8 each, 3 rows
     var presetRows = [
       { label: 'Dark',    presets: presets.slice(0,  8)  },
       { label: 'Dark+',   presets: presets.slice(8,  16) },
@@ -151,21 +97,18 @@ module.exports = {
     var presetsHtml = presetRows.map(function(row) {
       var rowItems = row.presets.map(function(p) {
         var i = presets.indexOf(p);
-        var pipBg = (p.litH === p.litM)
-          ? p.litH
-          : 'linear-gradient(90deg,' + p.litH + ' 50%,' + p.litM + ' 50%)';
-        return '<div class="preset" onclick="applyPreset(' + i + ')" style="background:' + p.bg + ';border:2px solid ' + p.litM + '">'
+        var pipBg = (p.lH === p.lM)
+          ? p.lH
+          : 'linear-gradient(90deg,' + p.lH + ' 50%,' + p.lM + ' 50%)';
+        return '<div class="preset" onclick="applyPreset(' + i + ')" style="background:' + p.bg + ';border:2px solid ' + p.lM + '">'
           + '<div class="preset-pip" style="background:' + pipBg + '"></div>'
-          + '<div class="preset-label" style="color:' + p.timeText + '">' + p.label + '</div>'
+          + '<div class="preset-label" style="color:' + p.tt + '">' + p.label + '</div>'
           + '</div>';
       }).join('');
       return '<div class="preset-row-label">' + row.label + '</div>'
         + '<div class="preset-row">' + rowItems + '</div>';
     }).join('');
 
-    // -------------------------------------------------------------------------
-    // HTML
-    // -------------------------------------------------------------------------
     var html = '<!DOCTYPE html><html><head>'
       + '<meta name="viewport" content="width=device-width,initial-scale=1">'
       + '<title>Radium 2</title>'
@@ -182,7 +125,6 @@ module.exports = {
       + '.row label{font-size:15px;color:#ddd;flex:1}'
       + '.row .right{display:flex;align-items:center;gap:8px}'
       + '.swatch{width:36px;height:28px;border-radius:5px;cursor:pointer;border:2px solid #333;flex-shrink:0}'
-      // Level 1 expand
       + '.expand-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #222;cursor:pointer;user-select:none}'
       + '.expand-row:last-child{border-bottom:none}'
       + '.expand-row label{font-size:15px;color:#ddd;flex:1;cursor:pointer}'
@@ -194,7 +136,6 @@ module.exports = {
       + '.sub-row{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 9px 28px;border-bottom:1px solid #1e1e1e}'
       + '.sub-row:last-child{border-bottom:none}'
       + '.sub-row label{font-size:14px;color:#aaa;flex:1}'
-      // Level 2 expand
       + '.sub-expand-row{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 9px 28px;border-bottom:1px solid #1e1e1e;cursor:pointer;user-select:none}'
       + '.sub-expand-row label{font-size:14px;color:#aaa;flex:1;cursor:pointer}'
       + '.sub-expand-row .right{display:flex;align-items:center;gap:8px}'
@@ -205,25 +146,32 @@ module.exports = {
       + '.sub-sub-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 8px 42px;border-bottom:1px solid #181818}'
       + '.sub-sub-row:last-child{border-bottom:none}'
       + '.sub-sub-row label{font-size:13px;color:#888;flex:1}'
-      // Radio
+      // Level 3: tip rows sit one level deeper under Hours/Minutes
+      + '.sub-sub-expand-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 8px 42px;border-bottom:1px solid #181818;cursor:pointer;user-select:none}'
+      + '.sub-sub-expand-row label{font-size:13px;color:#888;flex:1;cursor:pointer}'
+      + '.sub-sub-expand-row .right{display:flex;align-items:center;gap:8px}'
+      + '.sub-sub-expand-btn{font-size:13px;color:#333;line-height:1;width:18px;text-align:center;transition:transform .15s}'
+      + '.sub-sub-expand-btn.open{transform:rotate(45deg);color:#aaffaa}'
+      + '.sub-sub-sub-rows{display:none;background:#090909}'
+      + '.sub-sub-sub-rows.open{display:block}'
+      + '.sub-sub-sub-row{display:flex;align-items:center;justify-content:space-between;padding:7px 14px 7px 56px;border-bottom:1px solid #141414}'
+      + '.sub-sub-sub-row:last-child{border-bottom:none}'
+      + '.sub-sub-sub-row label{font-size:12px;color:#666;flex:1}'
       + '.radio-group{display:flex;gap:6px;padding:10px 14px}'
       + '.radio-group label{flex:1;text-align:center;padding:8px 4px;border-radius:7px;background:#242424;font-size:13px;cursor:pointer;color:#aaa;border:2px solid transparent}'
       + '.radio-group input{display:none}'
       + '.radio-group input:checked+label{background:#aaffaa;color:#000;font-weight:bold}'
-      // Toggle
       + '.toggle{position:relative;width:44px;height:26px;flex-shrink:0}'
       + '.toggle input{opacity:0;width:0;height:0}'
       + '.knob{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#333;border-radius:13px;transition:.2s}'
       + '.knob:before{content:"";position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:#666;border-radius:50%;transition:.2s}'
       + 'input:checked+.knob{background:#aaffaa}'
       + 'input:checked+.knob:before{transform:translateX(18px);background:#000}'
-      // Slider
       + '.slider-wrap{padding:10px 14px}'
       + '.slider-lbl{font-size:15px;color:#ddd;display:flex;justify-content:space-between;margin-bottom:8px}'
       + '.slider-lbl span{color:#aaffaa;font-weight:bold}'
       + 'input[type=range]{width:100%;accent-color:#aaffaa}'
       + '.note{font-size:12px;color:#444;padding:4px 14px 10px;display:block}'
-      // Presets
       + '.presets{padding:4px 14px 10px}'
       + '.preset-row-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#888;padding:8px 0 4px}'
       + '.preset-row{display:flex;gap:6px;margin-bottom:4px}'
@@ -231,7 +179,6 @@ module.exports = {
       + '.preset:active{opacity:0.7}'
       + '.preset-pip{width:20px;height:3px;border-radius:2px}'
       + '.preset-label{font-size:10px}'
-      // Modal
       + '.modal-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;align-items:center;justify-content:center}'
       + '.modal-bg.open{display:flex}'
       + '.modal{background:#1a1a1a;border-radius:12px;padding:16px;width:90%;max-width:340px}'
@@ -240,7 +187,6 @@ module.exports = {
       + '.pal-swatch{width:100%;aspect-ratio:1;border-radius:3px;cursor:pointer;border:2px solid transparent}'
       + '.pal-swatch:hover,.pal-swatch.selected{border-color:#fff}'
       + '.modal-cancel{margin-top:12px;width:100%;padding:10px;background:#333;color:#aaa;border:none;border-radius:7px;font-size:14px;cursor:pointer}'
-      // Save
       + 'button.save{display:block;width:100%;padding:14px;background:#aaffaa;color:#000;border:none;border-radius:8px;font-size:17px;font-weight:bold;cursor:pointer;margin-top:24px}'
       + 'button.save:active{opacity:0.8}'
       + '</style></head><body>'
@@ -261,7 +207,7 @@ module.exports = {
 
       + '<h2>Colors</h2><div class="card">'
 
-      // TEXT: Time / Date & Day
+      // TEXT
       + '<div class="expand-row" onclick="toggle(\'text\')">'
       + '<label>Text</label>'
       + '<div class="right"><div class="swatch" id="sw-TextAll" onclick="openPicker(\'TextAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-text">+</span></div>'
@@ -271,20 +217,41 @@ module.exports = {
       + '<div class="sub-row"><label>Date &amp; Day</label><div class="swatch" id="sw-DateTextColor" onclick="openPicker(\'DateTextColor\')"></div></div>'
       + '</div>'
 
-      // LIT: Time Ticks → Hours/Minutes; Outer Ring → Battery/Steps
+      // LIT — Hours and Minutes each get a tip sub-level
       + '<div class="expand-row" onclick="toggle(\'lit\')">'
       + '<label>Lit</label>'
       + '<div class="right"><div class="swatch" id="sw-LitAll" onclick="openPicker(\'LitAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-lit">+</span></div>'
       + '</div>'
       + '<div class="sub-rows" id="sub-lit">'
+
+      // LitTicks — expandable
       + '<div class="sub-expand-row" onclick="toggle2(\'litticks\')">'
       + '<label>Time Ticks</label>'
       + '<div class="right"><div class="swatch" id="sw-LitTicks" onclick="openPicker(\'LitTicks\');event.stopPropagation()"></div><span class="sub-expand-btn" id="btn2-litticks">+</span></div>'
       + '</div>'
       + '<div class="sub-sub-rows" id="sub2-litticks">'
-      + '<div class="sub-sub-row"><label>Hours</label><div class="swatch" id="sw-LitHourColor" onclick="openPicker(\'LitHourColor\')"></div></div>'
-      + '<div class="sub-sub-row"><label>Minutes</label><div class="swatch" id="sw-LitMinuteColor" onclick="openPicker(\'LitMinuteColor\')"></div></div>'
+
+      // Hours — expandable (has tip child)
+      + '<div class="sub-sub-expand-row" onclick="toggle3(\'lithours\')">'
+      + '<label>Hours</label>'
+      + '<div class="right"><div class="swatch" id="sw-LitHourColor" onclick="openPicker(\'LitHourColor\');event.stopPropagation()"></div><span class="sub-sub-expand-btn" id="btn3-lithours">+</span></div>'
       + '</div>'
+      + '<div class="sub-sub-sub-rows" id="sub3-lithours">'
+      + '<div class="sub-sub-sub-row"><label>Leading tick</label><div class="swatch" id="sw-LitHourTipColor" onclick="openPicker(\'LitHourTipColor\')"></div></div>'
+      + '</div>'
+
+      // Minutes — expandable (has tip child)
+      + '<div class="sub-sub-expand-row" onclick="toggle3(\'litminutes\')">'
+      + '<label>Minutes</label>'
+      + '<div class="right"><div class="swatch" id="sw-LitMinuteColor" onclick="openPicker(\'LitMinuteColor\');event.stopPropagation()"></div><span class="sub-sub-expand-btn" id="btn3-litminutes">+</span></div>'
+      + '</div>'
+      + '<div class="sub-sub-sub-rows" id="sub3-litminutes">'
+      + '<div class="sub-sub-sub-row"><label>Leading tick</label><div class="swatch" id="sw-LitMinuteTipColor" onclick="openPicker(\'LitMinuteTipColor\')"></div></div>'
+      + '</div>'
+
+      + '</div>' // end sub2-litticks
+
+      // LitRing
       + '<div class="sub-expand-row" onclick="toggle2(\'litring\')">'
       + '<label>Outer Ring</label>'
       + '<div class="right"><div class="swatch" id="sw-LitRing" onclick="openPicker(\'LitRing\');event.stopPropagation()"></div><span class="sub-expand-btn" id="btn2-litring">+</span></div>'
@@ -293,9 +260,9 @@ module.exports = {
       + '<div class="sub-sub-row"><label>Battery</label><div class="swatch" id="sw-LitBatteryColor" onclick="openPicker(\'LitBatteryColor\')"></div></div>'
       + '<div class="sub-sub-row"><label>Steps</label><div class="swatch" id="sw-LitStepsColor" onclick="openPicker(\'LitStepsColor\')"></div></div>'
       + '</div>'
-      + '</div>'
+      + '</div>' // end sub-lit
 
-      // UNLIT: Time Ticks → Hours/Minutes; Outer Ring → Battery/Steps
+      // UNLIT
       + '<div class="expand-row" onclick="toggle(\'dim\')">'
       + '<label>Unlit</label>'
       + '<div class="right"><div class="swatch" id="sw-DimAll" onclick="openPicker(\'DimAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-dim">+</span></div>'
@@ -317,9 +284,9 @@ module.exports = {
       + '<div class="sub-sub-row"><label>Battery</label><div class="swatch" id="sw-DimBatteryColor" onclick="openPicker(\'DimBatteryColor\')"></div></div>'
       + '<div class="sub-sub-row"><label>Steps</label><div class="swatch" id="sw-DimStepsColor" onclick="openPicker(\'DimStepsColor\')"></div></div>'
       + '</div>'
-      + '</div>'
+      + '</div>' // end sub-dim
 
-      // BASE: Overlay / Background (overlay first — matches watchface layer order)
+      // BASE
       + '<div class="expand-row" onclick="toggle(\'base\')">'
       + '<label>Base</label>'
       + '<div class="right"><div class="swatch" id="sw-BaseAll" onclick="openPicker(\'BaseAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-base">+</span></div>'
@@ -366,7 +333,6 @@ module.exports = {
       + '<script>'
       + platformData + presetsData + paletteData
 
-      // Color store
       + 'var colors={'
       + 'BackgroundColor:"#000000",'
       + 'OverlayBgColor:"#000000",'
@@ -379,32 +345,13 @@ module.exports = {
       + 'DimHourColor:"#555555",'
       + 'DimMinuteColor:"#555555",'
       + 'DimBatteryColor:"#555555",'
-      + 'DimStepsColor:"#555555"'
+      + 'DimStepsColor:"#555555",'
+      + 'LitHourTipColor:"#ffffff",'
+      + 'LitMinuteTipColor:"#ffffff"'
       + '};'
 
-      // Aliases: swatch-id -> canonical key (for mirror swatches at deeper levels)
-      + 'var aliases={};'
-
-      // updateSwatches: sets swatch colors + syncs parent summary swatches
       + 'function updateSwatches(key,hex){'
       + 'colors[key]=hex;'
-      + 'var ids=["sw-"+key];'
-      + 'var parentSync={'
-      + '"LitHourColor":["sw-LitAll","sw-LitTicks"],'
-      + '"LitMinuteColor":["sw-LitAll","sw-LitTicks"],'
-      + '"LitBatteryColor":["sw-LitAll","sw-LitRing"],'
-      + '"LitStepsColor":["sw-LitAll","sw-LitRing"],'
-      + '"DimHourColor":["sw-DimAll","sw-DimTicks"],'
-      + '"DimMinuteColor":["sw-DimAll","sw-DimTicks"],'
-      + '"DimBatteryColor":["sw-DimAll","sw-DimRing"],'
-      + '"DimStepsColor":["sw-DimAll","sw-DimRing"],'
-      + '"TimeTextColor":["sw-TextAll"],'
-      + '"DateTextColor":["sw-TextAll"],'
-      + '"BackgroundColor":["sw-BaseAll"],'
-      + '"OverlayBgColor":["sw-BaseAll"]'
-      + '};'
-      + 'if(parentSync[key])ids=ids.concat(parentSync[key]);'
-      // Set flat color on leaf swatch; compute split/quad gradients for parent swatches
       + 'var el=document.getElementById("sw-"+key);if(el)el.style.background=hex;'
       + 'function setSplit(id,a,b){var e=document.getElementById(id);if(e)e.style.background="linear-gradient(135deg,"+a+" 50%,"+b+" 50%)"}'
       + 'function setQuad(id,a,b,c,d){var e=document.getElementById(id);if(e)e.style.background="conic-gradient("+a+" 0 25%,"+b+" 0 50%,"+c+" 0 75%,"+d+" 0 100%)"}'
@@ -418,10 +365,8 @@ module.exports = {
       + 'setSplit("sw-BaseAll", colors.BackgroundColor, colors.OverlayBgColor);'
       + '}'
 
-      // cascadeMap: parent trigger keys cascade to their real leaf keys
-      // Leaf keys (LitHourColor etc) are not in cascadeMap -- they set only themselves
       + 'var cascadeMap={'
-      + '"LitAll":["LitHourColor","LitMinuteColor","LitBatteryColor","LitStepsColor"],'
+      + '"LitAll":["LitHourColor","LitMinuteColor","LitBatteryColor","LitStepsColor","LitHourTipColor","LitMinuteTipColor"],'
       + '"LitTicks":["LitHourColor","LitMinuteColor"],'
       + '"LitRing":["LitBatteryColor","LitStepsColor"],'
       + '"DimAll":["DimHourColor","DimMinuteColor","DimBatteryColor","DimStepsColor"],'
@@ -431,9 +376,8 @@ module.exports = {
       + '"BaseAll":["BackgroundColor","OverlayBgColor"]'
       + '};'
 
-      // openPicker now uses cascade targets when relevant
       + 'var pickerTarget=null;'
-      + 'var pickerKeys=null;'  // array of keys to set on pick
+      + 'var pickerKeys=null;'
 
       + 'function openPicker(key){'
       + 'pickerTarget=key;'
@@ -462,11 +406,9 @@ module.exports = {
       + 'document.getElementById("modal").classList.remove("open");'
       + 'pickerTarget=null;pickerKeys=null;}'
 
-      // initSwatches: populate all swatches from colors store
       + 'function initSwatches(){'
       + 'Object.keys(colors).forEach(function(k){updateSwatches(k,colors[k]);});}'
 
-      // loadSettings: restore from watch state
       + 'function loadSettings(){'
       + 'try{'
       + 'if(!CURRENT)return;'
@@ -484,35 +426,27 @@ module.exports = {
       + 'document.getElementById("color-section").style.display=isColor?"":"none";'
       + 'document.getElementById("bw-section").style.display=isColor?"none":"";}'
 
-      // toggle: level 1 expand
-      + 'function toggle(id){'
-      + 'var sub=document.getElementById("sub-"+id);'
-      + 'var btn=document.getElementById("btn-"+id);'
-      + 'var open=sub.classList.toggle("open");'
-      + 'btn.classList.toggle("open",open);}'
+      + 'function toggle(id){var sub=document.getElementById("sub-"+id);var btn=document.getElementById("btn-"+id);var open=sub.classList.toggle("open");btn.classList.toggle("open",open);}'
+      + 'function toggle2(id){var sub=document.getElementById("sub2-"+id);var btn=document.getElementById("btn2-"+id);var open=sub.classList.toggle("open");btn.classList.toggle("open",open);}'
+      + 'function toggle3(id){var sub=document.getElementById("sub3-"+id);var btn=document.getElementById("btn3-"+id);var open=sub.classList.toggle("open");btn.classList.toggle("open",open);}'
 
-      // toggle2: level 2 expand
-      + 'function toggle2(id){'
-      + 'var sub=document.getElementById("sub2-"+id);'
-      + 'var btn=document.getElementById("btn2-"+id);'
-      + 'var open=sub.classList.toggle("open");'
-      + 'btn.classList.toggle("open",open);}'
-
-      // applyPreset: sets all 12 colors
       + 'function applyPreset(i){'
       + 'var p=PRESETS[i];'
       + 'updateSwatches("BackgroundColor",p.bg);'
       + 'updateSwatches("OverlayBgColor",p.obg);'
-      + 'updateSwatches("TimeTextColor",p.timeText);'
-      + 'updateSwatches("DateTextColor",p.dateText);'
-      + 'updateSwatches("LitHourColor",p.litH);'
-      + 'updateSwatches("LitMinuteColor",p.litM);'
-      + 'updateSwatches("LitBatteryColor",p.litB);'
-      + 'updateSwatches("LitStepsColor",p.litS);'
-      + 'updateSwatches("DimHourColor",p.dimH);'
-      + 'updateSwatches("DimMinuteColor",p.dimM);'
-      + 'updateSwatches("DimBatteryColor",p.dimB);'
-      + 'updateSwatches("DimStepsColor",p.dimS);}'
+      + 'updateSwatches("TimeTextColor",p.tt);'
+      + 'updateSwatches("DateTextColor",p.dt);'
+      + 'updateSwatches("LitHourColor",p.lH);'
+      + 'updateSwatches("LitMinuteColor",p.lM);'
+      + 'updateSwatches("LitBatteryColor",p.lB);'
+      + 'updateSwatches("LitStepsColor",p.lS);'
+      + 'updateSwatches("DimHourColor",p.dH);'
+      + 'updateSwatches("DimMinuteColor",p.dM);'
+      + 'updateSwatches("DimBatteryColor",p.dB);'
+      + 'updateSwatches("DimStepsColor",p.dS);'
+      + 'updateSwatches("LitHourTipColor",p.tH);'
+      + 'updateSwatches("LitMinuteTipColor",p.tM);'
+      + '}'
 
       + 'function h(hex){return parseInt(hex.slice(1),16);}'
       + 'function tog(id){return document.getElementById(id).checked?1:0;}'
@@ -533,6 +467,8 @@ module.exports = {
       + 'DimMinuteColor:h(colors.DimMinuteColor),'
       + 'DimBatteryColor:h(colors.DimBatteryColor),'
       + 'DimStepsColor:h(colors.DimStepsColor),'
+      + 'LitHourTipColor:h(colors.LitHourTipColor),'
+      + 'LitMinuteTipColor:h(colors.LitMinuteTipColor),'
       + 'InvertBW:tog("InvertBW"),'
       + 'ShowRing:tog("ShowRing"),'
       + 'StepGoal:parseInt(document.getElementById("StepGoal").value)'
