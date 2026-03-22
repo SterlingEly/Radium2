@@ -22,10 +22,6 @@
 #define FIELD_TEMP_C    6  // weather icon + temp C
 #define FIELD_BATTERY   7  // battery icon + %
 
-// WMO weather code groups -> icon type:
-// 0=clear, 1-3=partly cloudy, 45-48=fog/cloud,
-// 51-67,80-82=rain, 71-77,85-86=snow, 95-99=storm
-
 static const char *s_short_days[] = {
   "SUN","MON","TUE","WED","THU","FRI","SAT"
 };
@@ -131,10 +127,10 @@ static char s_time_buffer[8];
 static char s_day_buffer[12];
 static char s_date_buffer[10];
 static char s_day_date_buffer[14];
-static char s_steps_buffer[12];  // "99,999" max = 6 chars + null; 12 for safety
+static char s_steps_buffer[12];  // "99,999" + null
 static char s_battery_buffer[6]; // e.g. "72%"
-static char s_temp_f_buffer[8];  // e.g. "72\xB0F"
-static char s_temp_c_buffer[8];  // e.g. "22\xB0C"
+static char s_temp_f_buffer[8];  // e.g. "72F"
+static char s_temp_c_buffer[8];  // e.g. "22C"
 
 static GPoint    s_tri_pts[3];
 static GPathInfo s_tri_info = { .num_points = 3, .points = s_tri_pts };
@@ -162,7 +158,7 @@ static bool prv_overlay_visible(void) {
   return (s_settings.OverlayMode != OVERLAY_OFF) && s_show_overlay;
 }
 
-// draw_wedge: filled triangle from center to arc — uses fill color only
+// draw_wedge: filled triangle from center to arc
 static void draw_wedge(GContext *ctx, int cx, int cy, int radius,
                        int32_t a1, int32_t a2) {
   s_tri_pts[0] = GPoint(cx, cy);
@@ -191,23 +187,36 @@ static int weather_icon_for_code(int code) {
 
 // ============================================================
 // ICON DRAWING
+//
+// Icon+text layout centered on cx:
+//   Icon left edge:  cx + ICON_LEFT  (-18)
+//   Text left edge:  cx + TEXT_LEFT  (-5)
+//
+// Icon is 11px wide, gap is 2px, so text starts at cx - 18 + 13 = cx - 5.
+// This centers a ~30-35px wide icon+text unit on cx.
+//
+// All icons are 11px tall, fitting GOTHIC_18_BOLD cap height.
+// FONT_PAD=8: GOTHIC_18_BOLD glyphs start at slot_y + 8.
 // ============================================================
 #define FONT_PAD      8
 #define ICON_Y_OFFSET FONT_PAD
-#define ICON_LEFT     (-16)
-#define TEXT_LEFT     (-3)
+#define ICON_LEFT     (-18)
+#define TEXT_LEFT     (-5)
 
-// draw_footprint: peanut shape — wide toe ball (5x5) + narrow heel (3x4)
+// draw_footprint: slender peanut — 4x5 toe ball + 2x4 heel, overlapping 1px.
+// Thinner than before: toe is 4px wide (was 5), heel is 2px wide (was 3).
 static void draw_footprint(GContext *ctx, int fx, int fy, GColor col) {
   graphics_context_set_fill_color(ctx, col);
-  graphics_fill_rect(ctx, GRect(fx, fy, 5, 5), 2, GCornersAll);
-  graphics_fill_rect(ctx, GRect(fx+1, fy+4, 3, 4), 1, GCornersAll);
+  // Toe ball: 4x5, radius 2
+  graphics_fill_rect(ctx, GRect(fx, fy, 4, 5), 2, GCornersAll);
+  // Heel: 2x4, radius 1, offset +1x to center under toe
+  graphics_fill_rect(ctx, GRect(fx+1, fy+4, 2, 4), 1, GCornersAll);
 }
 
-// Steps: two peanut footprints offset diagonally like a walking stride
+// Steps: two slender footprints offset diagonally like a walking stride
 static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col) {
-  draw_footprint(ctx, ox+5, oy+0, col);
-  draw_footprint(ctx, ox+0, oy+3, col);
+  draw_footprint(ctx, ox+5, oy+0, col);  // right foot: upper
+  draw_footprint(ctx, ox+0, oy+3, col);  // left foot:  lower
 }
 
 // Battery: outline rect + fill bar + nub
@@ -427,24 +436,17 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
   // ----------------------------------------------------------
-  // TICK MARKS
-  //
-  // Painter's algorithm — three passes per arc:
-  //   Pass 1: All unlit ticks (dim color)
-  //   Pass 2: All lit ticks (lit color) — FULL COUNT, including tip slot
-  //   Pass 3: Tip tick recolor (color platforms only) — highlight over pass 2
-  //
-  // This ensures B&W always sees the correct full count of lit ticks.
-  // Color gets the additional tip highlight on top.
+  // TICK MARKS — Painter's algorithm
+  //   Pass 1: All unlit ticks (dim)
+  //   Pass 2: All lit ticks (lit) — FULL COUNT including tip slot
+  //   Pass 3: Tip recolor (color only) — highlight over pass 2
   // ----------------------------------------------------------
   if (!is_round) {
     // ==== RECT MINUTES ====
-
     int filled_groups = s_minute / 5;
     int partial_min   = s_minute % 5;
 
 #if defined(PBL_COLOR)
-    // tip_deg only used in color tip-highlight pass
     int tip_deg = 0;
     if (s_minute > 0) {
       tip_deg = (partial_min > 0)
@@ -453,7 +455,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 1: Dim empty groups
     int first_empty = filled_groups + (partial_min > 0 ? 1 : 0);
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int g = first_empty; g < 12; g++) {
@@ -471,7 +472,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 2: Lit complete groups
     graphics_context_set_fill_color(ctx, col_min);
     for (int g = 0; g < filled_groups; g++) {
       int a = 3 + 15*g;
@@ -488,7 +488,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 2b: Partial group
     if (partial_min > 0) {
       int a = 3 + 15*filled_groups;
       graphics_context_set_fill_color(ctx, col_dmin);
@@ -514,7 +513,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Pass 3: Tip minute highlight (color only)
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -523,13 +521,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
     // ==== RECT HOURS ====
-
     bool is_24h       = clock_is_24h_style();
     int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
     int  filled_half  = s_hour % 2;
 
 #if defined(PBL_COLOR)
-    // hour_tip_slot only used in color tip-highlight pass
     int hour_tip_slot;
     if (!is_24h) {
       hour_tip_slot = (filled_slots > 0) ? (filled_slots - 1) : 0;
@@ -538,7 +534,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 1: Dim all slots
     graphics_context_set_fill_color(ctx, col_dhour);
     for (int h2 = 0; h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -558,7 +553,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 2: Lit ALL filled slots (full count — fixes B&W)
     if (!is_24h) {
       graphics_context_set_fill_color(ctx, col_hour);
       for (int h2 = 0; h2 < filled_slots; h2++) {
@@ -579,7 +573,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Pass 3: Tip hour highlight (color only)
     if (s_hour > 0 || is_24h) {
       if (!is_24h && filled_slots > 0) {
         graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -598,8 +591,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
     }
-
-    // Restore separator gaps over lit area
     graphics_context_set_fill_color(ctx, col_bg);
     for (int h2 = 0; h2 < filled_slots && h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -620,16 +611,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   } else {
     // ==== ROUND PATH ====
-
-    // Pass 1: Dim all 60 minute ticks
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int i = 0; i < 60; i++) {
       int a = 3 + 2*i + 5*(i/5);
       graphics_fill_radial(ctx, tick_rect, GOvalScaleModeFitCircle, tick_thick,
                            DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
     }
-
-    // Pass 2: Lit ALL filled minute ticks (full count)
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min);
       for (int i = 0; i < s_minute; i++) {
@@ -638,7 +625,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
       }
 #if defined(PBL_COLOR)
-      // Pass 3: Tip minute highlight (color only)
       graphics_context_set_fill_color(ctx, col_min_tip);
       {
         int i = s_minute - 1;
@@ -654,11 +640,9 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
       int  filled_half  = s_hour % 2;
 #if defined(PBL_COLOR)
-      // hour_tip_slot only used in color tip-highlight pass
       int hour_tip_slot = (filled_half == 1) ? filled_slots : (filled_slots > 0 ? filled_slots - 1 : 0);
 #endif
 
-      // Pass 1: Dim all 12 hour slots
       graphics_context_set_fill_color(ctx, col_dhour);
       for (int h2 = 0; h2 < 12; h2++) {
         int a = 183 + 15*h2;
@@ -674,7 +658,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
-      // Pass 2: Lit ALL filled slots (full count)
       if (!is_24h) {
         graphics_context_set_fill_color(ctx, col_hour);
         for (int h2 = 0; h2 < filled_slots; h2++) {
@@ -706,7 +689,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       }
 
 #if defined(PBL_COLOR)
-      // Pass 3: Tip hour highlight (color only)
       if (!is_24h) {
         if (filled_slots > 0) {
           graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -987,14 +969,12 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   t = dict_find(iter, MESSAGE_KEY_WeatherTempF);
   if (t) {
     s_weather_temp_f = (int)t->value->int32;
-    // \xB0 is the degree symbol; split string literal to prevent
-    // the compiler reading \xB0F as a 3-digit hex escape (out of range)
-    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%d\xB0" "F", s_weather_temp_f);
+    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%dF", s_weather_temp_f);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherTempC);
   if (t) {
     s_weather_temp_c = (int)t->value->int32;
-    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%d\xB0" "C", s_weather_temp_c);
+    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%dC", s_weather_temp_c);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherCode);
   if (t) s_weather_code = (int)t->value->int32;

@@ -89,8 +89,8 @@ module.exports = {
       { value: 2, label: 'Date' },
       { value: 3, label: 'Day + Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp \u00b0F' },
-      { value: 6, label: 'Temp \u00b0C' },
+      { value: 5, label: 'Temp (F)' },
+      { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
     ];
 
@@ -99,8 +99,8 @@ module.exports = {
       { value: 0, label: 'None' },
       { value: 2, label: 'Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp \u00b0F' },
-      { value: 6, label: 'Temp \u00b0C' },
+      { value: 5, label: 'Temp (F)' },
+      { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
     ];
 
