@@ -844,10 +844,19 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // ----------------------------------------------------------
   // TEXT / FIELD OVERLAY
   //
-  // Time anchored at cy. small_h=18 used for y-math.
+  // Slot y positions: y is the TOP of the 18px render slot.
+  // The slot bottom is at y + small_h.
   //
-  // 1 field:  slot bottom at time edge ± 2px  (~12px visual gap)
-  // 2 fields: inner at ± 6px, outer at inner ∓ (small_h + 8px)
+  // 1 field:  slot bottom = time edge + 2px gap
+  //           → y = time_y - small_h - 2  (top)
+  //           → y = time_y + time_h + 2   (bottom)
+  //
+  // 2 fields: treat as a tight unit packed close to the time.
+  //           inner slot bottom = time edge + 3px gap
+  //           outer slot bottom = inner slot top - 3px gap
+  //           → inner_y = time_y - small_h - 3
+  //           → outer_y = inner_y - small_h - 3
+  //           (symmetric for bottom hemisphere)
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
     int time_h  = 40;
@@ -861,26 +870,33 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int top_count = (top_inner ? 1 : 0) + (top_outer ? 1 : 0);
     int bot_count = (bot_inner ? 1 : 0) + (bot_outer ? 1 : 0);
 
+    // Time
     graphics_context_set_text_color(ctx, col_fg);
     graphics_draw_text(ctx, s_time_buffer,
       fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS),
       GRect(0, time_y, w, time_h + 4),
       GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
+    // Top fields (grow upward from time_y)
     if (top_count == 1) {
       int field = top_inner ? top_inner : top_outer;
       draw_field(ctx, field, time_y - small_h - 2, w, cx, col_dfg);
     } else if (top_count == 2) {
-      draw_field(ctx, top_inner, time_y - small_h - 6,                    w, cx, col_dfg);
-      draw_field(ctx, top_outer, time_y - small_h - 6 - small_h - 8,     w, cx, col_dfg);
+      int inner_y = time_y - small_h - 3;
+      int outer_y = inner_y - small_h - 3;
+      draw_field(ctx, top_inner, inner_y, w, cx, col_dfg);
+      draw_field(ctx, top_outer, outer_y, w, cx, col_dfg);
     }
 
+    // Bottom fields (grow downward from time bottom)
     if (bot_count == 1) {
       int field = bot_inner ? bot_inner : bot_outer;
       draw_field(ctx, field, time_y + time_h + 2, w, cx, col_dfg);
     } else if (bot_count == 2) {
-      draw_field(ctx, bot_inner, time_y + time_h + 6,                 w, cx, col_dfg);
-      draw_field(ctx, bot_outer, time_y + time_h + 6 + small_h + 8,  w, cx, col_dfg);
+      int inner_y = time_y + time_h + 3;
+      int outer_y = inner_y + small_h + 3;
+      draw_field(ctx, bot_inner, inner_y, w, cx, col_dfg);
+      draw_field(ctx, bot_outer, outer_y, w, cx, col_dfg);
     }
   }
 }
