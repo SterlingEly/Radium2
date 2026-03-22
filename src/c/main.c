@@ -133,8 +133,8 @@ static char s_date_buffer[10];
 static char s_day_date_buffer[14];
 static char s_steps_buffer[12];  // "99,999" max = 6 chars + null; 12 for safety
 static char s_battery_buffer[6]; // e.g. "72%"
-static char s_temp_f_buffer[8];  // e.g. "72°F"
-static char s_temp_c_buffer[8];  // e.g. "22°C"
+static char s_temp_f_buffer[8];  // e.g. "72\xB0F"
+static char s_temp_c_buffer[8];  // e.g. "22\xB0C"
 
 static GPoint    s_tri_pts[3];
 static GPathInfo s_tri_info = { .num_points = 3, .points = s_tri_pts };
@@ -368,22 +368,21 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // EFFECTIVE COLORS
   // ----------------------------------------------------------
 #if defined(PBL_BW)
-  GColor bw_lit       = s_settings.InvertBW ? GColorBlack     : GColorWhite;
-  GColor bw_dim       = s_settings.InvertBW ? GColorLightGray : GColorDarkGray;
-  GColor col_bg       = s_settings.InvertBW ? GColorWhite     : GColorBlack;
-  GColor col_fg       = s_settings.InvertBW ? GColorBlack     : GColorWhite;
-  GColor col_dfg      = col_fg;
-  GColor col_min      = bw_lit;
-  GColor col_hour     = bw_lit;
-  GColor col_batt     = bw_lit;
-  GColor col_step     = bw_lit;
-  GColor col_dmin     = bw_dim;
-  GColor col_dhour    = bw_dim;
-  GColor col_dbatt    = bw_dim;
-  GColor col_dstep    = bw_dim;
-  GColor col_obg      = col_bg;
-  GColor col_hour_tip = bw_lit;
-  GColor col_min_tip  = bw_lit;
+  GColor bw_lit    = s_settings.InvertBW ? GColorBlack     : GColorWhite;
+  GColor bw_dim    = s_settings.InvertBW ? GColorLightGray : GColorDarkGray;
+  GColor col_bg    = s_settings.InvertBW ? GColorWhite     : GColorBlack;
+  GColor col_fg    = s_settings.InvertBW ? GColorBlack     : GColorWhite;
+  GColor col_dfg   = col_fg;
+  GColor col_min   = bw_lit;
+  GColor col_hour  = bw_lit;
+  GColor col_batt  = bw_lit;
+  GColor col_step  = bw_lit;
+  GColor col_dmin  = bw_dim;
+  GColor col_dhour = bw_dim;
+  GColor col_dbatt = bw_dim;
+  GColor col_dstep = bw_dim;
+  GColor col_obg   = col_bg;
+  // col_hour_tip / col_min_tip are color-only — defined inside #if PBL_COLOR
 #else
   GColor col_bg       = s_settings.BackgroundColor;
   GColor col_fg       = s_settings.TimeTextColor;
@@ -444,12 +443,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int filled_groups = s_minute / 5;
     int partial_min   = s_minute % 5;
 
+#if defined(PBL_COLOR)
+    // tip_deg only used in color tip-highlight pass
     int tip_deg = 0;
     if (s_minute > 0) {
       tip_deg = (partial_min > 0)
         ? 3 + 15*filled_groups + 2*(partial_min - 1)
         : 3 + 15*(filled_groups - 1) + 2*4;
     }
+#endif
 
     // Pass 1: Dim empty groups
     int first_empty = filled_groups + (partial_min > 0 ? 1 : 0);
@@ -512,7 +514,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Pass 3: Tip minute highlight
+    // Pass 3: Tip minute highlight (color only)
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -526,12 +528,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
     int  filled_half  = s_hour % 2;
 
+#if defined(PBL_COLOR)
+    // hour_tip_slot only used in color tip-highlight pass
     int hour_tip_slot;
     if (!is_24h) {
       hour_tip_slot = (filled_slots > 0) ? (filled_slots - 1) : 0;
     } else {
       hour_tip_slot = (filled_half == 1) ? filled_slots : (filled_slots > 0 ? filled_slots - 1 : 0);
     }
+#endif
 
     // Pass 1: Dim all slots
     graphics_context_set_fill_color(ctx, col_dhour);
@@ -574,7 +579,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Pass 3: Tip hour highlight
+    // Pass 3: Tip hour highlight (color only)
     if (s_hour > 0 || is_24h) {
       if (!is_24h && filled_slots > 0) {
         graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -633,7 +638,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
       }
 #if defined(PBL_COLOR)
-      // Pass 3: Tip minute highlight
+      // Pass 3: Tip minute highlight (color only)
       graphics_context_set_fill_color(ctx, col_min_tip);
       {
         int i = s_minute - 1;
@@ -648,7 +653,10 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       bool is_24h       = clock_is_24h_style();
       int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
       int  filled_half  = s_hour % 2;
-      int  hour_tip_slot = (filled_half == 1) ? filled_slots : (filled_slots > 0 ? filled_slots - 1 : 0);
+#if defined(PBL_COLOR)
+      // hour_tip_slot only used in color tip-highlight pass
+      int hour_tip_slot = (filled_half == 1) ? filled_slots : (filled_slots > 0 ? filled_slots - 1 : 0);
+#endif
 
       // Pass 1: Dim all 12 hour slots
       graphics_context_set_fill_color(ctx, col_dhour);
@@ -698,7 +706,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       }
 
 #if defined(PBL_COLOR)
-      // Pass 3: Tip hour highlight
+      // Pass 3: Tip hour highlight (color only)
       if (!is_24h) {
         if (filled_slots > 0) {
           graphics_context_set_fill_color(ctx, col_hour_tip);
