@@ -188,20 +188,13 @@ static int weather_icon_for_code(int code) {
 // ============================================================
 // ICON DRAWING
 //
-// Icon+text layout centered on cx:
-//   Icon left edge:  cx + ICON_LEFT  (-18)
-//   Text left edge:  cx + TEXT_LEFT  (-5)
-//
-// Icon is 11px wide, gap is 2px, so text starts at cx - 18 + 13 = cx - 5.
-// This centers a ~30-35px wide icon+text unit on cx.
-//
-// All icons are 11px tall, fitting GOTHIC_18_BOLD cap height.
+// Icons are 11px wide × 11px tall.
 // FONT_PAD=8: GOTHIC_18_BOLD glyphs start at slot_y + 8.
+// Icon and text are positioned dynamically — see draw_field().
 // ============================================================
 #define FONT_PAD      8
-#define ICON_Y_OFFSET FONT_PAD
-#define ICON_LEFT     (-18)
-#define TEXT_LEFT     (-5)
+#define ICON_W        11  // width of all icons
+#define ICON_TEXT_GAP 2   // px gap between icon right edge and text left edge
 
 // draw_footprint: slender peanut — 4x5 toe ball + 2x4 heel, overlapping 1px.
 static void draw_footprint(GContext *ctx, int fx, int fy, GColor col) {
@@ -313,35 +306,59 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int ico
 
 // ============================================================
 // OVERLAY FIELD DRAWING
+//
+// For icon+text fields (steps, battery, weather), we measure the
+// rendered text width and dynamically center the icon+text unit on cx.
+//
+//   unit_w = ICON_W + ICON_TEXT_GAP + text_w
+//   icon_x = cx - unit_w / 2
+//   text_x = icon_x + ICON_W + ICON_TEXT_GAP
+//
+// This ensures perfect centering regardless of step count digits.
 // ============================================================
 static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor col, GColor bg) {
   if (field == FIELD_NONE) return;
 
-  GFont font   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  int   iy     = y + FONT_PAD;
-  int   icon_x = cx + ICON_LEFT;
-  int   text_x = cx + TEXT_LEFT;
-  int   text_w = w - text_x;
+  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  int   iy   = y + FONT_PAD;
 
   graphics_context_set_text_color(ctx, col);
 
   if (field == FIELD_DAY_LONG) {
     graphics_draw_text(ctx, s_day_buffer, font,
       GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+
   } else if (field == FIELD_DATE) {
     graphics_draw_text(ctx, s_date_buffer, font,
       GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+
   } else if (field == FIELD_DAY_DATE) {
     graphics_draw_text(ctx, s_day_date_buffer, font,
       GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+
   } else if (field == FIELD_STEPS) {
+    // Measure actual text width, then center icon+text unit on cx
+    GSize text_size = graphics_text_layout_get_content_size(
+      s_steps_buffer, font, GRect(0, 0, 200, 20),
+      GTextOverflowModeFill, GTextAlignmentLeft);
+    int unit_w = ICON_W + ICON_TEXT_GAP + text_size.w;
+    int icon_x = cx - unit_w / 2;
+    int text_x = icon_x + ICON_W + ICON_TEXT_GAP;
     draw_steps_icon(ctx, icon_x, iy, col);
     graphics_draw_text(ctx, s_steps_buffer, font,
-      GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+      GRect(text_x, y, w - text_x, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+
   } else if (field == FIELD_BATTERY) {
+    GSize text_size = graphics_text_layout_get_content_size(
+      s_battery_buffer, font, GRect(0, 0, 200, 20),
+      GTextOverflowModeFill, GTextAlignmentLeft);
+    int unit_w = ICON_W + ICON_TEXT_GAP + text_size.w;
+    int icon_x = cx - unit_w / 2;
+    int text_x = icon_x + ICON_W + ICON_TEXT_GAP;
     draw_battery_icon(ctx, icon_x, iy, col, s_battery);
     graphics_draw_text(ctx, s_battery_buffer, font,
-      GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+      GRect(text_x, y, w - text_x, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+
   } else if (field == FIELD_TEMP_F || field == FIELD_TEMP_C) {
     bool is_f  = (field == FIELD_TEMP_F);
     bool ready = is_f ? (s_weather_temp_f != INT_MIN) : (s_weather_temp_c != INT_MIN);
@@ -349,9 +366,16 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
       graphics_draw_text(ctx, "--", font,
         GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else {
+      const char *temp_str = is_f ? s_temp_f_buffer : s_temp_c_buffer;
+      GSize text_size = graphics_text_layout_get_content_size(
+        temp_str, font, GRect(0, 0, 200, 20),
+        GTextOverflowModeFill, GTextAlignmentLeft);
+      int unit_w = ICON_W + ICON_TEXT_GAP + text_size.w;
+      int icon_x = cx - unit_w / 2;
+      int text_x = icon_x + ICON_W + ICON_TEXT_GAP;
       draw_weather_icon(ctx, icon_x, iy - 1, col, weather_icon_for_code(s_weather_code));
-      graphics_draw_text(ctx, is_f ? s_temp_f_buffer : s_temp_c_buffer, font,
-        GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+      graphics_draw_text(ctx, temp_str, font,
+        GRect(text_x, y, w - text_x, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
     }
   }
 }
