@@ -189,10 +189,11 @@ static int weather_icon_for_code(int code) {
 // ============================================================
 // 11x11 ICON DRAWING
 // Icons draw at (ox, oy) top-left corner, 11x11px.
-// oy is the field slot top; icons are vertically nudged by
-// ICON_Y_OFFSET to align with GOTHIC_18_BOLD cap height.
+// GOTHIC_18_BOLD glyphs start at slot_y + FONT_PAD (8px).
+// ICON_Y_OFFSET = FONT_PAD so icon top aligns with glyph top.
 // ============================================================
-#define ICON_Y_OFFSET 1
+#define FONT_PAD    8   // GOTHIC_18_BOLD internal top padding
+#define ICON_Y_OFFSET FONT_PAD
 
 // Steps: two staggered footprint dots + direction chevron
 static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col) {
@@ -291,12 +292,12 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int ico
 // ============================================================
 // OVERLAY FIELD DRAWING
 //
-// y = top of the 18px slot.
-// GOTHIC_18_BOLD has internal top padding; icons offset by
-// ICON_Y_OFFSET to visually align with text cap height.
+// y     = top of the 18px slot
+// FONT_PAD = 8: GOTHIC_18_BOLD glyphs start at y + FONT_PAD
+// ICON_Y_OFFSET = FONT_PAD: icons top-aligned with glyph top
 //
 // Icon + text layout centered on cx:
-//   icon: 11px at cx-18, gap 2px, text starts at cx-5
+//   icon: cx-18, text: cx-5
 // ============================================================
 static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor col) {
   if (field == FIELD_NONE) return;
@@ -844,22 +845,26 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // ----------------------------------------------------------
   // TEXT / FIELD OVERLAY
   //
-  // 1-line anchor: slot at time_y - small_h - 2 (top)
-  //                        time_y + time_h + 2  (bottom)
+  // GOTHIC_18_BOLD: glyphs start at slot_y + FONT_PAD (8px).
+  // Cap height = 11px. Line stride = cap (11) + gap (6) = 17px.
   //
-  // 2-line: shift the ENTIRE unit inward by DUAL_SHIFT px so
-  // both fields land closer to time as a tight group.
-  // Fields within the unit are spaced FIELD_GAP apart.
+  // 1-line (unchanged):
+  //   top slot_y  = time_y - 20  → glyph top = time_y - 12 (12px gap)
+  //   bot slot_y  = time_y + time_h + 2
   //
-  // All values relative to the working 1-line position — no
-  // font padding compensation (font padding affects both
-  // hemispheres equally so cancels out).
+  // 2-line (6px gap from time, 6px between lines):
+  //   top inner: glyph top = time_y - 6  → slot_y = time_y - 14
+  //   top outer: glyph top = inner glyph top - 11 - 6 = time_y - 23
+  //              → slot_y = time_y - 31  (= inner_y - 17)
+  //   bot inner: glyph top = time_y + time_h + 6
+  //              → slot_y = time_y + time_h - 2
+  //   bot outer: → slot_y = inner_y + 17
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
-    int time_h    = 40;
-    int small_h   = 18;
-    int dual_shift = 8;   // move 2-line unit this many px closer to time vs 1-line
-    int field_gap  = 2;   // gap between the two field slots in 2-line mode
+    int time_h  = 40;
+    int cap_h   = 11;   // GOTHIC_18_BOLD cap height
+    int gap     = 6;    // desired px gap (time-to-glyph and glyph-to-glyph)
+    int stride  = cap_h + gap;   // 17px between successive glyph tops
 
     int time_y    = cy - time_h / 2 - 2;
     int top_inner = s_settings.TopInnerField;
@@ -876,26 +881,24 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       GRect(0, time_y, w, time_h + 4),
       GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
-    // Top fields (slots grow upward from time_y)
+    // Top fields (grow upward)
     if (top_count == 1) {
       int field = top_inner ? top_inner : top_outer;
-      draw_field(ctx, field, time_y - small_h - 2, w, cx, col_dfg);
+      draw_field(ctx, field, time_y - 20, w, cx, col_dfg);
     } else if (top_count == 2) {
-      // Inner is closer to time: shift 1-line position up by dual_shift
-      int inner_y = time_y - small_h - 2 + dual_shift;
-      int outer_y = inner_y - small_h - field_gap;
+      int inner_y = time_y - FONT_PAD - gap;          // glyph top = time_y - 6
+      int outer_y = inner_y - stride;                 // glyph top 17px above inner
       draw_field(ctx, top_inner, inner_y, w, cx, col_dfg);
       draw_field(ctx, top_outer, outer_y, w, cx, col_dfg);
     }
 
-    // Bottom fields (slots grow downward from time bottom)
+    // Bottom fields (grow downward)
     if (bot_count == 1) {
       int field = bot_inner ? bot_inner : bot_outer;
       draw_field(ctx, field, time_y + time_h + 2, w, cx, col_dfg);
     } else if (bot_count == 2) {
-      // Inner is closer to time: shift 1-line position down by dual_shift
-      int inner_y = time_y + time_h + 2 - dual_shift;
-      int outer_y = inner_y + small_h + field_gap;
+      int inner_y = time_y + time_h + gap - FONT_PAD; // glyph top = time_y + time_h + 6
+      int outer_y = inner_y + stride;                 // glyph top 17px below inner
       draw_field(ctx, bot_inner, inner_y, w, cx, col_dfg);
       draw_field(ctx, bot_outer, outer_y, w, cx, col_dfg);
     }
