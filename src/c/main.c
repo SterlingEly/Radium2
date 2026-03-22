@@ -195,26 +195,35 @@ static int weather_icon_for_code(int code) {
 // Icons draw at (ox, oy) — the GLYPH top (slot_y + FONT_PAD).
 // All icons are 11px tall, fitting cap height exactly.
 // FONT_PAD = 8: GOTHIC_18_BOLD glyphs start at slot_y + 8.
-// Icons are passed iy = slot_y + FONT_PAD, so they draw at
-// glyph-top coordinates directly.
 //
 // Layout for icon+text fields (centered as a unit on cx):
-//   total unit ~= 11px icon + 2px gap + ~20px text = ~33px
-//   icon left edge: cx - 16
-//   text left edge: cx - 3
+//   icon left edge: cx + ICON_LEFT  (-16)
+//   text left edge: cx + TEXT_LEFT  (-3)
 // ============================================================
-#define FONT_PAD      8   // GOTHIC_18_BOLD internal top padding
+#define FONT_PAD      8
 #define ICON_Y_OFFSET FONT_PAD
-#define ICON_LEFT     (-16) // icon_x = cx + ICON_LEFT
-#define TEXT_LEFT     (-3)  // text_x = cx + TEXT_LEFT
+#define ICON_LEFT     (-16)
+#define TEXT_LEFT     (-3)
 
-// Steps: two tall vertical rectangles like legs striding
-static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col) {
+// draw_footprint: peanut-shaped footprint at (fx, fy), 5x7px
+// The shape has a wide rounded toe end and narrower pinched heel.
+// Built from: full rounded rect + background cut on heel corners.
+static void draw_footprint(GContext *ctx, int fx, int fy, GColor col, GColor bg) {
+  // Fill the full 5x7 rounded body
   graphics_context_set_fill_color(ctx, col);
-  // Left leg: taller, slightly lower (back foot)
-  graphics_fill_rect(ctx, GRect(ox+1, oy+3, 4, 8), 1, GCornersAll);
-  // Right leg: slightly higher (front foot mid-stride)
-  graphics_fill_rect(ctx, GRect(ox+6, oy+0, 4, 8), 1, GCornersAll);
+  graphics_fill_rect(ctx, GRect(fx, fy, 5, 7), 2, GCornersAll);
+  // Pinch the heel (bottom 2 rows, inner 1px each side) to create waist
+  graphics_context_set_fill_color(ctx, bg);
+  graphics_fill_rect(ctx, GRect(fx,   fy+5, 1, 2), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(fx+4, fy+5, 1, 2), 0, GCornerNone);
+}
+
+// Steps: two offset peanut footprints (right foot higher, left foot lower)
+static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col, GColor bg) {
+  // Right foot: higher (toe-forward), positioned upper-right
+  draw_footprint(ctx, ox+5, oy+0, col, bg);
+  // Left foot: lower (back foot), positioned lower-left
+  draw_footprint(ctx, ox+0, oy+4, col, bg);
 }
 
 // Battery: outline rect with fill level + nub
@@ -224,12 +233,12 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
   // Body outline: 9x7 starting at ox, oy+2
   graphics_draw_rect(ctx, GRect(ox, oy+2, 9, 7));
   // Nub on right
+  graphics_context_set_fill_color(ctx, col);
   graphics_fill_rect(ctx, GRect(ox+9, oy+4, 2, 3), 0, GCornerNone);
   // Fill bar inside
-  int fill_w = (7 * pct) / 100;  // max 7px wide inside 9px box
+  int fill_w = (7 * pct) / 100;
   if (fill_w < 1 && pct > 0) fill_w = 1;
   if (fill_w > 0) {
-    graphics_context_set_fill_color(ctx, col);
     graphics_fill_rect(ctx, GRect(ox+1, oy+3, fill_w, 5), 0, GCornerNone);
   }
 }
@@ -315,16 +324,8 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int ico
 
 // ============================================================
 // OVERLAY FIELD DRAWING
-//
-// y      = top of the 18px font slot
-// iy     = y + FONT_PAD = glyph top = icon top
-// icon_x = cx + ICON_LEFT  (-16)
-// text_x = cx + TEXT_LEFT  (-3)
-// Icon+text unit is centered on cx.
-// Text-only fields use full width centered.
-// Weather icon draws at iy-1 (1px up from glyph top for visual weight).
 // ============================================================
-static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor col) {
+static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor col, GColor bg) {
   if (field == FIELD_NONE) return;
 
   GFont font   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
@@ -348,7 +349,7 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
       GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
   } else if (field == FIELD_STEPS) {
-    draw_steps_icon(ctx, icon_x, iy, col);
+    draw_steps_icon(ctx, icon_x, iy, col, bg);
     graphics_draw_text(ctx, s_steps_buffer, font,
       GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
@@ -364,7 +365,6 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
       graphics_draw_text(ctx, "--", font,
         GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else {
-      // Weather icon draws 1px up from glyph top for visual balance
       draw_weather_icon(ctx, icon_x, iy - 1, col, weather_icon_for_code(s_weather_code));
       graphics_draw_text(ctx, is_f ? s_temp_f_buffer : s_temp_c_buffer, font,
         GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
@@ -867,18 +867,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   // ----------------------------------------------------------
   // TEXT / FIELD OVERLAY
-  //
-  // GOTHIC_18_BOLD: glyphs start at slot_y + FONT_PAD (8px).
-  // Cap height = 11px. Line stride = 11 + 6 = 17px.
-  //
-  // 1-line: slot_y = time_y - 20 (top) / time_y + time_h + 2 (bot)
-  //   → glyph top 12px from time edge (unchanged)
-  //
-  // 2-line: 6px gap from time, 6px between lines.
-  //   top inner slot_y = time_y - FONT_PAD - gap + 1  (+1 tweak)
-  //   top outer slot_y = inner_y - stride
-  //   bot inner slot_y = time_y + time_h + gap - FONT_PAD - 3  (-3 tweak)
-  //   bot outer slot_y = inner_y + stride
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
     int time_h = 40;
@@ -904,23 +892,23 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     // Top fields
     if (top_count == 1) {
       int field = top_inner ? top_inner : top_outer;
-      draw_field(ctx, field, time_y - 20, w, cx, col_dfg);
+      draw_field(ctx, field, time_y - 20, w, cx, col_dfg, col_obg);
     } else if (top_count == 2) {
-      int inner_y = time_y - FONT_PAD - gap + 1;  // +1: move down 1px
+      int inner_y = time_y - FONT_PAD - gap + 1;
       int outer_y = inner_y - stride;
-      draw_field(ctx, top_inner, inner_y, w, cx, col_dfg);
-      draw_field(ctx, top_outer, outer_y, w, cx, col_dfg);
+      draw_field(ctx, top_inner, inner_y, w, cx, col_dfg, col_obg);
+      draw_field(ctx, top_outer, outer_y, w, cx, col_dfg, col_obg);
     }
 
     // Bottom fields
     if (bot_count == 1) {
       int field = bot_inner ? bot_inner : bot_outer;
-      draw_field(ctx, field, time_y + time_h + 2, w, cx, col_dfg);
+      draw_field(ctx, field, time_y + time_h + 2, w, cx, col_dfg, col_obg);
     } else if (bot_count == 2) {
-      int inner_y = time_y + time_h + gap - FONT_PAD - 3;  // -3: move up 3px
+      int inner_y = time_y + time_h + gap - FONT_PAD - 3;
       int outer_y = inner_y + stride;
-      draw_field(ctx, bot_inner, inner_y, w, cx, col_dfg);
-      draw_field(ctx, bot_outer, outer_y, w, cx, col_dfg);
+      draw_field(ctx, bot_inner, inner_y, w, cx, col_dfg, col_obg);
+      draw_field(ctx, bot_outer, outer_y, w, cx, col_dfg, col_obg);
     }
   }
 }

@@ -82,15 +82,15 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
-    // All lines: full option set (inner lines allow long text, outer do not)
+    // Inner lines: allow long text fields
     var fieldOptionsInner = [
       { value: 0, label: 'None' },
       { value: 1, label: 'Day' },
       { value: 2, label: 'Date' },
       { value: 3, label: 'Day + Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp F' },
-      { value: 6, label: 'Temp C' },
+      { value: 5, label: 'Temp \u00b0F' },
+      { value: 6, label: 'Temp \u00b0C' },
       { value: 7, label: 'Battery' },
     ];
 
@@ -99,8 +99,8 @@ module.exports = {
       { value: 0, label: 'None' },
       { value: 2, label: 'Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp F' },
-      { value: 6, label: 'Temp C' },
+      { value: 5, label: 'Temp \u00b0F' },
+      { value: 6, label: 'Temp \u00b0C' },
       { value: 7, label: 'Battery' },
     ];
 
