@@ -129,8 +129,8 @@ static char s_date_buffer[10];
 static char s_day_date_buffer[14];
 static char s_steps_buffer[12];  // "99,999" + null
 static char s_battery_buffer[6]; // e.g. "72%"
-static char s_temp_f_buffer[8];  // e.g. "72F"
-static char s_temp_c_buffer[8];  // e.g. "22C"
+static char s_temp_f_buffer[8];  // e.g. "72°F"  (\xB0 = degree in Pebble Latin-1)
+static char s_temp_c_buffer[8];  // e.g. "22°C"
 
 static GPoint    s_tri_pts[3];
 static GPathInfo s_tri_info = { .num_points = 3, .points = s_tri_pts };
@@ -204,7 +204,6 @@ static int weather_icon_for_code(int code) {
 #define TEXT_LEFT     (-5)
 
 // draw_footprint: slender peanut — 4x5 toe ball + 2x4 heel, overlapping 1px.
-// Thinner than before: toe is 4px wide (was 5), heel is 2px wide (was 3).
 static void draw_footprint(GContext *ctx, int fx, int fy, GColor col) {
   graphics_context_set_fill_color(ctx, col);
   // Toe ball: 4x5, radius 2
@@ -969,12 +968,14 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   t = dict_find(iter, MESSAGE_KEY_WeatherTempF);
   if (t) {
     s_weather_temp_f = (int)t->value->int32;
-    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%dF", s_weather_temp_f);
+    // \xB0 = degree symbol in Pebble Latin-1 font encoding.
+    // String split prevents C compiler parsing \xB0F as 3-digit hex escape.
+    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%d\xB0" "F", s_weather_temp_f);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherTempC);
   if (t) {
     s_weather_temp_c = (int)t->value->int32;
-    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%dC", s_weather_temp_c);
+    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%d\xB0" "C", s_weather_temp_c);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherCode);
   if (t) s_weather_code = (int)t->value->int32;
