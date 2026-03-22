@@ -82,24 +82,26 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
-    // Inner slots (close to time): allow long text fields
+    // All lines: full option set (inner lines allow long text, outer do not)
     var fieldOptionsInner = [
       { value: 0, label: 'None' },
       { value: 1, label: 'Day' },
       { value: 2, label: 'Date' },
       { value: 3, label: 'Day + Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp \u00b0F' },
-      { value: 6, label: 'Temp \u00b0C' },
+      { value: 5, label: 'Temp F' },
+      { value: 6, label: 'Temp C' },
+      { value: 7, label: 'Battery' },
     ];
 
-    // Outer slots (far from time): short fields only (no Day, no Day+Date)
+    // Outer lines: short fields only (no Day, no Day+Date)
     var fieldOptionsOuter = [
       { value: 0, label: 'None' },
       { value: 2, label: 'Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp \u00b0F' },
-      { value: 6, label: 'Temp \u00b0C' },
+      { value: 5, label: 'Temp F' },
+      { value: 6, label: 'Temp C' },
+      { value: 7, label: 'Battery' },
     ];
 
     function makeSelect(id, defaultVal, options) {
@@ -153,7 +155,7 @@ module.exports = {
       + '.row .right{display:flex;align-items:center;gap:8px}'
       + '.field-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #222;gap:12px}'
       + '.field-row:last-child{border-bottom:none}'
-      + '.field-row label{font-size:14px;color:#aaa;white-space:nowrap;min-width:80px}'
+      + '.field-row label{font-size:14px;color:#aaa;white-space:nowrap;min-width:60px}'
       + '.swatch{width:36px;height:28px;border-radius:5px;cursor:pointer;border:2px solid #333;flex-shrink:0}'
       + '.expand-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #222;cursor:pointer;user-select:none}'
       + '.expand-row:last-child{border-bottom:none}'
@@ -222,18 +224,18 @@ module.exports = {
 
       + '<h1>Radium <span>2</span></h1><p class="sub">Watchface Configuration</p>'
 
-      + '<h2>Overlay</h2><div class="card">'
+      + '<h2>Info Overlay</h2><div class="card">'
       + '<div class="radio-group">'
       + '<input type="radio" name="overlay" id="ov0" value="0" checked><label for="ov0">Always On</label>'
       + '<input type="radio" name="overlay" id="ov1" value="1"><label for="ov1">Always Off</label>'
       + '<input type="radio" name="overlay" id="ov2" value="2"><label for="ov2">Shake</label>'
       + '</div></div>'
 
-      + '<h2>Display Fields</h2><div class="card">'
-      + '<div class="field-row"><label>Top outer</label>'  + makeSelect('TopOuterField',    0, fieldOptionsOuter) + '</div>'
-      + '<div class="field-row"><label>Top inner</label>'  + makeSelect('TopInnerField',    1, fieldOptionsInner) + '</div>'
-      + '<div class="field-row"><label>Bot inner</label>'  + makeSelect('BottomInnerField', 2, fieldOptionsInner) + '</div>'
-      + '<div class="field-row"><label>Bot outer</label>'  + makeSelect('BottomOuterField', 0, fieldOptionsOuter) + '</div>'
+      + '<h2>Info Lines</h2><div class="card">'
+      + '<div class="field-row"><label>Line 1</label>' + makeSelect('TopOuterField',    0, fieldOptionsOuter) + '</div>'
+      + '<div class="field-row"><label>Line 2</label>' + makeSelect('TopInnerField',    1, fieldOptionsInner) + '</div>'
+      + '<div class="field-row"><label>Line 3</label>' + makeSelect('BottomInnerField', 2, fieldOptionsInner) + '</div>'
+      + '<div class="field-row"><label>Line 4</label>' + makeSelect('BottomOuterField', 0, fieldOptionsOuter) + '</div>'
       + '</div>'
 
       + '<div id="color-section">'

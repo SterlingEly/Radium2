@@ -20,6 +20,7 @@
 #define FIELD_STEPS     4  // steps icon + count
 #define FIELD_TEMP_F    5  // weather icon + temp F
 #define FIELD_TEMP_C    6  // weather icon + temp C
+#define FIELD_BATTERY   7  // battery icon + %
 
 // WMO weather code groups -> icon type:
 // 0=clear, 1-3=partly cloudy, 45-48=fog/cloud,
@@ -131,8 +132,9 @@ static char s_day_buffer[12];
 static char s_date_buffer[10];
 static char s_day_date_buffer[14];
 static char s_steps_buffer[8];
-static char s_temp_f_buffer[8];   // e.g. "72F"
-static char s_temp_c_buffer[8];   // e.g. "22C"
+static char s_battery_buffer[6];  // e.g. "72%"
+static char s_temp_f_buffer[8];   // e.g. "72\xB0F"
+static char s_temp_c_buffer[8];   // e.g. "22\xB0C"
 
 static GPoint    s_tri_pts[3];
 static GPathInfo s_tri_info = { .num_points = 3, .points = s_tri_pts };
@@ -188,27 +190,48 @@ static int weather_icon_for_code(int code) {
 }
 
 // ============================================================
-// 11x11 ICON DRAWING
-// Icons draw at (ox, oy) top-left corner, 11x11px.
-// GOTHIC_18_BOLD glyphs start at slot_y + FONT_PAD (8px).
-// ICON_Y_OFFSET = FONT_PAD so icon top aligns with glyph top.
+// ICON DRAWING
+//
+// Icons draw at (ox, oy) — the GLYPH top (slot_y + FONT_PAD).
+// All icons are 11px tall, fitting cap height exactly.
+// FONT_PAD = 8: GOTHIC_18_BOLD glyphs start at slot_y + 8.
+// Icons are passed iy = slot_y + FONT_PAD, so they draw at
+// glyph-top coordinates directly.
+//
+// Layout for icon+text fields (centered as a unit on cx):
+//   total unit ~= 11px icon + 2px gap + ~20px text = ~33px
+//   icon left edge: cx - 16
+//   text left edge: cx - 3
 // ============================================================
-#define FONT_PAD    8   // GOTHIC_18_BOLD internal top padding
+#define FONT_PAD      8   // GOTHIC_18_BOLD internal top padding
 #define ICON_Y_OFFSET FONT_PAD
+#define ICON_LEFT     (-16) // icon_x = cx + ICON_LEFT
+#define TEXT_LEFT     (-3)  // text_x = cx + TEXT_LEFT
 
-// Steps: two staggered footprint dots + direction chevron
+// Steps: two tall vertical rectangles like legs striding
 static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col) {
   graphics_context_set_fill_color(ctx, col);
-  // Left foot: lower position
-  graphics_fill_rect(ctx, GRect(ox+1, oy+6, 3, 3), 1, GCornersAll);
-  // Right foot: higher position (stride forward)
-  graphics_fill_rect(ctx, GRect(ox+6, oy+2, 3, 3), 1, GCornersAll);
-  // Direction chevron
+  // Left leg: taller, slightly lower (back foot)
+  graphics_fill_rect(ctx, GRect(ox+1, oy+3, 4, 8), 1, GCornersAll);
+  // Right leg: slightly higher (front foot mid-stride)
+  graphics_fill_rect(ctx, GRect(ox+6, oy+0, 4, 8), 1, GCornersAll);
+}
+
+// Battery: outline rect with fill level + nub
+static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct) {
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
-  graphics_draw_pixel(ctx, GPoint(ox+9, oy+4));
-  graphics_draw_pixel(ctx, GPoint(ox+10, oy+5));
-  graphics_draw_pixel(ctx, GPoint(ox+9, oy+6));
+  // Body outline: 9x7 starting at ox, oy+2
+  graphics_draw_rect(ctx, GRect(ox, oy+2, 9, 7));
+  // Nub on right
+  graphics_fill_rect(ctx, GRect(ox+9, oy+4, 2, 3), 0, GCornerNone);
+  // Fill bar inside
+  int fill_w = (7 * pct) / 100;  // max 7px wide inside 9px box
+  if (fill_w < 1 && pct > 0) fill_w = 1;
+  if (fill_w > 0) {
+    graphics_context_set_fill_color(ctx, col);
+    graphics_fill_rect(ctx, GRect(ox+1, oy+3, fill_w, 5), 0, GCornerNone);
+  }
 }
 
 // Sun: circle with 4 cardinal rays
@@ -293,21 +316,22 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int ico
 // ============================================================
 // OVERLAY FIELD DRAWING
 //
-// y     = top of the 18px slot
-// FONT_PAD = 8: GOTHIC_18_BOLD glyphs start at y + FONT_PAD
-// ICON_Y_OFFSET = FONT_PAD: icons top-aligned with glyph top
-//
-// Icon + text layout centered on cx:
-//   icon: cx-18, text: cx-5
+// y      = top of the 18px font slot
+// iy     = y + FONT_PAD = glyph top = icon top
+// icon_x = cx + ICON_LEFT  (-16)
+// text_x = cx + TEXT_LEFT  (-3)
+// Icon+text unit is centered on cx.
+// Text-only fields use full width centered.
+// Weather icon draws at iy-1 (1px up from glyph top for visual weight).
 // ============================================================
 static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor col) {
   if (field == FIELD_NONE) return;
 
-  GFont font    = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  int   iy      = y + ICON_Y_OFFSET;
-  int   icon_x  = cx - 18;
-  int   text_x  = cx - 5;
-  int   text_w  = w - text_x;
+  GFont font   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  int   iy     = y + FONT_PAD;
+  int   icon_x = cx + ICON_LEFT;
+  int   text_x = cx + TEXT_LEFT;
+  int   text_w = w - text_x;
 
   graphics_context_set_text_color(ctx, col);
 
@@ -328,6 +352,11 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
     graphics_draw_text(ctx, s_steps_buffer, font,
       GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
+  } else if (field == FIELD_BATTERY) {
+    draw_battery_icon(ctx, icon_x, iy, col, s_battery);
+    graphics_draw_text(ctx, s_battery_buffer, font,
+      GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+
   } else if (field == FIELD_TEMP_F || field == FIELD_TEMP_C) {
     bool is_f  = (field == FIELD_TEMP_F);
     bool ready = is_f ? (s_weather_temp_f != INT_MIN) : (s_weather_temp_c != INT_MIN);
@@ -335,7 +364,8 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
       graphics_draw_text(ctx, "--", font,
         GRect(0, y, w, 13), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else {
-      draw_weather_icon(ctx, icon_x, iy, col, weather_icon_for_code(s_weather_code));
+      // Weather icon draws 1px up from glyph top for visual balance
+      draw_weather_icon(ctx, icon_x, iy - 1, col, weather_icon_for_code(s_weather_code));
       graphics_draw_text(ctx, is_f ? s_temp_f_buffer : s_temp_c_buffer, font,
         GRect(text_x, y, text_w, 13), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
     }
@@ -426,13 +456,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // ----------------------------------------------------------
   if (!is_round) {
     // ==== RECT PATH ====
-    //
-    // Minutes drawn in 4 passes (painter's algorithm):
-    //   1. Empty groups:  col_dmin solid + col_bg gap cuts
-    //   2. Filled groups: col_min solid  + col_bg gap cuts
-    //   3. Partial group: col_dmin base  + col_bg gaps + col_min lit ticks
-    //   4. Tip tick:      col_min_tip — always last, always on top
-
     int filled_groups = s_minute / 5;
     int partial_min   = s_minute % 5;
 
@@ -501,7 +524,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // 4. Tip tick — always last, always on top
+    // 4. Tip tick
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -605,7 +628,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   } else {
     // ==== ROUND PATH ====
-
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int i = 0; i < 60; i++) {
       int a = 3 + 2*i + 5*(i/5);
@@ -847,25 +869,22 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // TEXT / FIELD OVERLAY
   //
   // GOTHIC_18_BOLD: glyphs start at slot_y + FONT_PAD (8px).
-  // Cap height = 11px. Line stride = cap (11) + gap (6) = 17px.
+  // Cap height = 11px. Line stride = 11 + 6 = 17px.
   //
-  // 1-line (unchanged):
-  //   top slot_y  = time_y - 20  → glyph top = time_y - 12 (12px gap)
-  //   bot slot_y  = time_y + time_h + 2
+  // 1-line: slot_y = time_y - 20 (top) / time_y + time_h + 2 (bot)
+  //   → glyph top 12px from time edge (unchanged)
   //
-  // 2-line (6px gap from time, 6px between lines):
-  //   top inner: glyph top = time_y - 6  → slot_y = time_y - 14
-  //   top outer: glyph top = inner glyph top - 11 - 6 = time_y - 23
-  //              → slot_y = time_y - 31  (= inner_y - 17)
-  //   bot inner: glyph top = time_y + time_h + 6
-  //              → slot_y = time_y + time_h - 2
-  //   bot outer: → slot_y = inner_y + 17
+  // 2-line: 6px gap from time, 6px between lines.
+  //   top inner slot_y = time_y - FONT_PAD - gap + 1  (+1 tweak)
+  //   top outer slot_y = inner_y - stride
+  //   bot inner slot_y = time_y + time_h + gap - FONT_PAD - 3  (-3 tweak)
+  //   bot outer slot_y = inner_y + stride
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
-    int time_h  = 40;
-    int cap_h   = 11;   // GOTHIC_18_BOLD cap height
-    int gap     = 6;    // desired px gap (time-to-glyph and glyph-to-glyph)
-    int stride  = cap_h + gap;   // 17px between successive glyph tops
+    int time_h = 40;
+    int cap_h  = 11;
+    int gap    = 6;
+    int stride = cap_h + gap;  // 17
 
     int time_y    = cy - time_h / 2 - 2;
     int top_inner = s_settings.TopInnerField;
@@ -882,24 +901,24 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       GRect(0, time_y, w, time_h + 4),
       GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
-    // Top fields (grow upward)
+    // Top fields
     if (top_count == 1) {
       int field = top_inner ? top_inner : top_outer;
       draw_field(ctx, field, time_y - 20, w, cx, col_dfg);
     } else if (top_count == 2) {
-      int inner_y = time_y - FONT_PAD - gap;          // glyph top = time_y - 6
-      int outer_y = inner_y - stride;                 // glyph top 17px above inner
+      int inner_y = time_y - FONT_PAD - gap + 1;  // +1: move down 1px
+      int outer_y = inner_y - stride;
       draw_field(ctx, top_inner, inner_y, w, cx, col_dfg);
       draw_field(ctx, top_outer, outer_y, w, cx, col_dfg);
     }
 
-    // Bottom fields (grow downward)
+    // Bottom fields
     if (bot_count == 1) {
       int field = bot_inner ? bot_inner : bot_outer;
       draw_field(ctx, field, time_y + time_h + 2, w, cx, col_dfg);
     } else if (bot_count == 2) {
-      int inner_y = time_y + time_h + gap - FONT_PAD; // glyph top = time_y + time_h + 6
-      int outer_y = inner_y + stride;                 // glyph top 17px below inner
+      int inner_y = time_y + time_h + gap - FONT_PAD - 3;  // -3: move up 3px
+      int outer_y = inner_y + stride;
       draw_field(ctx, bot_inner, inner_y, w, cx, col_dfg);
       draw_field(ctx, bot_outer, outer_y, w, cx, col_dfg);
     }
@@ -933,6 +952,7 @@ static void tick_handler(struct tm *t, TimeUnits units_changed) {
 
 static void battery_handler(BatteryChargeState state) {
   s_battery = state.charge_percent;
+  snprintf(s_battery_buffer, sizeof(s_battery_buffer), "%d%%", s_battery);
   layer_mark_dirty(s_canvas_layer);
 }
 
@@ -1003,12 +1023,12 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   t = dict_find(iter, MESSAGE_KEY_WeatherTempF);
   if (t) {
     s_weather_temp_f = (int)t->value->int32;
-    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%dF", s_weather_temp_f);
+    snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "%d\xB0F", s_weather_temp_f);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherTempC);
   if (t) {
     s_weather_temp_c = (int)t->value->int32;
-    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%dC", s_weather_temp_c);
+    snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "%d\xB0C", s_weather_temp_c);
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherCode);
   if (t) s_weather_code = (int)t->value->int32;
@@ -1047,9 +1067,10 @@ static void init(void) {
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
   s_weather_code   = 0;
-  snprintf(s_steps_buffer,  sizeof(s_steps_buffer),  "0");
-  snprintf(s_temp_f_buffer, sizeof(s_temp_f_buffer), "--");
-  snprintf(s_temp_c_buffer, sizeof(s_temp_c_buffer), "--");
+  snprintf(s_steps_buffer,   sizeof(s_steps_buffer),   "0");
+  snprintf(s_battery_buffer, sizeof(s_battery_buffer), "0%%");
+  snprintf(s_temp_f_buffer,  sizeof(s_temp_f_buffer),  "--");
+  snprintf(s_temp_c_buffer,  sizeof(s_temp_c_buffer),  "--");
 
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
