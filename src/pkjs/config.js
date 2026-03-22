@@ -82,15 +82,32 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
-    var fieldOptions = [
+    // Inner slots (close to time): allow long text fields
+    var fieldOptionsInner = [
       { value: 0, label: 'None' },
-      { value: 1, label: 'Day (long)' },
+      { value: 1, label: 'Day' },
       { value: 2, label: 'Date' },
       { value: 3, label: 'Day + Date' },
       { value: 4, label: 'Steps' },
-      { value: 5, label: 'Temp \u00b0F' },
-      { value: 6, label: 'Temp \u00b0C' },
+      { value: 5, label: 'Temp F' },
+      { value: 6, label: 'Temp C' },
     ];
+
+    // Outer slots (far from time): short fields only (no Day, no Day+Date)
+    var fieldOptionsOuter = [
+      { value: 0, label: 'None' },
+      { value: 2, label: 'Date' },
+      { value: 4, label: 'Steps' },
+      { value: 5, label: 'Temp F' },
+      { value: 6, label: 'Temp C' },
+    ];
+
+    function makeSelect(id, defaultVal, options) {
+      var opts = options.map(function(o) {
+        return '<option value="' + o.value + '"' + (o.value === defaultVal ? ' selected' : '') + '>' + o.label + '</option>';
+      }).join('');
+      return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
+    }
 
     var platformData = 'var PLATFORM=' + JSON.stringify(platform || 'color') + ';'
       + 'var CURRENT=' + JSON.stringify(currentSettings || null) + ';';
@@ -118,13 +135,6 @@ module.exports = {
       return '<div class="preset-row-label">' + row.label + '</div>'
         + '<div class="preset-row">' + rowItems + '</div>';
     }).join('');
-
-    function makeSelect(id, defaultVal) {
-      var opts = fieldOptions.map(function(o) {
-        return '<option value="' + o.value + '"' + (o.value === defaultVal ? ' selected' : '') + '>' + o.label + '</option>';
-      }).join('');
-      return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
-    }
 
     var html = '<!DOCTYPE html><html><head>'
       + '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -220,11 +230,10 @@ module.exports = {
       + '</div></div>'
 
       + '<h2>Display Fields</h2><div class="card">'
-      + '<span style="display:block;padding:10px 14px 4px;color:#666;font-size:12px">1 field per slot → 12px from time &nbsp;|&nbsp; 2 fields → 6px spacing</span>'
-      + '<div class="field-row"><label>Top outer</label>' + makeSelect('TopOuterField', 0) + '</div>'
-      + '<div class="field-row"><label>Top inner</label>' + makeSelect('TopInnerField', 1) + '</div>'
-      + '<div class="field-row"><label>Bottom inner</label>' + makeSelect('BottomInnerField', 2) + '</div>'
-      + '<div class="field-row"><label>Bottom outer</label>' + makeSelect('BottomOuterField', 0) + '</div>'
+      + '<div class="field-row"><label>Top outer</label>'  + makeSelect('TopOuterField',    0, fieldOptionsOuter) + '</div>'
+      + '<div class="field-row"><label>Top inner</label>'  + makeSelect('TopInnerField',    1, fieldOptionsInner) + '</div>'
+      + '<div class="field-row"><label>Bot inner</label>'  + makeSelect('BottomInnerField', 2, fieldOptionsInner) + '</div>'
+      + '<div class="field-row"><label>Bot outer</label>'  + makeSelect('BottomOuterField', 0, fieldOptionsOuter) + '</div>'
       + '</div>'
 
       + '<div id="color-section">'
