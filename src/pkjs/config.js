@@ -5,7 +5,7 @@ module.exports = {
       // ---- DARK (8) ----
       // tH = leading hour tick (slightly brighter than lH)
       // tM = leading minute tick (noticeably brighter/whiter than lM)
-      { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaffaa', lH:'#55ff00',lM:'#55ff00',lB:'#55ff00',lS:'#55ff00', dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500', tH:'#aaffaa',tM:'#ffffff' },
+      { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaffaa', lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa', dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500', tH:'#ffffff',tM:'#ffffff' },
       { label:'Ember',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ff5500',lM:'#ff5500',lB:'#ff5500',lS:'#ff5500', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#ffaa55',tM:'#ffffff' },
       { label:'Cobalt',  bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#0055ff',lM:'#0055ff',lB:'#0055ff',lS:'#0055ff', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#aaaaff',tM:'#ffffff' },
       { label:'Slate',   bg:'#000000',obg:'#000000',tt:'#ffffff',dt:'#aaaaaa', lH:'#ffffff',lM:'#aaaaaa',lB:'#aaaaaa',lS:'#aaaaaa', dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555', tH:'#ffffff',tM:'#ffffff' },
@@ -111,7 +111,7 @@ module.exports = {
       return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
     }
 
-    // Large overlay toggle only shown for emery and gabbro (chalk = gabbro round)
+    // Large overlay toggle only shown for emery and gabbro
     var isLargePlatform = (platform === 'emery' || platform === 'chalk');
     var overlayLargeRow = isLargePlatform
       ? '<div class="row"><label>Large overlay</label><label class="toggle"><input type="checkbox" id="OverlaySize"><span class="knob"></span></label></div>'
@@ -319,12 +319,14 @@ module.exports = {
       + '<script>'
       + platformData + presetsData + paletteData
 
+      // Default colors match Radium preset exactly:
+      // ticks/ring = #aaffaa (MintGreen), time = #ffffff, tips = #ffffff, dim = #005500 (DarkGreen)
       + 'var colors={'
-      + 'BackgroundColor:"#000000",OverlayBgColor:"#000000",TimeTextColor:"#ffffff",DateTextColor:"#aaaaaa",'
+      + 'BackgroundColor:"#000000",OverlayBgColor:"#000000",TimeTextColor:"#ffffff",DateTextColor:"#aaffaa",'
       + 'LitHourColor:"#aaffaa",LitMinuteColor:"#aaffaa",LitBatteryColor:"#aaffaa",LitStepsColor:"#aaffaa",'
-      + 'DimHourColor:"#555555",DimMinuteColor:"#555555",DimBatteryColor:"#555555",DimStepsColor:"#555555",'
+      + 'DimHourColor:"#005500",DimMinuteColor:"#005500",DimBatteryColor:"#005500",DimStepsColor:"#005500",'
       + 'LitHourTipColor:"#ffffff",LitMinuteTipColor:"#ffffff",'
-      + 'InfoLine1Color:"#aaffaa",InfoLine2Color:"#aaaaaa",InfoLine3Color:"#aaaaaa",InfoLine4Color:"#aaffaa"'
+      + 'InfoLine1Color:"#aaaaaa",InfoLine2Color:"#aaffaa",InfoLine3Color:"#aaffaa",InfoLine4Color:"#aaaaaa"'
       + '};'
 
       + 'function updateSwatches(key,hex){'
@@ -397,9 +399,9 @@ module.exports = {
       + 'updateSwatches("DimHourColor",p.dH);updateSwatches("DimMinuteColor",p.dM);'
       + 'updateSwatches("DimBatteryColor",p.dB);updateSwatches("DimStepsColor",p.dS);'
       + 'updateSwatches("LitHourTipColor",p.tH);updateSwatches("LitMinuteTipColor",p.tM);'
-      // Outer lines (1 & 4) get the lit tick color; inner lines (2 & 3) get the date text color
-      + 'updateSwatches("InfoLine1Color",p.lH);updateSwatches("InfoLine2Color",p.dt);'
-      + 'updateSwatches("InfoLine3Color",p.dt);updateSwatches("InfoLine4Color",p.lH);}'
+      // Lines 1&4 = light gray (outer), Lines 2&3 = dt (inner, date text color)
+      + 'updateSwatches("InfoLine1Color","#aaaaaa");updateSwatches("InfoLine2Color",p.dt);'
+      + 'updateSwatches("InfoLine3Color",p.dt);updateSwatches("InfoLine4Color","#aaaaaa");}'
 
       + 'function h(hex){return parseInt(hex.slice(1),16);}'
       + 'function tog(id){var el=document.getElementById(id);return el&&el.checked?1:0;}'
