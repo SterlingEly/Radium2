@@ -68,18 +68,18 @@ static void prv_default_settings(void) {
   s_settings.BackgroundColor   = GColorBlack;
   s_settings.OverlayBgColor    = GColorBlack;
 #if defined(PBL_COLOR)
-  // Defaults match the Radium preset
+  // Defaults match the Radium preset exactly
   s_settings.TimeTextColor     = GColorWhite;
   s_settings.DateTextColor     = GColorMintGreen;
-  s_settings.LitHourColor      = GColorBrightGreen;
-  s_settings.LitMinuteColor    = GColorBrightGreen;
-  s_settings.LitBatteryColor   = GColorBrightGreen;
-  s_settings.LitStepsColor     = GColorBrightGreen;
+  s_settings.LitHourColor      = GColorMintGreen;
+  s_settings.LitMinuteColor    = GColorMintGreen;
+  s_settings.LitBatteryColor   = GColorMintGreen;
+  s_settings.LitStepsColor     = GColorMintGreen;
   s_settings.DimHourColor      = GColorDarkGreen;
   s_settings.DimMinuteColor    = GColorDarkGreen;
   s_settings.DimBatteryColor   = GColorDarkGreen;
   s_settings.DimStepsColor     = GColorDarkGreen;
-  s_settings.LitHourTipColor   = GColorMintGreen;
+  s_settings.LitHourTipColor   = GColorWhite;
   s_settings.LitMinuteTipColor = GColorWhite;
   // Lines 1&4 = light gray (outer/accent), Lines 2&3 = MintGreen (inner, matches dt)
   s_settings.InfoLine1Color    = GColorLightGray;
