@@ -324,7 +324,7 @@ module.exports = {
       + 'LitHourColor:"#aaffaa",LitMinuteColor:"#aaffaa",LitBatteryColor:"#aaffaa",LitStepsColor:"#aaffaa",'
       + 'DimHourColor:"#555555",DimMinuteColor:"#555555",DimBatteryColor:"#555555",DimStepsColor:"#555555",'
       + 'LitHourTipColor:"#ffffff",LitMinuteTipColor:"#ffffff",'
-      + 'InfoLine1Color:"#aaaaaa",InfoLine2Color:"#aaaaaa",InfoLine3Color:"#aaaaaa",InfoLine4Color:"#aaaaaa"'
+      + 'InfoLine1Color:"#aaffaa",InfoLine2Color:"#aaaaaa",InfoLine3Color:"#aaaaaa",InfoLine4Color:"#aaffaa"'
       + '};'
 
       + 'function updateSwatches(key,hex){'
@@ -397,8 +397,9 @@ module.exports = {
       + 'updateSwatches("DimHourColor",p.dH);updateSwatches("DimMinuteColor",p.dM);'
       + 'updateSwatches("DimBatteryColor",p.dB);updateSwatches("DimStepsColor",p.dS);'
       + 'updateSwatches("LitHourTipColor",p.tH);updateSwatches("LitMinuteTipColor",p.tM);'
-      + 'updateSwatches("InfoLine1Color",p.dt);updateSwatches("InfoLine2Color",p.dt);'
-      + 'updateSwatches("InfoLine3Color",p.dt);updateSwatches("InfoLine4Color",p.dt);}'
+      // Outer lines (1 & 4) get the lit tick color; inner lines (2 & 3) get the date text color
+      + 'updateSwatches("InfoLine1Color",p.lH);updateSwatches("InfoLine2Color",p.dt);'
+      + 'updateSwatches("InfoLine3Color",p.dt);updateSwatches("InfoLine4Color",p.lH);}'
 
       + 'function h(hex){return parseInt(hex.slice(1),16);}'
       + 'function tog(id){var el=document.getElementById(id);return el&&el.checked?1:0;}'
