@@ -361,8 +361,8 @@ static void draw_field(GContext *ctx, int field, int y, int w, int cx, GColor co
     } else {
       const char *temp_str = is_f ? s_temp_f_buffer : s_temp_c_buffer;
       // Fixed centering for weather: icon(11) + gap(2) + text(~32px max) = ~45px.
-      // icon at cx-25 centers a ~45px unit on cx. text_x = icon_x + 13.
-      int icon_x = cx - 25;
+      // icon_x = cx - 23 centers the ~45px unit on cx (nudged +2px right vs cx-25).
+      int icon_x = cx - 23;
       int text_x = icon_x + ICON_W + ICON_TEXT_GAP;
       draw_weather_icon(ctx, icon_x, iy - 1, col, weather_icon_for_code(s_weather_code));
       graphics_draw_text(ctx, temp_str, font,
