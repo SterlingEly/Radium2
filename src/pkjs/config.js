@@ -19,25 +19,19 @@ module.exports = {
     // Design mix: ~half have active tips; ~1/3 have split lH/lM colors
     // ----------------------------------------------------------------
     var presets = [
-      // ---- DARK (8) — original tweet schemes first ----
-      // "Navy": the original blue+white starburst from the Dec 2015 design tweet
-      { label:'Navy',    bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#0055ff',lM:'#ffffff',lB:'#0055ff',lS:'#0055ff',
-        dH:'#000055',dM:'#555555',dB:'#000055',dS:'#000055',
-        tH:'#aaaaff',tM:'#ffffff',
-        l1:'#aaaaff',l2:'#ffffff',l3:'#ffffff',l4:'#aaaaff' },
+      // ---- DARK (8) — Radium first, then the 2015 tweet schemes ----
+      // "Radium": the signature MintGreen preset — always #1
+      { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',
+        lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa',
+        dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
+        tH:'#ffffff',tM:'#ffffff',
+        l1:'#aaaaaa',l2:'#aaffaa',l3:'#aaffaa',l4:'#aaaaaa' },
       // "Scarlet": the original red+gray starburst from the Dec 2015 design tweet
       { label:'Scarlet', bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff0000',lM:'#aaaaaa',lB:'#ff0000',lS:'#ff0000',
         dH:'#550000',dM:'#333333',dB:'#550000',dS:'#550000',
         tH:'#ffaaaa',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#ff5555',l3:'#ff5555',l4:'#aaaaaa' },
-      // "Radium": the signature MintGreen preset
-      { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa',
-        dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
-        tH:'#ffffff',tM:'#ffffff',
-        l1:'#aaaaaa',l2:'#aaffaa',l3:'#aaffaa',l4:'#aaaaaa' },
       { label:'Ember',   bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff5500',lM:'#ff5500',lB:'#ff5500',lS:'#ff5500',
         dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555',
@@ -63,6 +57,11 @@ module.exports = {
         dH:'#555555',dM:'#555555',dB:'#555555',dS:'#555555',
         tH:'#ffffff',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#aaaaaa',l3:'#aaaaaa',l4:'#aaaaaa' },
+      { label:'Dusk',    bg:'#000000',obg:'#000000',tt:'#ffffff',
+        lH:'#ff55ff',lM:'#ff55ff',lB:'#ff55ff',lS:'#ff55ff',
+        dH:'#550055',dM:'#550055',dB:'#550055',dS:'#550055',
+        tH:'#ffaaff',tM:'#ffaaff',
+        l1:'#aa55aa',l2:'#ffaaff',l3:'#ffaaff',l4:'#aa55aa' },
 
       // ---- DARK+ (8) ----
       { label:'Ocean',   bg:'#000000',obg:'#000000',tt:'#ffffff',
@@ -70,11 +69,6 @@ module.exports = {
         dH:'#0055aa',dM:'#005555',dB:'#0055aa',dS:'#0055aa',
         tH:'#aaffff',tM:'#ffffff',
         l1:'#0055aa',l2:'#aaffff',l3:'#aaffff',l4:'#0055aa' },
-      { label:'Dusk',    bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#ff55ff',lM:'#ff55ff',lB:'#ff55ff',lS:'#ff55ff',
-        dH:'#550055',dM:'#550055',dB:'#550055',dS:'#550055',
-        tH:'#ffaaff',tM:'#ffaaff',
-        l1:'#aa55aa',l2:'#ffaaff',l3:'#ffaaff',l4:'#aa55aa' },
       { label:'Aurora',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#00ff55',lM:'#00ffff',lB:'#00aaff',lS:'#aaffaa',
         dH:'#005500',dM:'#005555',dB:'#005555',dS:'#005500',
@@ -105,8 +99,13 @@ module.exports = {
         dH:'#005500',dM:'#550055',dB:'#005500',dS:'#aa0055',
         tH:'#ffffff',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#aaffaa',l3:'#ff55aa',l4:'#aaaaaa' },
+      { label:'Hearth',   bg:'#000000',obg:'#000000',tt:'#ffaa55',
+        lH:'#ff5500',lM:'#ff5500',lB:'#ffaa00',lS:'#ffaa00',
+        dH:'#550000',dM:'#550000',dB:'#aa5500',dS:'#550000',
+        tH:'#ffff00',tM:'#ffff00',
+        l1:'#ffaa55',l2:'#ffaa55',l3:'#ffaa55',l4:'#ffaa55' },
 
-      // ---- LIGHT (8) ----
+      // ---- LIGHT (8) — Navy joins the light section ----
       { label:'Paper',    bg:'#ffffff',obg:'#ffffff',tt:'#000000',
         lH:'#000000',lM:'#000000',lB:'#000000',lS:'#000000',
         dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa',
@@ -132,16 +131,17 @@ module.exports = {
         dH:'#aaffaa',dM:'#aaffaa',dB:'#aaffaa',dS:'#aaffaa',
         tH:'#000000',tM:'#000000',
         l1:'#000000',l2:'#005500',l3:'#005500',l4:'#000000' },
+      // "Navy": the original blue+white starburst from the 2015 tweet — fits Light (white bg)
+      { label:'Navy',     bg:'#ffffff',obg:'#ffffff',tt:'#000000',
+        lH:'#0000aa',lM:'#ffffff',lB:'#0000aa',lS:'#0000aa',
+        dH:'#aaaaff',dM:'#aaaaaa',dB:'#aaaaff',dS:'#aaaaff',
+        tH:'#000055',tM:'#ffffff',
+        l1:'#aaaaaa',l2:'#0000aa',l3:'#0000aa',l4:'#aaaaaa' },
       { label:'Rose',     bg:'#ffffff',obg:'#ffffff',tt:'#550000',
         lH:'#550000',lM:'#550000',lB:'#550000',lS:'#550000',
         dH:'#ffaaaa',dM:'#ffaaaa',dB:'#ffaaaa',dS:'#ffaaaa',
         tH:'#000000',tM:'#000000',
         l1:'#000000',l2:'#550000',l3:'#550000',l4:'#000000' },
-      { label:'Sky',      bg:'#ffffff',obg:'#ffffff',tt:'#000000',
-        lH:'#0000aa',lM:'#0000aa',lB:'#0000aa',lS:'#0000aa',
-        dH:'#aaaaff',dM:'#aaaaff',dB:'#aaaaff',dS:'#aaaaff',
-        tH:'#000000',tM:'#000000',
-        l1:'#000000',l2:'#0000aa',l3:'#0000aa',l4:'#000000' },
       { label:'Sepia',    bg:'#ffffaa',obg:'#ffffaa',tt:'#000000',
         lH:'#550000',lM:'#550000',lB:'#550000',lS:'#550000',
         dH:'#ffaa55',dM:'#ffaa55',dB:'#ffaa55',dS:'#ffaa55',
@@ -191,11 +191,6 @@ module.exports = {
         l1:'#aaaaaa',l2:'#ffffff',l3:'#ffffff',l4:'#aaaaaa' },
 
       // ---- SPECIAL (8) ----
-      { label:'Hearth',   bg:'#000000',obg:'#000000',tt:'#ffaa55',
-        lH:'#ff5500',lM:'#ff5500',lB:'#ffaa00',lS:'#ffaa00',
-        dH:'#550000',dM:'#550000',dB:'#aa5500',dS:'#550000',
-        tH:'#ffff00',tM:'#ffff00',
-        l1:'#ffaa55',l2:'#ffaa55',l3:'#ffaa55',l4:'#ffaa55' },
       { label:'Boreal',   bg:'#000000',obg:'#0000aa',tt:'#aaaaff',
         lH:'#00aaff',lM:'#55ffff',lB:'#00ffff',lS:'#55aaff',
         dH:'#0000aa',dM:'#005555',dB:'#005555',dS:'#0000aa',
@@ -231,6 +226,11 @@ module.exports = {
         dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555',
         tH:'#ffff00',tM:'#ffff00',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaaa',l4:'#aaaaaa' },
+      { label:'Radium+', bg:'#000000',obg:'#000000',tt:'#ffffff',
+        lH:'#00ff00',lM:'#00ff00',lB:'#00ff00',lS:'#00ff00',
+        dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
+        tH:'#aaffaa',tM:'#aaffaa',
+        l1:'#55aa55',l2:'#aaffaa',l3:'#aaffaa',l4:'#55aa55' },
     ];
 
     var palette = [
@@ -429,7 +429,7 @@ module.exports = {
       + '<h2>Presets</h2><div class="card"><div class="presets">' + presetsHtml + '</div></div>'
       + '<h2>Colors</h2><div class="card">'
 
-      // Text group: Time + Info Lines 1-4
+      // Text group
       + '<div class="expand-row" onclick="toggle(\'text\')"><label>Text</label><div class="right"><div class="swatch" id="sw-TextAll" onclick="openPicker(\'TextAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-text">+</span></div></div>'
       + '<div class="sub-rows" id="sub-text">'
       + '<div class="sub-row"><label>Time</label><div class="swatch" id="sw-TimeColor" onclick="openPicker(\'TimeColor\')"></div></div>'
