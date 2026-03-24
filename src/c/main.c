@@ -192,6 +192,9 @@ static GPoint    s_tri_pts[3];
 static GPathInfo s_tri_info = { .num_points = 3, .points = s_tri_pts };
 static GPath    *s_tri_path = NULL;
 
+// Forward declaration — defined after inbox_received
+static void prv_overlay_auto_hide(void *context);
+
 // ============================================================
 // HELPERS
 // ============================================================
