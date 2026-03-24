@@ -4,7 +4,7 @@
 // ============================================================
 // CONSTANTS
 // ============================================================
-#define SETTINGS_KEY      6          // increment when struct layout changes
+#define SETTINGS_KEY      7          // increment when struct layout changes
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2
 #define RING_THICK        6
@@ -13,6 +13,9 @@
 #define OVERLAY_ALWAYS_ON   0
 #define OVERLAY_OFF         1
 #define OVERLAY_SHAKE       2
+#define OVERLAY_AUTO        3  // shake to show for ~60s, then return to art mode
+
+#define OVERLAY_AUTO_HIDE_MS  60000  // auto-hide timeout for OVERLAY_AUTO mode (ms)
 
 // Overlay size (emery/gabbro default large; all others default small)
 #define OVERLAY_SMALL  0
@@ -76,7 +79,7 @@ typedef struct {
 
   // Health & display
   int  StepGoal;
-  int  OverlayMode;   // OVERLAY_ALWAYS_ON / OVERLAY_OFF / OVERLAY_SHAKE
+  int  OverlayMode;   // OVERLAY_ALWAYS_ON / OVERLAY_OFF / OVERLAY_SHAKE / OVERLAY_AUTO
   int  OverlaySize;   // OVERLAY_SMALL / OVERLAY_LARGE
   bool InvertBW;      // B&W platforms only: swap black/white
   bool ShowRing;      // show battery/steps outer ring
@@ -128,7 +131,12 @@ static void prv_default_settings(void) {
   s_settings.StepGoal    = DEFAULT_STEP_GOAL;
   s_settings.OverlayMode = OVERLAY_SHAKE;
   s_settings.InvertBW    = false;
+  // Aplite has no health service (no steps), so ring is less useful by default
+#if defined(PBL_PLATFORM_APLITE)
+  s_settings.ShowRing    = false;
+#else
   s_settings.ShowRing    = true;
+#endif
 
   // Default info line content
   s_settings.Line1Field  = FIELD_TEMP_F;
@@ -136,12 +144,8 @@ static void prv_default_settings(void) {
   s_settings.Line3Field  = FIELD_DATE;
   s_settings.Line4Field  = FIELD_STEPS;
 
-  // Large overlay on high-res screens (emery=200x228, gabbro=260x260); small elsewhere
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-  s_settings.OverlaySize = OVERLAY_LARGE;
-#else
+  // Small overlay default everywhere (change to OVERLAY_LARGE for emery/gabbro release)
   s_settings.OverlaySize = OVERLAY_SMALL;
-#endif
 }
 
 static void prv_save_settings(void) {
@@ -179,6 +183,9 @@ static char s_steps_buffer[12];    // "12,345"
 static char s_battery_buffer[6];   // "72%"
 static char s_temp_f_buffer[8];    // "72F"
 static char s_temp_c_buffer[8];    // "22C"
+
+// Auto-hide timer for OVERLAY_AUTO mode
+static AppTimer *s_overlay_timer = NULL;
 
 // Triangle path for tick-wedge drawing
 static GPoint    s_tri_pts[3];
@@ -974,11 +981,14 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // CENTER OVERLAY — time + 4 info lines
   //
   // SMALL (58px, LECO_36_BOLD / GOTHIC_18_BOLD):
-  //   cap_h=11, line_gap=6, stride=17, single_offset=12, top/bot nudge=0
+  //   cap_h=11, line_gap=6, stride=17, single_offset=12
+  //   single-line top: nudge +5px down; single-line bottom: nudge -1px up
+  //   double-line nudge=0 (both positions)
   //
   // LARGE (70px, LECO_42 / GOTHIC_24_BOLD):
   //   cap_h=14, line_gap=7, stride=21, single_offset=16
-  //   top nudge=-2, bottom nudge=-7
+  //   single-line top: nudge -2px; single-line bottom: nudge -7px
+  //   double-line: same nudges
   //
   // Line mapping: Line1=top-outer, Line2=top-inner,
   //               Line3=bottom-inner, Line4=bottom-outer
@@ -1022,7 +1032,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      int nudge  = large ? -2 : 0;
+      int nudge  = large ? -2 : 5;   // small: shift down 5px for better balance
       draw_info_line(ctx, field, time_y - single_offset - cap_h + nudge, w, cx, col, large);
     } else if (top_count == 2) {
       int nudge   = large ? -2 : 0;
@@ -1036,7 +1046,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      int nudge  = large ? -7 : 0;
+      int nudge  = large ? -7 : -1;  // small: shift up 1px for better balance
       draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + nudge, w, cx, col, large);
     } else if (bot_count == 2) {
       int nudge   = large ? -7 : 0;
@@ -1161,7 +1171,13 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   t = dict_find(iter, MESSAGE_KEY_OverlayMode);
   if (t) {
     s_settings.OverlayMode = (int)t->value->int32;
-    s_show_overlay = (s_settings.OverlayMode != OVERLAY_OFF);
+    if (s_overlay_timer) { app_timer_cancel(s_overlay_timer); s_overlay_timer = NULL; }
+    if (s_settings.OverlayMode == OVERLAY_AUTO) {
+      s_show_overlay  = true;
+      s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
+    } else {
+      s_show_overlay = (s_settings.OverlayMode != OVERLAY_OFF);
+    }
   }
   t = dict_find(iter, MESSAGE_KEY_OverlaySize);
   if (t) s_settings.OverlaySize = (int)t->value->int32;
@@ -1188,10 +1204,23 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   layer_mark_dirty(s_canvas_layer);
 }
 
-static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
-  if (s_settings.OverlayMode != OVERLAY_SHAKE) return;
-  s_show_overlay = !s_show_overlay;
+static void prv_overlay_auto_hide(void *context) {
+  s_overlay_timer = NULL;
+  s_show_overlay  = false;
   layer_mark_dirty(s_canvas_layer);
+}
+
+static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
+  if (s_settings.OverlayMode == OVERLAY_SHAKE) {
+    s_show_overlay = !s_show_overlay;
+    layer_mark_dirty(s_canvas_layer);
+  } else if (s_settings.OverlayMode == OVERLAY_AUTO) {
+    // Show the overlay and (re)start the 60s auto-hide timer
+    if (s_overlay_timer) { app_timer_cancel(s_overlay_timer); }
+    s_show_overlay  = true;
+    s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
+    layer_mark_dirty(s_canvas_layer);
+  }
 }
 
 static void window_load(Window *window) {
@@ -1211,7 +1240,6 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   prv_load_settings();
-  s_show_overlay   = (s_settings.OverlayMode != OVERLAY_OFF);
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
   s_weather_code   = 0;
@@ -1219,6 +1247,14 @@ static void init(void) {
   snprintf(s_battery_buffer, sizeof(s_battery_buffer), "0%%");
   snprintf(s_temp_f_buffer,  sizeof(s_temp_f_buffer),  "--");
   snprintf(s_temp_c_buffer,  sizeof(s_temp_c_buffer),  "--");
+
+  // OVERLAY_AUTO: start visible, begin 60s countdown to art mode
+  if (s_settings.OverlayMode == OVERLAY_AUTO) {
+    s_show_overlay  = true;
+    s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
+  } else {
+    s_show_overlay = (s_settings.OverlayMode != OVERLAY_OFF);
+  }
 
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
@@ -1243,6 +1279,7 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  if (s_overlay_timer) { app_timer_cancel(s_overlay_timer); s_overlay_timer = NULL; }
   accel_tap_service_unsubscribe();
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
