@@ -138,14 +138,18 @@ static void prv_default_settings(void) {
   s_settings.ShowRing    = true;
 #endif
 
-  // Default info line content
-  s_settings.Line1Field  = FIELD_TEMP_F;
+  // Default info line content: none / day / date / none (clean minimal layout)
+  s_settings.Line1Field  = FIELD_NONE;
   s_settings.Line2Field  = FIELD_DAY_LONG;
   s_settings.Line3Field  = FIELD_DATE;
-  s_settings.Line4Field  = FIELD_STEPS;
+  s_settings.Line4Field  = FIELD_NONE;
 
-  // Small overlay default everywhere (change to OVERLAY_LARGE for emery/gabbro release)
+  // Large overlay on emery/gabbro (high-res screens); small on all others
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+  s_settings.OverlaySize = OVERLAY_LARGE;
+#else
   s_settings.OverlaySize = OVERLAY_SMALL;
+#endif
 }
 
 static void prv_save_settings(void) {
@@ -446,7 +450,6 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
       GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
   } else if (field == FIELD_STEPS) {
-    // Measure text to center the icon+text unit horizontally
     GSize sz = graphics_text_layout_get_content_size(
       s_steps_buffer, font, GRect(0, 0, 200, 20),
       GTextOverflowModeFill, GTextAlignmentLeft);
@@ -482,7 +485,6 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
       int unit_w = icon_w + ICON_TEXT_GAP + sz.w;
       int icon_x = cx - unit_w / 2;
       int text_x = icon_x + icon_w + ICON_TEXT_GAP;
-      // Small: nudge icon up 1px to align top with text cap
       draw_weather_icon(ctx, icon_x, iy + (large ? 0 : -1), col,
                         weather_icon_for_code(s_weather_code), large);
       graphics_draw_text(ctx, str, font,
@@ -509,10 +511,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   bool large = (s_settings.OverlaySize == OVERLAY_LARGE);
 
-  // ----------------------------------------------------------
-  // RESOLVE EFFECTIVE COLORS
-  // B&W platforms ignore all stored color settings.
-  // ----------------------------------------------------------
 #if defined(PBL_BW)
   GColor bw_lit    = s_settings.InvertBW ? GColorBlack     : GColorWhite;
   GColor bw_dim    = s_settings.InvertBW ? GColorLightGray : GColorDarkGray;
@@ -551,16 +549,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   GColor col_l4        = s_settings.Line4Color;
 #endif
 
-  // ----------------------------------------------------------
-  // LAYOUT PARAMETERS
-  // ----------------------------------------------------------
   bool show_ring = s_settings.ShowRing;
   int  inset     = show_ring ? (RING_THICK + RING_GAP) : 0;
   GRect tick_rect = GRect(inset, inset, w - 2*inset, h - 2*inset);
   int inner_short = (tick_rect.size.w < tick_rect.size.h)
                     ? tick_rect.size.w : tick_rect.size.h;
 
-  // On rect screens, tick wedge thickness scales to leave room for the overlay
   int tick_thick = inner_short;
 #if !defined(PBL_ROUND)
   if (s_settings.OverlayMode != OVERLAY_OFF) {
@@ -568,26 +562,19 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 #endif
 
-  // Wedge radius extends beyond screen edges for a full-bleed effect
   int radius = ((w > h) ? w : h) - RING_THICK - 1;
 
   graphics_context_set_stroke_width(ctx, 0);
 
-  // Background
   graphics_context_set_fill_color(ctx, col_bg);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
-  // ----------------------------------------------------------
-  // TICK MARKS — painter's algorithm (dim all -> lit all -> tip)
-  // ----------------------------------------------------------
   if (!is_round) {
-    // ---- RECT tick rendering ----
     int filled_groups = s_minute / 5;
     int partial_min   = s_minute % 5;
     int first_empty   = filled_groups + (partial_min > 0 ? 1 : 0);
 
 #if defined(PBL_COLOR)
-    // Leading minute tick position (for tip highlight)
     int tip_deg = 0;
     if (s_minute > 0) {
       tip_deg = (partial_min > 0)
@@ -596,14 +583,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 1: dim all unfilled groups
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int g = first_empty; g < 12; g++) {
       int a = 3 + 15*g;
       draw_wedge(ctx, cx, cy, radius, DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 9));
     }
 #if defined(PBL_COLOR)
-    // Cut gaps into dim ticks
     graphics_context_set_fill_color(ctx, col_bg);
     for (int g = first_empty; g < 12; g++) {
       int a = 3 + 15*g;
@@ -614,7 +599,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 2: lit filled groups
     graphics_context_set_fill_color(ctx, col_min);
     for (int g = 0; g < filled_groups; g++) {
       int a = 3 + 15*g;
@@ -631,7 +615,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Pass 2b: partial group
     if (partial_min > 0) {
       int a = 3 + 15*filled_groups;
       graphics_context_set_fill_color(ctx, col_dmin);
@@ -657,7 +640,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Pass 3: minute tip
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -665,7 +647,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Hour ticks (183deg-357deg)
     bool is_24h       = clock_is_24h_style();
     int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
     int  filled_half  = s_hour % 2;
@@ -680,7 +661,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Dim all hour slots
     graphics_context_set_fill_color(ctx, col_dhour);
     for (int h2 = 0; h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -700,7 +680,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
-    // Lit hour slots
     if (!is_24h) {
       graphics_context_set_fill_color(ctx, col_hour);
       for (int h2 = 0; h2 < filled_slots; h2++) {
@@ -721,7 +700,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
-    // Hour tip
     if (s_hour > 0 || is_24h) {
       if (!is_24h && filled_slots > 0) {
         graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -740,7 +718,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
     }
-    // Re-cut separators over lit region
     graphics_context_set_fill_color(ctx, col_bg);
     for (int h2 = 0; h2 < filled_slots && h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -760,7 +737,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
   } else {
-    // ---- ROUND tick rendering ----
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int i = 0; i < 60; i++) {
       int a = 3 + 2*i + 5*(i/5);
@@ -775,7 +751,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
       }
 #if defined(PBL_COLOR)
-      // Leading minute tip
       graphics_context_set_fill_color(ctx, col_min_tip);
       {
         int i = s_minute - 1;
@@ -867,19 +842,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
   }
 
-  // ----------------------------------------------------------
-  // CENTER OVERLAY CIRCLE
-  // Small: 58px radius   Large: 70px radius
-  // ----------------------------------------------------------
   int overlay_r = large ? 70 : 58;
   if (prv_overlay_visible()) {
     graphics_context_set_fill_color(ctx, col_obg);
     graphics_fill_circle(ctx, GPoint(cx, cy), overlay_r);
   }
 
-  // ----------------------------------------------------------
-  // INNER EDGE STRIP (rect only)
-  // ----------------------------------------------------------
 #if !defined(PBL_ROUND)
   if (show_ring) {
     int strip = RING_THICK + RING_GAP;
@@ -891,9 +859,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 #endif
 
-  // ----------------------------------------------------------
-  // OUTER RING — battery (right arc) and steps (left arc)
-  // ----------------------------------------------------------
   if (show_ring) {
     int step_pct = (s_settings.StepGoal > 0)
       ? (s_steps * 100) / s_settings.StepGoal : 0;
@@ -985,16 +950,13 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   //
   // SMALL (58px, LECO_36_BOLD / GOTHIC_18_BOLD):
   //   cap_h=11, line_gap=6, stride=17, single_offset=12
-  //   single-line top: nudge +5px down; single-line bottom: nudge -1px up
-  //   double-line nudge=0 (both positions)
+  //   single-line top: +5px down; single-line bottom: -1px up
+  //   double-line nudge=0
   //
   // LARGE (70px, LECO_42 / GOTHIC_24_BOLD):
   //   cap_h=14, line_gap=7, stride=21, single_offset=16
-  //   single-line top: nudge -2px; single-line bottom: nudge -7px
+  //   single-line top: -2px; single-line bottom: -7px
   //   double-line: same nudges
-  //
-  // Line mapping: Line1=top-outer, Line2=top-inner,
-  //               Line3=bottom-inner, Line4=bottom-outer
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
     int time_h, cap_h, line_gap, single_offset;
@@ -1025,17 +987,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int top_count = (f1 ? 1 : 0) + (f2 ? 1 : 0);
     int bot_count = (f3 ? 1 : 0) + (f4 ? 1 : 0);
 
-    // Time digits
     graphics_context_set_text_color(ctx, col_time);
     graphics_draw_text(ctx, s_time_buffer, time_font,
       GRect(0, time_y, w, time_h + 4),
       GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
-    // Top info lines
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      int nudge  = large ? -2 : 5;   // small: shift down 5px for better balance
+      int nudge  = large ? -2 : 5;
       draw_info_line(ctx, field, time_y - single_offset - cap_h + nudge, w, cx, col, large);
     } else if (top_count == 2) {
       int nudge   = large ? -2 : 0;
@@ -1045,11 +1005,10 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       draw_info_line(ctx, f1, outer_y, w, cx, col_l1, large);
     }
 
-    // Bottom info lines
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      int nudge  = large ? -7 : -1;  // small: shift up 1px for better balance
+      int nudge  = large ? -7 : -1;
       draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + nudge, w, cx, col, large);
     } else if (bot_count == 2) {
       int nudge   = large ? -7 : 0;
@@ -1112,17 +1071,12 @@ static void health_handler(HealthEventType event, void *context) {
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
 
-  // Background & overlay
   t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
   if (t) s_settings.BackgroundColor = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_OverlayColor);
   if (t) s_settings.OverlayColor    = GColorFromHEX(t->value->int32);
-
-  // Time
   t = dict_find(iter, MESSAGE_KEY_TimeColor);
   if (t) s_settings.TimeColor        = GColorFromHEX(t->value->int32);
-
-  // Lit ticks & ring
   t = dict_find(iter, MESSAGE_KEY_LitHourColor);
   if (t) s_settings.LitHourColor     = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_LitMinuteColor);
@@ -1131,8 +1085,6 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.LitBatteryColor  = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_LitStepsColor);
   if (t) s_settings.LitStepsColor    = GColorFromHEX(t->value->int32);
-
-  // Dim ticks & ring
   t = dict_find(iter, MESSAGE_KEY_DimHourColor);
   if (t) s_settings.DimHourColor     = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_DimMinuteColor);
@@ -1141,14 +1093,10 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.DimBatteryColor  = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_DimStepsColor);
   if (t) s_settings.DimStepsColor    = GColorFromHEX(t->value->int32);
-
-  // Tip highlights
   t = dict_find(iter, MESSAGE_KEY_HourTipColor);
   if (t) s_settings.HourTipColor     = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_MinuteTipColor);
   if (t) s_settings.MinuteTipColor   = GColorFromHEX(t->value->int32);
-
-  // Info line colors
   t = dict_find(iter, MESSAGE_KEY_Line1Color);
   if (t) s_settings.Line1Color       = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_Line2Color);
@@ -1157,8 +1105,6 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.Line3Color       = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_Line4Color);
   if (t) s_settings.Line4Color       = GColorFromHEX(t->value->int32);
-
-  // Info line fields
   t = dict_find(iter, MESSAGE_KEY_Line1Field);
   if (t) s_settings.Line1Field       = (int)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_Line2Field);
@@ -1167,8 +1113,6 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.Line3Field       = (int)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_Line4Field);
   if (t) s_settings.Line4Field       = (int)t->value->int32;
-
-  // Settings
   t = dict_find(iter, MESSAGE_KEY_StepGoal);
   if (t) s_settings.StepGoal = (int)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_OverlayMode);
@@ -1188,8 +1132,6 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.InvertBW    = (t->value->int32 == 1);
   t = dict_find(iter, MESSAGE_KEY_ShowRing);
   if (t) s_settings.ShowRing    = (t->value->int32 == 1);
-
-  // Weather (sent from phone JS, not part of config UI)
   t = dict_find(iter, MESSAGE_KEY_WeatherTempF);
   if (t) {
     s_weather_temp_f = (int)t->value->int32;
@@ -1218,7 +1160,6 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     s_show_overlay = !s_show_overlay;
     layer_mark_dirty(s_canvas_layer);
   } else if (s_settings.OverlayMode == OVERLAY_AUTO) {
-    // Show the overlay and (re)start the 60s auto-hide timer
     if (s_overlay_timer) { app_timer_cancel(s_overlay_timer); }
     s_show_overlay  = true;
     s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
