@@ -27,9 +27,11 @@
 #define FIELD_DATE      2  // "MAR 21"
 #define FIELD_DAY_DATE  3  // "SAT MAR 21"
 #define FIELD_STEPS     4  // footprint icon + step count
-#define FIELD_TEMP_F    5  // weather icon + temperature in F
-#define FIELD_TEMP_C    6  // weather icon + temperature in C
+#define FIELD_TEMP_F    5  // weather icon + temperature in °F
+#define FIELD_TEMP_C    6  // weather icon + temperature in °C
 #define FIELD_BATTERY   7  // battery icon + charge %
+#define FIELD_DISTANCE  8  // footprint icon + walked distance (mi or km)
+#define FIELD_CALORIES  9  // flame icon + active kcal burned
 
 // Weather icon types (mapped from WMO code in weather_icon_for_code)
 // 0=sun 1=partly-cloudy 2=cloud 3=rain 4=snow 5=storm
@@ -131,7 +133,7 @@ static void prv_default_settings(void) {
   s_settings.StepGoal    = DEFAULT_STEP_GOAL;
   s_settings.OverlayMode = OVERLAY_SHAKE;
   s_settings.InvertBW    = false;
-  // Aplite has no health service (no steps), so ring is less useful by default
+  // Aplite has no health service, so ring is less useful by default
 #if defined(PBL_PLATFORM_APLITE)
   s_settings.ShowRing    = false;
 #else
@@ -170,7 +172,9 @@ static Layer  *s_canvas_layer;
 static int  s_hour    = 0;
 static int  s_minute  = 0;
 static int  s_battery = 100;
-static int  s_steps   = 0;
+static int  s_steps      = 0;
+static int  s_distance_m = 0;  // walked distance in meters
+static int  s_calories   = 0;  // active kcal burned today
 static bool s_show_overlay = true;
 
 // Weather state — INT_MIN means "not yet received from phone"
@@ -179,14 +183,16 @@ static int  s_weather_temp_c = INT_MIN;
 static int  s_weather_code   = 0;
 
 // String buffers for dynamic text
-static char s_time_buffer[8];      // "HH:MM"
-static char s_day_buffer[12];      // "WEDNESDAY"
-static char s_date_buffer[10];     // "MAR 21"
-static char s_day_date_buffer[14]; // "SAT MAR 21"
-static char s_steps_buffer[12];    // "12,345"
-static char s_battery_buffer[6];   // "72%"
-static char s_temp_f_buffer[8];    // "72F"
-static char s_temp_c_buffer[8];    // "22C"
+static char s_time_buffer[8];       // "HH:MM"
+static char s_day_buffer[12];       // "WEDNESDAY"
+static char s_date_buffer[10];      // "MAR 21"
+static char s_day_date_buffer[14];  // "SAT MAR 21"
+static char s_steps_buffer[12];     // "12,345"
+static char s_battery_buffer[6];    // "72%"
+static char s_temp_f_buffer[8];     // "72F"
+static char s_temp_c_buffer[8];     // "22C"
+static char s_distance_buffer[10];  // "3.2mi" / "5.1km"
+static char s_calories_buffer[8];   // "847cal"
 
 // Auto-hide timer for OVERLAY_AUTO mode
 static AppTimer *s_overlay_timer = NULL;
@@ -256,7 +262,7 @@ static int weather_icon_for_code(int code) {
 //   cap height = 14px, font pad = 10px
 //
 // Icons are drawn at iy = y + font_pad so the top of the icon aligns
-// with the top of the text cap. Small weather/steps shift up 1px.
+// with the top of the text cap.
 // ============================================================
 #define SMALL_FONT_PAD  8
 #define LARGE_FONT_PAD  10
@@ -264,7 +270,7 @@ static int weather_icon_for_code(int code) {
 #define LARGE_ICON_W    14
 #define ICON_TEXT_GAP   2
 
-// Two overlapping shoe-prints for the steps icon
+// Two overlapping shoe-prints (used for both Steps and Distance)
 static void draw_footprint(GContext *ctx, int fx, int fy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
   if (!large) {
@@ -278,10 +284,10 @@ static void draw_footprint(GContext *ctx, int fx, int fy, GColor col, bool large
 
 static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   if (!large) {
-    draw_footprint(ctx, ox+5, oy-1, col, false); // right foot (shift up 1px)
+    draw_footprint(ctx, ox+5, oy-1, col, false); // right foot
     draw_footprint(ctx, ox+0, oy+2, col, false); // left foot
   } else {
-    draw_footprint(ctx, ox+7, oy, col, true);
+    draw_footprint(ctx, ox+7, oy,   col, true);
     draw_footprint(ctx, ox+0, oy+3, col, true);
   }
 }
@@ -290,7 +296,7 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
   if (!large) {
-    // 11x11: body 9x7 at oy+2, nub 2x3 at right
+    // 11px: body 9x7 at oy+2, nub 2x3 at right
     graphics_draw_rect(ctx, GRect(ox, oy+2, 9, 7));
     graphics_context_set_fill_color(ctx, col);
     graphics_fill_rect(ctx, GRect(ox+9, oy+4, 2, 3), 0, GCornerNone);
@@ -298,13 +304,31 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
     if (fill_w < 1 && pct > 0) fill_w = 1;
     if (fill_w > 0) graphics_fill_rect(ctx, GRect(ox+1, oy+3, fill_w, 5), 0, GCornerNone);
   } else {
-    // 14x14: body 12x10 at oy+1, nub 2x4
+    // 14px: body 12x10 at oy+1, nub 2x4
     graphics_draw_rect(ctx, GRect(ox, oy+1, 12, 10));
     graphics_context_set_fill_color(ctx, col);
     graphics_fill_rect(ctx, GRect(ox+12, oy+4, 2, 4), 0, GCornerNone);
     int fill_w = (10 * pct) / 100;
     if (fill_w < 1 && pct > 0) fill_w = 1;
     if (fill_w > 0) graphics_fill_rect(ctx, GRect(ox+1, oy+2, fill_w, 8), 0, GCornerNone);
+  }
+}
+
+// Stylized flame — tapered teardrop pointing upward
+static void draw_calories_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
+  graphics_context_set_fill_color(ctx, col);
+  if (!large) {
+    // 11px: wide base, narrow tip pointing up
+    graphics_fill_rect(ctx, GRect(ox+2, oy+7, 7, 4), 2, GCornersBottom); // base
+    graphics_fill_rect(ctx, GRect(ox+3, oy+4, 5, 4), 0, GCornerNone);   // mid
+    graphics_fill_rect(ctx, GRect(ox+4, oy+1, 3, 4), 0, GCornerNone);   // upper
+    graphics_fill_rect(ctx, GRect(ox+5, oy+0, 1, 2), 0, GCornerNone);   // tip
+  } else {
+    // 14px
+    graphics_fill_rect(ctx, GRect(ox+2, oy+9, 10, 5), 2, GCornersBottom);
+    graphics_fill_rect(ctx, GRect(ox+3, oy+5, 8,  5), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+5, oy+2, 4,  4), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+6, oy+0, 2,  3), 0, GCornerNone);
   }
 }
 
@@ -421,19 +445,34 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int typ
 // ============================================================
 // INFO LINE DRAWING
 // Draws one info line at vertical position y, centered on cx.
-// font, icon size, and padding scale with the large flag.
+// Font, icon size, and padding scale with the large flag.
 // ============================================================
 static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
                            GColor col, bool large) {
   if (field == FIELD_NONE) return;
 
-  GFont font    = large
+  GFont font   = large
     ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
     : fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  int font_h    = large ? 14 : 11;  // cap height (px)
-  int font_pad  = large ? LARGE_FONT_PAD : SMALL_FONT_PAD;
-  int icon_w    = large ? LARGE_ICON_W : SMALL_ICON_W;
-  int iy        = y + font_pad;     // top of icon/cap area
+  int font_h   = large ? 14 : 11;  // cap height (px)
+  int font_pad = large ? LARGE_FONT_PAD : SMALL_FONT_PAD;
+  int icon_w   = large ? LARGE_ICON_W : SMALL_ICON_W;
+  int iy       = y + font_pad;     // top of icon/cap area
+
+  // Helper: measure text, compute centered icon+text unit, draw both
+  // (used by all icon+text fields below)
+  #define DRAW_ICON_TEXT(draw_icon_call, text_buf) do { \
+    GSize sz = graphics_text_layout_get_content_size( \
+      (text_buf), font, GRect(0, 0, 200, 20), \
+      GTextOverflowModeFill, GTextAlignmentLeft); \
+    int unit_w = icon_w + ICON_TEXT_GAP + sz.w; \
+    int icon_x = cx - unit_w / 2; \
+    int text_x = icon_x + icon_w + ICON_TEXT_GAP; \
+    draw_icon_call; \
+    graphics_draw_text(ctx, (text_buf), font, \
+      GRect(text_x, y, w - text_x, font_h + 2), \
+      GTextOverflowModeFill, GTextAlignmentLeft, NULL); \
+  } while(0)
 
   graphics_context_set_text_color(ctx, col);
 
@@ -450,26 +489,17 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
       GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
   } else if (field == FIELD_STEPS) {
-    GSize sz = graphics_text_layout_get_content_size(
-      s_steps_buffer, font, GRect(0, 0, 200, 20),
-      GTextOverflowModeFill, GTextAlignmentLeft);
-    int unit_w = icon_w + ICON_TEXT_GAP + sz.w;
-    int icon_x = cx - unit_w / 2;
-    int text_x = icon_x + icon_w + ICON_TEXT_GAP;
-    draw_steps_icon(ctx, icon_x, iy, col, large);
-    graphics_draw_text(ctx, s_steps_buffer, font,
-      GRect(text_x, y, w - text_x, font_h + 2), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_steps_buffer);
+
+  } else if (field == FIELD_DISTANCE) {
+    // Same footprint icon as steps — walking produces both
+    DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_distance_buffer);
+
+  } else if (field == FIELD_CALORIES) {
+    DRAW_ICON_TEXT(draw_calories_icon(ctx, icon_x, iy, col, large), s_calories_buffer);
 
   } else if (field == FIELD_BATTERY) {
-    GSize sz = graphics_text_layout_get_content_size(
-      s_battery_buffer, font, GRect(0, 0, 200, 20),
-      GTextOverflowModeFill, GTextAlignmentLeft);
-    int unit_w = icon_w + ICON_TEXT_GAP + sz.w;
-    int icon_x = cx - unit_w / 2;
-    int text_x = icon_x + icon_w + ICON_TEXT_GAP;
-    draw_battery_icon(ctx, icon_x, iy, col, s_battery, large);
-    graphics_draw_text(ctx, s_battery_buffer, font,
-      GRect(text_x, y, w - text_x, font_h + 2), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
 
   } else if (field == FIELD_TEMP_F || field == FIELD_TEMP_C) {
     bool is_f  = (field == FIELD_TEMP_F);
@@ -479,18 +509,15 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
         GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else {
       const char *str = is_f ? s_temp_f_buffer : s_temp_c_buffer;
-      GSize sz = graphics_text_layout_get_content_size(
-        str, font, GRect(0, 0, 200, 20),
-        GTextOverflowModeFill, GTextAlignmentLeft);
-      int unit_w = icon_w + ICON_TEXT_GAP + sz.w;
-      int icon_x = cx - unit_w / 2;
-      int text_x = icon_x + icon_w + ICON_TEXT_GAP;
-      draw_weather_icon(ctx, icon_x, iy + (large ? 0 : -1), col,
-                        weather_icon_for_code(s_weather_code), large);
-      graphics_draw_text(ctx, str, font,
-        GRect(text_x, y, w - text_x, font_h + 2), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+      // Small: nudge weather icon up 1px to align top with text cap
+      DRAW_ICON_TEXT(
+        draw_weather_icon(ctx, icon_x, iy + (large ? 0 : -1), col,
+                          weather_icon_for_code(s_weather_code), large),
+        str);
     }
   }
+
+  #undef DRAW_ICON_TEXT
 }
 
 // ============================================================
@@ -511,6 +538,10 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   bool large = (s_settings.OverlaySize == OVERLAY_LARGE);
 
+  // ----------------------------------------------------------
+  // RESOLVE EFFECTIVE COLORS
+  // B&W platforms ignore all stored color settings.
+  // ----------------------------------------------------------
 #if defined(PBL_BW)
   GColor bw_lit    = s_settings.InvertBW ? GColorBlack     : GColorWhite;
   GColor bw_dim    = s_settings.InvertBW ? GColorLightGray : GColorDarkGray;
@@ -530,31 +561,35 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   GColor col_l3    = col_time;
   GColor col_l4    = col_time;
 #else
-  GColor col_bg        = s_settings.BackgroundColor;
-  GColor col_obg       = s_settings.OverlayColor;
-  GColor col_time      = s_settings.TimeColor;
-  GColor col_hour      = s_settings.LitHourColor;
-  GColor col_min       = s_settings.LitMinuteColor;
-  GColor col_batt      = s_settings.LitBatteryColor;
-  GColor col_step      = s_settings.LitStepsColor;
-  GColor col_dhour     = s_settings.DimHourColor;
-  GColor col_dmin      = s_settings.DimMinuteColor;
-  GColor col_dbatt     = s_settings.DimBatteryColor;
-  GColor col_dstep     = s_settings.DimStepsColor;
-  GColor col_hour_tip  = s_settings.HourTipColor;
-  GColor col_min_tip   = s_settings.MinuteTipColor;
-  GColor col_l1        = s_settings.Line1Color;
-  GColor col_l2        = s_settings.Line2Color;
-  GColor col_l3        = s_settings.Line3Color;
-  GColor col_l4        = s_settings.Line4Color;
+  GColor col_bg       = s_settings.BackgroundColor;
+  GColor col_obg      = s_settings.OverlayColor;
+  GColor col_time     = s_settings.TimeColor;
+  GColor col_hour     = s_settings.LitHourColor;
+  GColor col_min      = s_settings.LitMinuteColor;
+  GColor col_batt     = s_settings.LitBatteryColor;
+  GColor col_step     = s_settings.LitStepsColor;
+  GColor col_dhour    = s_settings.DimHourColor;
+  GColor col_dmin     = s_settings.DimMinuteColor;
+  GColor col_dbatt    = s_settings.DimBatteryColor;
+  GColor col_dstep    = s_settings.DimStepsColor;
+  GColor col_hour_tip = s_settings.HourTipColor;
+  GColor col_min_tip  = s_settings.MinuteTipColor;
+  GColor col_l1       = s_settings.Line1Color;
+  GColor col_l2       = s_settings.Line2Color;
+  GColor col_l3       = s_settings.Line3Color;
+  GColor col_l4       = s_settings.Line4Color;
 #endif
 
-  bool show_ring = s_settings.ShowRing;
-  int  inset     = show_ring ? (RING_THICK + RING_GAP) : 0;
+  // ----------------------------------------------------------
+  // LAYOUT PARAMETERS
+  // ----------------------------------------------------------
+  bool show_ring  = s_settings.ShowRing;
+  int  inset      = show_ring ? (RING_THICK + RING_GAP) : 0;
   GRect tick_rect = GRect(inset, inset, w - 2*inset, h - 2*inset);
   int inner_short = (tick_rect.size.w < tick_rect.size.h)
                     ? tick_rect.size.w : tick_rect.size.h;
 
+  // On rect screens, tick wedge thickness scales to leave room for the overlay
   int tick_thick = inner_short;
 #if !defined(PBL_ROUND)
   if (s_settings.OverlayMode != OVERLAY_OFF) {
@@ -562,19 +597,26 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 #endif
 
+  // Wedge radius extends beyond screen edges for a full-bleed effect
   int radius = ((w > h) ? w : h) - RING_THICK - 1;
 
   graphics_context_set_stroke_width(ctx, 0);
 
+  // Background
   graphics_context_set_fill_color(ctx, col_bg);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
+  // ----------------------------------------------------------
+  // TICK MARKS — painter's algorithm (dim all -> lit all -> tip)
+  // ----------------------------------------------------------
   if (!is_round) {
+    // ---- RECT tick rendering ----
     int filled_groups = s_minute / 5;
     int partial_min   = s_minute % 5;
     int first_empty   = filled_groups + (partial_min > 0 ? 1 : 0);
 
 #if defined(PBL_COLOR)
+    // Leading minute tick position (for tip highlight)
     int tip_deg = 0;
     if (s_minute > 0) {
       tip_deg = (partial_min > 0)
@@ -583,12 +625,14 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Pass 1: dim unfilled minute groups
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int g = first_empty; g < 12; g++) {
       int a = 3 + 15*g;
       draw_wedge(ctx, cx, cy, radius, DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 9));
     }
 #if defined(PBL_COLOR)
+    // Cut sub-tick gaps into dim groups
     graphics_context_set_fill_color(ctx, col_bg);
     for (int g = first_empty; g < 12; g++) {
       int a = 3 + 15*g;
@@ -599,6 +643,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Pass 2: lit filled minute groups
     graphics_context_set_fill_color(ctx, col_min);
     for (int g = 0; g < filled_groups; g++) {
       int a = 3 + 15*g;
@@ -615,6 +660,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Pass 2b: partial minute group (dim base, lit sub-ticks)
     if (partial_min > 0) {
       int a = 3 + 15*filled_groups;
       graphics_context_set_fill_color(ctx, col_dmin);
@@ -640,6 +686,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
+    // Pass 3: leading minute tick tip highlight
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -647,6 +694,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // ---- Hour ticks (183°–357°, bottom half) ----
     bool is_24h       = clock_is_24h_style();
     int  filled_slots = is_24h ? (s_hour / 2) : ((s_hour % 12) ?: 12);
     int  filled_half  = s_hour % 2;
@@ -661,17 +709,20 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Dim all hour slots
     graphics_context_set_fill_color(ctx, col_dhour);
     for (int h2 = 0; h2 < 12; h2++) {
       int a = 183 + 15*h2;
       draw_wedge(ctx, cx, cy, radius, DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 9));
     }
 #if defined(PBL_COLOR)
+    // Separator gaps between hour slots
     graphics_context_set_fill_color(ctx, col_bg);
     for (int h2 = 0; h2 < 12; h2++) {
       int a = 183 + 15*h2;
       draw_wedge(ctx, cx, cy, radius, DEG_TO_TRIGANGLE(a + 9), DEG_TO_TRIGANGLE(a + 10));
     }
+    // 24h: cut each slot in half
     if (is_24h) {
       for (int h2 = 0; h2 < 12; h2++) {
         int a = 183 + 15*h2 + 3;
@@ -680,6 +731,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Lit hour slots
     if (!is_24h) {
       graphics_context_set_fill_color(ctx, col_hour);
       for (int h2 = 0; h2 < filled_slots; h2++) {
@@ -700,6 +752,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
+    // Leading hour tick tip highlight
     if (s_hour > 0 || is_24h) {
       if (!is_24h && filled_slots > 0) {
         graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -718,6 +771,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
     }
+    // Re-cut separators over lit region
     graphics_context_set_fill_color(ctx, col_bg);
     for (int h2 = 0; h2 < filled_slots && h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -737,6 +791,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
   } else {
+    // ---- ROUND tick rendering ----
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int i = 0; i < 60; i++) {
       int a = 3 + 2*i + 5*(i/5);
@@ -751,6 +806,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
       }
 #if defined(PBL_COLOR)
+      // Leading minute tip
       graphics_context_set_fill_color(ctx, col_min_tip);
       {
         int i = s_minute - 1;
@@ -842,12 +898,19 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
   }
 
+  // ----------------------------------------------------------
+  // CENTER OVERLAY CIRCLE
+  // Small: 58px radius   Large: 70px radius
+  // ----------------------------------------------------------
   int overlay_r = large ? 70 : 58;
   if (prv_overlay_visible()) {
     graphics_context_set_fill_color(ctx, col_obg);
     graphics_fill_circle(ctx, GPoint(cx, cy), overlay_r);
   }
 
+  // ----------------------------------------------------------
+  // INNER EDGE STRIP (rect only — cleans up tick bleed inside ring gap)
+  // ----------------------------------------------------------
 #if !defined(PBL_ROUND)
   if (show_ring) {
     int strip = RING_THICK + RING_GAP;
@@ -859,6 +922,10 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 #endif
 
+  // ----------------------------------------------------------
+  // OUTER RING — battery (right arc) and steps (left arc)
+  // Both arcs fill from 6 o'clock upward toward 12.
+  // ----------------------------------------------------------
   if (show_ring) {
     int step_pct = (s_settings.StepGoal > 0)
       ? (s_steps * 100) / s_settings.StepGoal : 0;
@@ -889,17 +956,20 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       int half_w = cx - gap;
       int total  = half_w + h + half_w;
 
+      // Clear ring area
       graphics_context_set_fill_color(ctx, col_bg);
       graphics_fill_rect(ctx, GRect(0,   0,   w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
+      // Dim battery (right half)
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone);
 
+      // Lit battery — fills counter-clockwise from bottom-right
       {
         int filled = total * s_battery / 100;
         graphics_context_set_fill_color(ctx, col_batt);
@@ -919,11 +989,13 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
+      // Dim steps (left half)
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, half_w, t), 0, GCornerNone);
 
+      // Lit steps — fills counter-clockwise from bottom-left
       if (step_pct > 0) {
         int filled = total * step_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
@@ -948,15 +1020,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   // ----------------------------------------------------------
   // CENTER OVERLAY — time + 4 info lines
   //
-  // SMALL (58px, LECO_36_BOLD / GOTHIC_18_BOLD):
-  //   cap_h=11, line_gap=6, stride=17, single_offset=12
-  //   single-line top: +5px down; single-line bottom: -1px up
-  //   double-line nudge=0
+  // SMALL overlay (58px, LECO_36_BOLD / GOTHIC_18_BOLD):
+  //   cap_h=11  line_gap=6  stride=17  single_offset=12
+  //   single-line nudge: top +5px, bottom -1px
+  //   double-line nudge: 0 (both)
   //
-  // LARGE (70px, LECO_42 / GOTHIC_24_BOLD):
-  //   cap_h=14, line_gap=7, stride=21, single_offset=16
-  //   single-line top: +5px down; single-line bottom: -8px up
-  //   double-line: nudge -2 top / -7 bottom
+  // LARGE overlay (70px, LECO_42 / GOTHIC_24_BOLD):
+  //   cap_h=14  line_gap=7  stride=21  single_offset=16
+  //   single-line nudge: top +5px, bottom -8px
+  //   double-line nudge: top -2px, bottom -7px
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
     int time_h, cap_h, line_gap, single_offset;
@@ -977,8 +1049,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
     int stride   = cap_h + line_gap;
     int font_pad = large ? LARGE_FONT_PAD : SMALL_FONT_PAD;
-
-    int time_y = large ? (cy - time_h/2 - 1) : (cy - time_h/2 - 3);
+    int time_y   = large ? (cy - time_h/2 - 1) : (cy - time_h/2 - 3);
 
     int f1 = s_settings.Line1Field;
     int f2 = s_settings.Line2Field;
@@ -987,15 +1058,17 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int top_count = (f1 ? 1 : 0) + (f2 ? 1 : 0);
     int bot_count = (f3 ? 1 : 0) + (f4 ? 1 : 0);
 
+    // Time digits
     graphics_context_set_text_color(ctx, col_time);
     graphics_draw_text(ctx, s_time_buffer, time_font,
       GRect(0, time_y, w, time_h + 4),
       GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
+    // Top info lines (above time)
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      int nudge  = large ? 5 : 5;   // large: +5px down (was -2); small: +5px down
+      int nudge  = large ? 5 : 5;
       draw_info_line(ctx, field, time_y - single_offset - cap_h + nudge, w, cx, col, large);
     } else if (top_count == 2) {
       int nudge   = large ? -2 : 0;
@@ -1005,10 +1078,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       draw_info_line(ctx, f1, outer_y, w, cx, col_l1, large);
     }
 
+    // Bottom info lines (below time)
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      int nudge  = large ? -8 : -1;  // large: -8px up (was -7); small: -1px up
+      int nudge  = large ? -8 : -1;
       draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + nudge, w, cx, col, large);
     } else if (bot_count == 2) {
       int nudge   = large ? -7 : 0;
@@ -1054,17 +1128,46 @@ static void battery_handler(BatteryChargeState state) {
 }
 
 #if defined(PBL_HEALTH)
-static void update_steps(void) {
-  HealthServiceAccessibilityMask mask = health_service_metric_accessible(
-    HealthMetricStepCount, time_start_of_today(), time(NULL));
+// Update all health-derived state: steps, distance, calories.
+// Called on init and on every HealthEventMovementUpdate.
+static void update_health_data(void) {
+  time_t start = time_start_of_today();
+  time_t now   = time(NULL);
+
+  HealthServiceAccessibilityMask mask;
+
+  // Steps
+  mask = health_service_metric_accessible(HealthMetricStepCount, start, now);
   s_steps = (mask & HealthServiceAccessibilityMaskAvailable)
     ? (int)health_service_sum_today(HealthMetricStepCount) : 0;
   update_steps_buffer();
+
+  // Distance (meters -> display as mi or km based on system locale)
+  mask = health_service_metric_accessible(HealthMetricWalkedDistanceMeters, start, now);
+  s_distance_m = (mask & HealthServiceAccessibilityMaskAvailable)
+    ? (int)health_service_sum_today(HealthMetricWalkedDistanceMeters) : 0;
+  if (measurement_system_get_units(MeasurementSystemDistance) == UnitsImperial) {
+    // 1 meter = 0.000621371 miles; scale as (m * 1000) / 1609344 for 3 sig figs
+    int miles_x10 = (s_distance_m * 10) / 1609;  // tenths of a mile
+    snprintf(s_distance_buffer, sizeof(s_distance_buffer),
+             "%d.%dmi", miles_x10 / 10, miles_x10 % 10);
+  } else {
+    int km_x10 = (s_distance_m * 10) / 1000;  // tenths of a km
+    snprintf(s_distance_buffer, sizeof(s_distance_buffer),
+             "%d.%dkm", km_x10 / 10, km_x10 % 10);
+  }
+
+  // Active calories
+  mask = health_service_metric_accessible(HealthMetricActiveKCalories, start, now);
+  s_calories = (mask & HealthServiceAccessibilityMaskAvailable)
+    ? (int)health_service_sum_today(HealthMetricActiveKCalories) : 0;
+  snprintf(s_calories_buffer, sizeof(s_calories_buffer), "%dcal", s_calories);
+
   layer_mark_dirty(s_canvas_layer);
 }
 
 static void health_handler(HealthEventType event, void *context) {
-  if (event == HealthEventMovementUpdate) update_steps();
+  if (event == HealthEventMovementUpdate) update_health_data();
 }
 #endif
 
@@ -1187,10 +1290,12 @@ static void init(void) {
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
   s_weather_code   = 0;
-  snprintf(s_steps_buffer,   sizeof(s_steps_buffer),   "0");
-  snprintf(s_battery_buffer, sizeof(s_battery_buffer), "0%%");
-  snprintf(s_temp_f_buffer,  sizeof(s_temp_f_buffer),  "--");
-  snprintf(s_temp_c_buffer,  sizeof(s_temp_c_buffer),  "--");
+  snprintf(s_steps_buffer,    sizeof(s_steps_buffer),    "0");
+  snprintf(s_battery_buffer,  sizeof(s_battery_buffer),  "0%%");
+  snprintf(s_temp_f_buffer,   sizeof(s_temp_f_buffer),   "--");
+  snprintf(s_temp_c_buffer,   sizeof(s_temp_c_buffer),   "--");
+  snprintf(s_distance_buffer, sizeof(s_distance_buffer), "0.0mi");
+  snprintf(s_calories_buffer, sizeof(s_calories_buffer), "0cal");
 
   // OVERLAY_AUTO: start visible, begin 60s countdown to art mode
   if (s_settings.OverlayMode == OVERLAY_AUTO) {
@@ -1216,7 +1321,7 @@ static void init(void) {
   battery_handler(battery_state_service_peek());
 #if defined(PBL_HEALTH)
   health_service_events_subscribe(health_handler, NULL);
-  update_steps();
+  update_health_data();
 #endif
   app_message_register_inbox_received(inbox_received);
   app_message_open(768, 64);

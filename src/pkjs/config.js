@@ -12,21 +12,18 @@ module.exports = {
     //   lB   = lit battery ring  lS   = lit steps ring
     //   dH   = dim hour ticks    dM   = dim minute ticks
     //   dB   = dim battery ring  dS   = dim steps ring
-    //   tH   = hour tip highlight (= lH for "classic" style)
-    //   tM   = minute tip highlight (= lM for "classic" style)
+    //   tH   = hour tip highlight  tM = minute tip highlight
     //   l1/4 = outer info line colors  l2/3 = inner info line colors
     //
     // Design mix: ~half have active tips; ~1/3 have split lH/lM colors
     // ----------------------------------------------------------------
     var presets = [
       // ---- DARK (8) — Radium first, then the 2015 tweet schemes ----
-      // "Radium": the signature MintGreen preset — always #1
       { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa',
         dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
         tH:'#ffffff',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#aaffaa',l3:'#aaffaa',l4:'#aaaaaa' },
-      // "Scarlet": uniform red ticks (lit=red, dim=dark red), matching hour & minute
       { label:'Scarlet', bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff0000',lM:'#ff0000',lB:'#ff0000',lS:'#ff0000',
         dH:'#550000',dM:'#550000',dB:'#550000',dS:'#550000',
@@ -99,13 +96,13 @@ module.exports = {
         dH:'#005500',dM:'#550055',dB:'#005500',dS:'#aa0055',
         tH:'#ffffff',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#aaffaa',l3:'#ff55aa',l4:'#aaaaaa' },
-      { label:'Hearth',   bg:'#000000',obg:'#000000',tt:'#ffaa55',
+      { label:'Hearth',  bg:'#000000',obg:'#000000',tt:'#ffaa55',
         lH:'#ff5500',lM:'#ff5500',lB:'#ffaa00',lS:'#ffaa00',
         dH:'#550000',dM:'#550000',dB:'#aa5500',dS:'#550000',
         tH:'#ffff00',tM:'#ffff00',
         l1:'#ffaa55',l2:'#ffaa55',l3:'#ffaa55',l4:'#ffaa55' },
 
-      // ---- LIGHT (8) — Navy joins the light section ----
+      // ---- LIGHT (8) ----
       { label:'Paper',    bg:'#ffffff',obg:'#ffffff',tt:'#000000',
         lH:'#000000',lM:'#000000',lB:'#000000',lS:'#000000',
         dH:'#aaaaaa',dM:'#aaaaaa',dB:'#aaaaaa',dS:'#aaaaaa',
@@ -131,7 +128,6 @@ module.exports = {
         dH:'#aaffaa',dM:'#aaffaa',dB:'#aaffaa',dS:'#aaffaa',
         tH:'#000000',tM:'#000000',
         l1:'#000000',l2:'#005500',l3:'#005500',l4:'#000000' },
-      // "Navy": the original blue+white starburst from the 2015 tweet — fits Light (white bg)
       { label:'Navy',     bg:'#ffffff',obg:'#ffffff',tt:'#000000',
         lH:'#0000aa',lM:'#ffffff',lB:'#0000aa',lS:'#0000aa',
         dH:'#aaaaff',dM:'#aaaaaa',dB:'#aaaaff',dS:'#aaaaff',
@@ -216,7 +212,6 @@ module.exports = {
         dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#550055',
         tH:'#ffaa55',tM:'#aaaaff',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaff',l4:'#aaaaaa' },
-      // GoldEye: all 4 info lines = lime green (#aaff00), matching the lit outer ring
       { label:'GoldEye',  bg:'#000000',obg:'#005500',tt:'#ffffff',
         lH:'#ff5500',lM:'#00aaff',lB:'#aaff00',lS:'#aaff00',
         dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#005500',
@@ -227,7 +222,7 @@ module.exports = {
         dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555',
         tH:'#ffff00',tM:'#ffff00',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaaa',l4:'#aaaaaa' },
-      { label:'Radium+', bg:'#000000',obg:'#000000',tt:'#ffffff',
+      { label:'Radium+',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#00ff00',lM:'#00ff00',lB:'#00ff00',lS:'#00ff00',
         dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
         tH:'#aaffaa',tM:'#aaffaa',
@@ -263,6 +258,8 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
+    // Field options for the 4 info line dropdowns.
+    // Inner lines (2 & 3) get all options; outer lines (1 & 4) omit text-only fields.
     var fieldOptionsInner = [
       { value: 0, label: 'None' },
       { value: 1, label: 'Day' },
@@ -272,6 +269,8 @@ module.exports = {
       { value: 5, label: 'Temp (F)' },
       { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
+      { value: 8, label: 'Distance' },
+      { value: 9, label: 'Calories' },
     ];
     var fieldOptionsOuter = [
       { value: 0, label: 'None' },
@@ -280,6 +279,8 @@ module.exports = {
       { value: 5, label: 'Temp (F)' },
       { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
+      { value: 8, label: 'Distance' },
+      { value: 9, label: 'Calories' },
     ];
 
     function makeSelect(id, defaultVal, options) {
@@ -289,9 +290,9 @@ module.exports = {
       return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
     }
 
-    // Large overlay toggle only shown for emery and chalk (chalk = gabbro in CloudPebble)
+    // Large overlay toggle shown only for emery and chalk (chalk = gabbro in CloudPebble)
     var isLargePlatform = (platform === 'emery' || platform === 'chalk');
-    var isAplite = (platform === 'aplite'); // no health service on aplite
+    var isAplite = (platform === 'aplite'); // aplite has no health service
     var overlayLargeRow = isLargePlatform
       ? '<div class="row"><label>Large overlay</label>' +
         '<label class="toggle"><input type="checkbox" id="OverlaySize"><span class="knob"></span></label></div>'
@@ -430,7 +431,7 @@ module.exports = {
       + '<h2>Presets</h2><div class="card"><div class="presets">' + presetsHtml + '</div></div>'
       + '<h2>Colors</h2><div class="card">'
 
-      // Text group
+      // Text group: Time + Info Lines 1-4
       + '<div class="expand-row" onclick="toggle(\'text\')"><label>Text</label><div class="right"><div class="swatch" id="sw-TextAll" onclick="openPicker(\'TextAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-text">+</span></div></div>'
       + '<div class="sub-rows" id="sub-text">'
       + '<div class="sub-row"><label>Time</label><div class="swatch" id="sw-TimeColor" onclick="openPicker(\'TimeColor\')"></div></div>'
@@ -473,7 +474,7 @@ module.exports = {
       + '<div class="sub-sub-row"><label>Steps</label><div class="swatch" id="sw-DimStepsColor" onclick="openPicker(\'DimStepsColor\')"></div></div>'
       + '</div></div>'
 
-      // Base group
+      // Base group: Overlay + Background
       + '<div class="expand-row" onclick="toggle(\'base\')"><label>Base</label><div class="right"><div class="swatch" id="sw-BaseAll" onclick="openPicker(\'BaseAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-base">+</span></div></div>'
       + '<div class="sub-rows" id="sub-base">'
       + '<div class="sub-row"><label>Overlay</label><div class="swatch" id="sw-OverlayColor" onclick="openPicker(\'OverlayColor\')"></div></div>'
@@ -533,11 +534,9 @@ module.exports = {
       + 'setQuad("sw-InfoLinesAll",colors.Line1Color,colors.Line2Color,colors.Line3Color,colors.Line4Color);'
       + '}'
 
-      // cascadeMap: picking a parent cascades to all logical children
-      // LitTicks     -> hours + minutes + their leading tips
-      // LitHourColor -> also sets HourTipColor (leading hour tick follows parent)
-      // LitMinuteColor -> also sets MinuteTipColor (leading minute tick follows parent)
-      // LitAll       -> everything lit including all tips
+      // cascadeMap: picking a parent cascades color to all logical children.
+      // LitHourColor/LitMinuteColor also set their respective leading tip.
+      // LitTicks sets hours + minutes + both tips.
       + 'var cascadeMap={'
       + '"LitAll":["LitHourColor","LitMinuteColor","LitBatteryColor","LitStepsColor","HourTipColor","MinuteTipColor"],'
       + '"LitTicks":["LitHourColor","LitMinuteColor","HourTipColor","MinuteTipColor"],'
