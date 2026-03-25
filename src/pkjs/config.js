@@ -26,11 +26,11 @@ module.exports = {
         dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
         tH:'#ffffff',tM:'#ffffff',
         l1:'#aaaaaa',l2:'#aaffaa',l3:'#aaffaa',l4:'#aaaaaa' },
-      // "Scarlet": the original red+gray starburst from the Dec 2015 design tweet
+      // "Scarlet": uniform red ticks (lit=red, dim=dark red), matching hour & minute
       { label:'Scarlet', bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#ff0000',lM:'#aaaaaa',lB:'#ff0000',lS:'#ff0000',
-        dH:'#550000',dM:'#333333',dB:'#550000',dS:'#550000',
-        tH:'#ffaaaa',tM:'#ffffff',
+        lH:'#ff0000',lM:'#ff0000',lB:'#ff0000',lS:'#ff0000',
+        dH:'#550000',dM:'#550000',dB:'#550000',dS:'#550000',
+        tH:'#ffaaaa',tM:'#ffaaaa',
         l1:'#aaaaaa',l2:'#ff5555',l3:'#ff5555',l4:'#aaaaaa' },
       { label:'Ember',   bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff5500',lM:'#ff5500',lB:'#ff5500',lS:'#ff5500',
@@ -216,11 +216,12 @@ module.exports = {
         dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#550055',
         tH:'#ffaa55',tM:'#aaaaff',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaff',l4:'#aaaaaa' },
+      // GoldEye: all 4 info lines = lime green (#aaff00), matching the lit outer ring
       { label:'GoldEye',  bg:'#000000',obg:'#005500',tt:'#ffffff',
-        lH:'#ff5500',lM:'#00aaff',lB:'#00ff00',lS:'#00ff00',
+        lH:'#ff5500',lM:'#00aaff',lB:'#aaff00',lS:'#aaff00',
         dH:'#550000',dM:'#0000aa',dB:'#005500',dS:'#005500',
         tH:'#ffff00',tM:'#aaffff',
-        l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaffff',l4:'#aaaaaa' },
+        l1:'#aaff00',l2:'#aaff00',l3:'#aaff00',l4:'#aaff00' },
       { label:'Rainbow',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff0000',lM:'#ffaa00',lB:'#00ff00',lS:'#00ffff',
         dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555',
@@ -532,9 +533,17 @@ module.exports = {
       + 'setQuad("sw-InfoLinesAll",colors.Line1Color,colors.Line2Color,colors.Line3Color,colors.Line4Color);'
       + '}'
 
+      // cascadeMap: picking a parent cascades to all logical children
+      // LitTicks     -> hours + minutes + their leading tips
+      // LitHourColor -> also sets HourTipColor (leading hour tick follows parent)
+      // LitMinuteColor -> also sets MinuteTipColor (leading minute tick follows parent)
+      // LitAll       -> everything lit including all tips
       + 'var cascadeMap={'
       + '"LitAll":["LitHourColor","LitMinuteColor","LitBatteryColor","LitStepsColor","HourTipColor","MinuteTipColor"],'
-      + '"LitTicks":["LitHourColor","LitMinuteColor"],"LitRing":["LitBatteryColor","LitStepsColor"],'
+      + '"LitTicks":["LitHourColor","LitMinuteColor","HourTipColor","MinuteTipColor"],'
+      + '"LitRing":["LitBatteryColor","LitStepsColor"],'
+      + '"LitHourColor":["LitHourColor","HourTipColor"],'
+      + '"LitMinuteColor":["LitMinuteColor","MinuteTipColor"],'
       + '"DimAll":["DimHourColor","DimMinuteColor","DimBatteryColor","DimStepsColor"],'
       + '"DimTicks":["DimHourColor","DimMinuteColor"],"DimRing":["DimBatteryColor","DimStepsColor"],'
       + '"TextAll":["TimeColor","Line1Color","Line2Color","Line3Color","Line4Color"],'
@@ -546,7 +555,7 @@ module.exports = {
 
       + 'function openPicker(key){'
       + 'pickerTarget=key;pickerKeys=cascadeMap[key]||[key];'
-      + 'var labels={"LitAll":"Lit","LitTicks":"Time Ticks","LitRing":"Outer Ring","DimAll":"Unlit","DimTicks":"Time Ticks","DimRing":"Outer Ring","TextAll":"Text","BaseAll":"Base","InfoLinesAll":"Info Lines"};'
+      + 'var labels={"LitAll":"Lit","LitTicks":"Time Ticks","LitRing":"Outer Ring","LitHourColor":"Hours","LitMinuteColor":"Minutes","DimAll":"Unlit","DimTicks":"Time Ticks","DimRing":"Outer Ring","TextAll":"Text","BaseAll":"Base","InfoLinesAll":"Info Lines"};'
       + 'document.getElementById("modal-title").textContent=labels[key]||key.replace(/([A-Z])/g," $1").trim();'
       + 'var grid=document.getElementById("palette-grid");grid.innerHTML="";'
       + 'PALETTE.forEach(function(hex){'
