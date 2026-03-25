@@ -955,8 +955,8 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   //
   // LARGE (70px, LECO_42 / GOTHIC_24_BOLD):
   //   cap_h=14, line_gap=7, stride=21, single_offset=16
-  //   single-line top: -2px; single-line bottom: -7px
-  //   double-line: same nudges
+  //   single-line top: +5px down; single-line bottom: -8px up
+  //   double-line: nudge -2 top / -7 bottom
   // ----------------------------------------------------------
   if (prv_overlay_visible()) {
     int time_h, cap_h, line_gap, single_offset;
@@ -995,7 +995,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      int nudge  = large ? -2 : 5;
+      int nudge  = large ? 5 : 5;   // large: +5px down (was -2); small: +5px down
       draw_info_line(ctx, field, time_y - single_offset - cap_h + nudge, w, cx, col, large);
     } else if (top_count == 2) {
       int nudge   = large ? -2 : 0;
@@ -1008,7 +1008,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      int nudge  = large ? -7 : -1;
+      int nudge  = large ? -8 : -1;  // large: -8px up (was -7); small: -1px up
       draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + nudge, w, cx, col, large);
     } else if (bot_count == 2) {
       int nudge   = large ? -7 : 0;
