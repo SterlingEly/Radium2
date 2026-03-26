@@ -1,74 +1,72 @@
-# Changelog — Radium 2
-
-All notable changes to this project are documented here.
-Versions follow the `versionLabel` in `appinfo.json`.
+# Radium 2 — Changelog
 
 ---
 
-## [2.1] — 2026-03-08
+## v2.2 (in development)
 
-### New features
-- **12-color model** (color watches): every visual element now has an independent color slot.
-  - *Text (2):* `TimeTextColor`, `DateTextColor`
-  - *Lit (4):* `LitHourColor`, `LitMinuteColor`, `LitBatteryColor`, `LitStepsColor`
-  - *Unlit (4):* `DimHourColor`, `DimMinuteColor`, `DimBatteryColor`, `DimStepsColor`
-  - *Base (2):* `BackgroundColor`, `OverlayBgColor`
-- **Independent dim colors**: unlit tick tracks and ring tracks can be styled separately per element (hours vs. minutes, battery vs. steps).
-- **Overlay background color** (`OverlayBgColor`): the center overlay circle can now differ from the canvas background, enabling colored-overlay effects.
-- **Show/hide outer ring** (`ShowRing` toggle): when hidden, tick wedges/arcs expand to fill the screen edge — pure starburst art mode without losing overlay.
-- **40 presets** across five labeled rows (Dark, Dark+, Light, Color, Special), up from 24. New presets include Horizon, Reactor, Venom, Blossom, Solar, Aurora, Neon, Hearth, Boreal, GoldEye, Viper, Inferno, Cosmos, Triadic, Rainbow.
-- **Split/quad parent swatches** in the config UI: two-child parent swatches (LitTicks, LitRing, DimTicks, DimRing, TextAll, BaseAll) show a diagonal split; four-child parents (LitAll, DimAll) show a quadrant view — making multi-color presets legible at a glance.
-- **Cascade color picker**: tapping a parent swatch (e.g. LitAll, DimTicks) opens the picker and sets all child slots at once.
+### Info lines — 4 configurable data fields
+- Replaced the single fixed day/time/date overlay with **4 independently configurable info lines** (2 above, 2 below the time)
+- Each line can display: None, Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, or Battery
+- Dynamic centering via `graphics_text_layout_get_content_size` — icon+text units always centered on the overlay circle
+- Default layout on fresh install: None / Day / Date / None
 
-### Changes
-- `SETTINGS_KEY` bumped from `1` to `2` — old persisted settings are not migrated (defaults applied on first run after update).
-- `app_message_open` inbox buffer increased from 512 to 768 bytes to accommodate additional message keys.
-- Hour tick width changed from 10° to 9° (gap 5° → 6°) for visual consistency with minute ticks; pitch unchanged at 15°.
-- 24h mode divider changed from a 2° cut to a 3° cut (even thirds of the 9° tick block).
-- Overlay circle now drawn on both rect and round platforms (previously guarded by `!is_round`, silently ignoring `OverlayBgColor` on Chalk/Emery).
-- Rect ring gap tuned to 5 px (from 3 px) for cleaner visual separation at the 12 and 6 o'clock positions.
-- GoldenEye preset updated: dim hours `#aa5500→#550000`, lit ticks/battery/steps `#aaffaa→#00ff00`.
+### Live weather
+- Phone JS (`index.js`) fetches current weather from **Open-Meteo** (free, no API key)
+- Sends temperature (°F and °C) + WMO weather code to watch via AppMessage
+- **6 custom weather icons** drawn in C at both 11px (small overlay) and 14px (large overlay): sun, partly cloudy, cloud, rain, snow, storm
 
-### Bug fixes
-- Fixed platform detection inversion that caused B&W-platform color logic to run on color watches and vice versa.
-- Fixed settings not persisting across app reloads (`localStorage` now used correctly in `index.js`).
-- Fixed overlay circle being skipped on round platforms, causing `OverlayBgColor` to have no effect on Chalk/Emery.
+### New health fields
+- **Distance** — walked distance today in mi or km (auto-detected via `measurement_system_get_units`), footprint icon
+- **Calories** — active kcal burned today, custom flame icon
+- Health data (steps + distance + calories) consolidated into single `update_health_data()` call per movement event
 
----
+### Overlay improvements
+- **Two overlay sizes:** Small (58px, LECO_36_BOLD) and Large (70px, LECO_42) — Large is default on emery/gabbro
+- **1 min mode** (OVERLAY_AUTO) — shake to show, auto-hides after 60 seconds
+- Single-line and double-line info block positioning tuned per overlay size
 
-## [2.0.1] — 2025
+### Color system expanded
+- **17 color slots** (up from 12): added `HourTipColor`, `MinuteTipColor`, `Line1–4Color`
+- **Leading-tick highlights** — the current hour and minute ticks independently colorable
+- Color cascade improved: setting Hours/Minutes also sets their respective leading tips
 
-- Re-added Gabbro (Pebble Round 2) to `targetPlatforms` after initial submission issue was resolved.
+### 40 presets (up from 24)
+- Five rows of 8: Dark, Dark+, Light, Color, Special
+- Radium is always preset #1 in Dark
+- Navy (classic 2015 tweet blue/white scheme) moved to Light section (white background)
+- Scarlet uses uniform red ticks matching hour and minute
+- GoldEye info lines use lime green matching the outer ring
 
----
+### Platform defaults
+- emery/gabbro: `OVERLAY_LARGE` by default
+- aplite: `ShowRing = false` by default; step goal slider hidden in config
+- All platforms: default info lines = None / Day / Date / None
 
-## [2.0] — 2025
+### Build fix
+- Added forward declaration for `prv_overlay_auto_hide` to fix undeclared identifier error on gabbro
 
-Original v2.0 implementation. Established the core architecture as a full rebuild by Sterling Ely:
-- Radial bar graph concept restored from the original Radium watchface (~2016).
-- Wedge-based tick drawing for rect platforms; `graphics_fill_radial` arcs for round.
-- Outer ring: battery (right half) + steps (left half), 3° gaps at 12 and 6 o'clock.
-- Overlay: day name / time / date block, shake-to-toggle (always-on / always-off / shake modes).
-- Overlay starts visible on every reboot.
-- 9 color slots, 24 presets across three rows (Dark, Light, Color).
-- Settings persistence via `localStorage` in `index.js`.
-- Platform detection: B&W watches (aplite, diorite, flint) show invert toggle; color watches show full color UI.
-- Platforms: aplite, basalt, chalk, diorite, emery, flint.
+### Code quality
+- `draw_info_line()` refactored with `DRAW_ICON_TEXT` helper macro — eliminates repeated measure→center→draw pattern
+- Comments updated throughout for accuracy
+- Stale v2.1 constants and references removed
 
 ---
 
-## [1.0] — December 2016 (MicroByte)
+## v2.1 (live)
 
-First complete, publicly released version of Radium on the Pebble App Store. MicroByte developed this version starting from the earlier Matthew Reiss prototype. Store listing dates from December 9, 2016. No GitHub repository is known to exist for this version; the Radium 2 repo branches from the earlier Reiss code rather than this build.
+- Initial public release on Rebble appstore
+- 3 overlay modes: Always On, Shake, Always Off
+- 12 color slots, 24 presets
+- Battery + steps outer ring
+- 24h clock support
+- All 7 Pebble platforms
+- B&W invert option
 
 ---
 
-## [0.x] — December 2015 (Matthew Reiss)
+## v2.0 (internal)
 
-Partial prototype implementation by Matthew Reiss, built from Sterling Ely's original design. Development ended with a last commit dated December 9, 2015. This is the version the Radium 2 repository was forked from.
-
----
-
-## [concept] — ~2015 (Sterling Ely)
-
-Original watchface concept designed by Sterling Ely for the Pebble Time Round — a radial bar graph where filled wedge/arc segments represent time, battery, and steps. Designed to be readable as pure geometry with or without a digital overlay. Design files predate any implementation; exact date pending recovery of original assets.
+- From-scratch rebuild by Sterling Ely + Claude
+- Full color customization
+- Cross-platform layout (rect + round)
+- Config page with preset system
