@@ -19,13 +19,13 @@ module.exports = {
     // ----------------------------------------------------------------
     var presets = [
       // ---- DARK (8) -- Radium first, then the 2015 tweet schemes ----
-      // Radium (classic): ticks/ring=#aaffaa (GColorMintGreen), tips=white
-      // Radium+: hours/battery=green, minutes/steps=cyan, tips=white, dim minutes/steps=dark blue
+      // Radium:  bright green lit (#00ff00), mint leading tips (#aaffaa)
+      // Radium+: green hours + cyan minutes, white tips, dark blue dim minutes
       { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa',
+        lH:'#00ff00',lM:'#00ff00',lB:'#00ff00',lS:'#00ff00',
         dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
-        tH:'#ffffff',tM:'#ffffff',
-        l1:'#aaaaaa',l2:'#aaffaa',l3:'#aaffaa',l4:'#aaaaaa' },
+        tH:'#aaffaa',tM:'#aaffaa',
+        l1:'#00ff00',l2:'#aaffaa',l3:'#aaffaa',l4:'#00ff00' },
       { label:'Scarlet', bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#ff0000',lM:'#ff0000',lB:'#ff0000',lS:'#ff0000',
         dH:'#550000',dM:'#550000',dB:'#550000',dS:'#550000',
@@ -224,9 +224,7 @@ module.exports = {
         dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555',
         tH:'#ffff00',tM:'#ffff00',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaaa',l4:'#aaaaaa' },
-      // Radium+: hours/battery=green (#00ff00), minutes/steps=cyan (#00ffff)
-      //          tips=white, dim minutes/steps/ring=dark blue (#0000aa)
-      //          lines: l1/l4=green, l2/l3=mint
+      // Radium+: green hours/battery + cyan minutes/steps, white tips, dark blue dim minutes/steps
       { label:'Radium+',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#00ff00',lM:'#00ffff',lB:'#00ff00',lS:'#00ffff',
         dH:'#005500',dM:'#0000aa',dB:'#005500',dS:'#0000aa',
@@ -263,8 +261,6 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
-    // Field options for the 4 info line dropdowns.
-    // Inner lines (2 & 3) get all options; outer lines (1 & 4) omit text-only fields.
     var fieldOptionsInner = [
       { value: 0, label: 'None' },
       { value: 1, label: 'Day' },
@@ -295,9 +291,8 @@ module.exports = {
       return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
     }
 
-    // Large overlay toggle shown only for emery and chalk (chalk = gabbro in CloudPebble)
     var isLargePlatform = (platform === 'emery' || platform === 'chalk');
-    var isAplite = (platform === 'aplite'); // aplite has no health service
+    var isAplite = (platform === 'aplite');
     var overlayLargeRow = isLargePlatform
       ? '<div class="row"><label>Large overlay</label>' +
         '<label class="toggle"><input type="checkbox" id="OverlaySize"><span class="knob"></span></label></div>'
@@ -510,13 +505,13 @@ module.exports = {
       + '<script>'
       + platformData + presetsData + paletteData
 
-      // Default colors = Radium classic preset
+      // Default colors = Radium preset (bright green ticks, mint tips)
       + 'var colors={'
       + 'BackgroundColor:"#000000",OverlayColor:"#000000",TimeColor:"#ffffff",'
-      + 'LitHourColor:"#aaffaa",LitMinuteColor:"#aaffaa",LitBatteryColor:"#aaffaa",LitStepsColor:"#aaffaa",'
+      + 'LitHourColor:"#00ff00",LitMinuteColor:"#00ff00",LitBatteryColor:"#00ff00",LitStepsColor:"#00ff00",'
       + 'DimHourColor:"#005500",DimMinuteColor:"#005500",DimBatteryColor:"#005500",DimStepsColor:"#005500",'
-      + 'HourTipColor:"#ffffff",MinuteTipColor:"#ffffff",'
-      + 'Line1Color:"#aaaaaa",Line2Color:"#aaffaa",Line3Color:"#aaffaa",Line4Color:"#aaaaaa"'
+      + 'HourTipColor:"#aaffaa",MinuteTipColor:"#aaffaa",'
+      + 'Line1Color:"#00ff00",Line2Color:"#aaffaa",Line3Color:"#aaffaa",Line4Color:"#00ff00"'
       + '};'
 
       + 'function updateSwatches(key,hex){'
