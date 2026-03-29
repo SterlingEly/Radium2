@@ -20,7 +20,7 @@ module.exports = {
     var presets = [
       // ---- DARK (8) -- Radium first, then the 2015 tweet schemes ----
       // Radium (classic): ticks/ring=#aaffaa (GColorMintGreen), tips=white
-      // Radium+ (v2.2 bright): ticks/ring=#00ff00 (GColorGreen), tips=#aaffaa
+      // Radium+: hours/battery=green, minutes/steps=cyan, tips=white, dim minutes/steps=dark blue
       { label:'Radium',  bg:'#000000',obg:'#000000',tt:'#ffffff',
         lH:'#aaffaa',lM:'#aaffaa',lB:'#aaffaa',lS:'#aaffaa',
         dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
@@ -224,12 +224,14 @@ module.exports = {
         dH:'#550000',dM:'#aa5500',dB:'#005500',dS:'#005555',
         tH:'#ffff00',tM:'#ffff00',
         l1:'#aaaaaa',l2:'#ffaa55',l3:'#aaaaaa',l4:'#aaaaaa' },
-      // Radium+: v2.2 bright green -- ticks=#00ff00, tips=#aaffaa, outer lines=#00ff00
+      // Radium+: hours/battery=green (#00ff00), minutes/steps=cyan (#00ffff)
+      //          tips=white, dim minutes/steps/ring=dark blue (#0000aa)
+      //          lines: l1/l4=green, l2/l3=mint
       { label:'Radium+',  bg:'#000000',obg:'#000000',tt:'#ffffff',
-        lH:'#00ff00',lM:'#00ff00',lB:'#00ff00',lS:'#00ff00',
-        dH:'#005500',dM:'#005500',dB:'#005500',dS:'#005500',
-        tH:'#aaffaa',tM:'#aaffaa',
-        l1:'#00ff00',l2:'#aaffaa',l3:'#aaffaa',l4:'#00ff00' },
+        lH:'#00ff00',lM:'#00ffff',lB:'#00ff00',lS:'#00ffff',
+        dH:'#005500',dM:'#0000aa',dB:'#005500',dS:'#0000aa',
+        tH:'#ffffff',tM:'#ffffff',
+        l1:'#00ff00',l2:'#aaffaa',l3:'#aaffaa',l4:'#00ffff' },
     ];
 
     var palette = [
