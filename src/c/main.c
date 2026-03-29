@@ -94,25 +94,25 @@ static void prv_default_settings(void) {
   s_settings.OverlayColor    = GColorBlack;
 
 #if defined(PBL_COLOR)
-  // Radium preset defaults (v2.2):
-  //   ticks/ring = GColorGreen (#00ff00), tips = GColorMintGreen (#aaffaa)
+  // Radium preset defaults (classic):
+  //   ticks/ring = GColorMintGreen (#aaffaa), tips = GColorWhite
   //   dim = GColorDarkGreen (#005500)
-  //   outer lines (1,4) = GColorGreen; inner lines (2,3) = GColorMintGreen
+  //   outer lines (1,4) = GColorLightGray; inner lines (2,3) = GColorMintGreen
   s_settings.TimeColor         = GColorWhite;
-  s_settings.LitHourColor      = GColorGreen;
-  s_settings.LitMinuteColor    = GColorGreen;
-  s_settings.LitBatteryColor   = GColorGreen;
-  s_settings.LitStepsColor     = GColorGreen;
+  s_settings.LitHourColor      = GColorMintGreen;
+  s_settings.LitMinuteColor    = GColorMintGreen;
+  s_settings.LitBatteryColor   = GColorMintGreen;
+  s_settings.LitStepsColor     = GColorMintGreen;
   s_settings.DimHourColor      = GColorDarkGreen;
   s_settings.DimMinuteColor    = GColorDarkGreen;
   s_settings.DimBatteryColor   = GColorDarkGreen;
   s_settings.DimStepsColor     = GColorDarkGreen;
-  s_settings.HourTipColor      = GColorMintGreen;
-  s_settings.MinuteTipColor    = GColorMintGreen;
-  s_settings.Line1Color        = GColorGreen;
+  s_settings.HourTipColor      = GColorWhite;
+  s_settings.MinuteTipColor    = GColorWhite;
+  s_settings.Line1Color        = GColorLightGray;
   s_settings.Line2Color        = GColorMintGreen;
   s_settings.Line3Color        = GColorMintGreen;
-  s_settings.Line4Color        = GColorGreen;
+  s_settings.Line4Color        = GColorLightGray;
 #else
   s_settings.TimeColor         = GColorWhite;
   s_settings.LitHourColor      = GColorWhite;
