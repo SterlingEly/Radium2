@@ -343,7 +343,11 @@ module.exports = {
       '#ffff00':'GColorYellow','#ffff55':'GColorIcterine','#ffffaa':'GColorPastelYellow','#ffffff':'GColorWhite'
     };
 
-    // Field options for the 4 info line dropdowns
+    // Field options for the 4 info line dropdowns.
+    // Inner lines (2 & 3) get the full list including Day and Day+Date.
+    // Outer lines (1 & 4) get a compact list (no Day-only or Day+Date -- too wide).
+    // Calories label clarifies active-only (excludes resting metabolic rate);
+    // the Pebble Health app shows total (active + resting), which is why the numbers differ.
     var fieldOptionsInner = [
       { value: 0, label: 'None' },
       { value: 1, label: 'Day' },
@@ -354,7 +358,7 @@ module.exports = {
       { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
       { value: 8, label: 'Distance' },
-      { value: 9, label: 'Calories' },
+      { value: 9, label: 'Active calories' },
     ];
     var fieldOptionsOuter = [
       { value: 0, label: 'None' },
@@ -364,7 +368,7 @@ module.exports = {
       { value: 6, label: 'Temp (C)' },
       { value: 7, label: 'Battery' },
       { value: 8, label: 'Distance' },
-      { value: 9, label: 'Calories' },
+      { value: 9, label: 'Active calories' },
     ];
 
     function makeSelect(id, defaultVal, options) {
