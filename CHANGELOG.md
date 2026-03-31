@@ -2,71 +2,65 @@
 
 ---
 
-## v2.2 (in development)
+## v2.2
+
+### Preset overhaul
+- 5 new themes: Violet (indigo mono), Jungle (yellow-green analogous), Lavender (violet on white), Poison (green on purple), Prism (full-spectrum quad split)
+- 7 themes tweaked: Volt (split lH/lM, better tips), Dusk (sharpened to pure Magenta), Ember/Cobalt (hue-family dim), Jade/Sapphire/Ruby (accent-toned dim on light backgrounds)
+- Retired: Crimson, Hearth, Navy, Cinnabar, Horizon (all near-duplicates of other presets)
+- Principled dim color rule established: monochromatic themes use dark shade of same hue; only Slate and Ash use neutral gray
 
 ### Info lines — 4 configurable data fields
-- Replaced the single fixed day/time/date overlay with **4 independently configurable info lines** (2 above, 2 below the time)
+- 4 independently configurable info lines (2 above, 2 below the time)
 - Each line can display: None, Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, or Battery
-- Dynamic centering via `graphics_text_layout_get_content_size` — icon+text units always centered on the overlay circle
-- Default layout on fresh install: None / Day / Date / None
+- Dynamic centering via `graphics_text_layout_get_content_size` — icon+text units always centered on overlay
+- Default layout: None / Day / Date / None
 
 ### Live weather
-- Phone JS (`index.js`) fetches current weather from **Open-Meteo** (free, no API key)
+- Phone JS fetches current weather from Open-Meteo (free, no API key)
 - Sends temperature (°F and °C) + WMO weather code to watch via AppMessage
-- **6 custom weather icons** drawn in C at both 11px (small overlay) and 14px (large overlay): sun, partly cloudy, cloud, rain, snow, storm
+- 6 custom weather icons in C at both overlay sizes: sun, partly cloudy, cloud, rain, snow, storm
+- Temperature display uses plain ASCII (e.g. "72F") — no degree symbol
 
-### New health fields
-- **Distance** — walked distance today in mi or km (auto-detected via `measurement_system_get_units`), footprint icon
-- **Calories** — active kcal burned today, custom flame icon
-- Health data (steps + distance + calories) consolidated into single `update_health_data()` call per movement event
+### Health fields
+- Distance: walked distance today in mi or km, auto-detected via locale
+- Calories: active kcal burned today, custom flame icon
+- Steps + distance + calories consolidated into single update per movement event
 
 ### Overlay improvements
-- **Two overlay sizes:** Small (58px, LECO_36_BOLD) and Large (70px, LECO_42) — Large is default on emery/gabbro
-- **1 min mode** (OVERLAY_AUTO) — shake to show, auto-hides after 60 seconds
-- Single-line and double-line info block positioning tuned per overlay size
+- Two overlay sizes: Small (58px, LECO_36_BOLD) and Large (70px, LECO_42)
+- Large is default on emery/gabbro (Pebble Time 2 and Round 2)
+- 1-min mode (OVERLAY_AUTO): shake to show, auto-hides after 60 seconds
 
-### Color system expanded
-- **17 color slots** (up from 12): added `HourTipColor`, `MinuteTipColor`, `Line1–4Color`
-- **Leading-tick highlights** — the current hour and minute ticks independently colorable
-- Color cascade improved: setting Hours/Minutes also sets their respective leading tips
+### Color system
+- 17 color slots (up from 12): added HourTipColor, MinuteTipColor, Line1–4Color
+- Leading-tick highlights: current hour and minute ticks independently colorable
+- Cascade: setting Hours/Minutes also sets their respective tip colors
 
-### 40 presets (up from 24)
-- Five rows of 8: Dark, Dark+, Light, Color, Special
-- Radium is always preset #1 in Dark
-- Navy (classic 2015 tweet blue/white scheme) moved to Light section (white background)
-- Scarlet uses uniform red ticks matching hour and minute
-- GoldEye info lines use lime green matching the outer ring
-
-### Platform defaults
-- emery/gabbro: `OVERLAY_LARGE` by default
-- aplite: `ShowRing = false` by default; step goal slider hidden in config
-- All platforms: default info lines = None / Day / Date / None
-
-### Build fix
-- Added forward declaration for `prv_overlay_auto_hide` to fix undeclared identifier error on gabbro
-
-### Code quality
-- `draw_info_line()` refactored with `DRAW_ICON_TEXT` helper macro — eliminates repeated measure→center→draw pattern
-- Comments updated throughout for accuracy
-- Stale v2.1 constants and references removed
+### Bug fixes
+- Round watch: leading hour tick off-by-one in 12h mode (wrong slot formula)
+- Calories flame icon: 1px overflow on small overlay (base rect height 4→3)
+- Weather text: removed degree symbol from format string (caused silent render failure)
+- Distance locale: switched to `i18n_get_system_locale()` for correct mi/km detection
+- Forward declaration for `prv_overlay_auto_hide` (undeclared identifier on gabbro)
 
 ---
 
-## v2.1 (live)
+## v2.1 (2026-03-11)
 
 - Initial public release on Rebble appstore
+- 40 color presets across five rows (Dark, Dark+, Light, Color, Special)
+- 12 color slots, cascade color picker
 - 3 overlay modes: Always On, Shake, Always Off
-- 12 color slots, 24 presets
 - Battery + steps outer ring
-- 24h clock support
-- All 7 Pebble platforms
+- 24h clock support, all 7 Pebble platforms
 - B&W invert option
 
 ---
 
-## v2.0 (internal)
+## v2.0 (2026-03-03, internal)
 
 - From-scratch rebuild by Sterling Ely + Claude
-- Full color customization
-- Cross-platform layout (rect + round)
+- Full color customization, cross-platform layout (rect + round)
 - Config page with preset system
+- 24 color presets (Dark, Light, Color), 9 color slots
