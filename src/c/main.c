@@ -909,6 +909,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(183 + 174 * step_pct / 100));
       }
     } else {
+      // Rect ring: battery on right half, steps on left half.
+      // Both fill from their origin at 6 o'clock outward toward 12 o'clock.
+      // Battery: origin at bottom-center-right (cx+gap), fills rightward along
+      //          bottom, up right side, leftward along top toward cx+gap.
+      // Steps:   origin at bottom-center-left  (cx-gap), fills leftward along
+      //          bottom, up left side, rightward along top toward cx-gap.
       int t      = RING_THICK;
       int gap    = 5;
       int half_w = cx - gap;
@@ -920,51 +926,61 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
+      // Battery dim track (right half)
       graphics_context_set_fill_color(ctx, col_dbatt);
-      graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone); // top
+      graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone); // right side
+      graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone); // bottom
 
+      // Battery fill: anchored at origin (cx+gap, bottom), fills outward toward 12.
+      // Segment 1: bottom strip, left-anchored at origin, fills rightward to corner.
+      // Segment 2: right side, fills upward from bottom-right corner.
+      // Segment 3: top strip, right-anchored at corner, fills leftward toward origin.
       {
         int filled = total * s_battery / 100;
         graphics_context_set_fill_color(ctx, col_batt);
         if (filled > 0) {
           int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(cx+gap+half_w-seg, h-t, seg, t), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(cx+gap, h-t, seg, t), 0, GCornerNone); // bottom: left-anchored at origin
           filled -= seg;
         }
         if (filled > 0) {
           int seg = (filled < h) ? filled : h;
-          graphics_fill_rect(ctx, GRect(w-t, h-seg, t, seg), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(w-t, h-seg, t, seg), 0, GCornerNone);  // right side: upward from corner
           filled -= seg;
         }
         if (filled > 0) {
           int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(cx+gap+half_w-seg, 0, seg, t), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(cx+gap+half_w-seg, 0, seg, t), 0, GCornerNone); // top: right-anchored
         }
       }
 
+      // Steps dim track (left half)
       graphics_context_set_fill_color(ctx, col_dstep);
-      graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(0,   h-t, half_w, t), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone); // top
+      graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone); // left side
+      graphics_fill_rect(ctx, GRect(0,   h-t, half_w, t), 0, GCornerNone); // bottom
 
+      // Steps fill: anchored at origin (cx-gap, bottom), fills outward toward 12.
+      // Segment 1: bottom strip, right-anchored at origin, fills leftward to corner.
+      // Segment 2: left side, fills upward from bottom-left corner.
+      // Segment 3: top strip, left-anchored at corner, fills rightward toward origin.
       if (step_pct > 0) {
         int filled = total * step_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
         if (filled > 0) {
           int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone); // bottom: right-anchored at origin
           filled -= seg;
         }
         if (filled > 0) {
           int seg = (filled < h) ? filled : h;
-          graphics_fill_rect(ctx, GRect(0, h-seg, t, seg), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(0, h-seg, t, seg), 0, GCornerNone);        // left side: upward from corner
           filled -= seg;
         }
         if (filled > 0) {
           int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);            // top: left-anchored
         }
       }
     }
