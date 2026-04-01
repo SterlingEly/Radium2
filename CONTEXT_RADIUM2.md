@@ -27,10 +27,12 @@
 
 ## 3. LIVE STATUS
 
-- **Radium 2 is LIVE on the Rebble app store as v2.1** (v2.2 is ready to submit)
+- **Radium 2 v2.2 is LIVE on the Rebble/Repebble app stores**
 - Store URL: https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 - GitHub repo: https://github.com/SterlingEly/Radium2 (branch: `master`)
-- HEAD: `374cc2ae` — v2.2 polish: preset overhaul, dim color consistency
+- HEAD: `37dfe37` — docs: update store listing to Sterling's final v2.2 version
+- GitHub Release: `v2.2` tag at `37dfe37`
+- v2.3 development is now open on `master`
 
 ---
 
@@ -58,7 +60,7 @@ SterlingEly/Radium2 (master)
 
 ---
 
-## 5. CURRENT VERSION SPEC (v2.2, ready to submit)
+## 5. CURRENT VERSION SPEC (v2.2, live)
 
 ### package.json
 - `version`: `"2.2.0"`
@@ -166,11 +168,11 @@ typedef struct {
 ### Tick geometry — RECT platforms
 - **Minutes:** 12 groups × 5 ticks; 15° pitch (9° tick + 6° gap); start at 3°
   - Color: 1° sub-ticks with 1° bg-color gap cuts between them
-  - B&W: 2° wide ticks, no within-group gaps
+  - B&W: 2° wide ticks, no within-group gaps (9° block, same as color)
 - **Hours:** 12 slots; 15° pitch (9° tick + 6° gap); start at 183°
   - 12h: solid 9° per slot
   - 24h: each slot split into two 3° sub-ticks with 3° gap (perfect thirds)
-  - Inter-slot separator: 1° bg-color cut
+  - Inter-slot separator: 1° bg-color cut (color only)
 - Tick thickness: `inner_short * 19/164` when overlay is showing; full inner_short otherwise
 - Wedge radius extends beyond screen edge (full-bleed)
 
@@ -179,17 +181,22 @@ typedef struct {
 - 60 individual 1° minute arcs; same 12-slot × 9° hour arcs
 - Ring: `graphics_fill_radial` on bounds, RING_THICK=6px
 
+### Outer ring — RECT platforms
+- Battery (right half): origin at bottom-center-right (cx+gap=5), fills rightward along
+  bottom → up right side → leftward along top. Left-anchored at origin on bottom segment.
+- Steps (left half): origin at bottom-center-left (cx-gap), fills leftward along
+  bottom → up left side → rightward along top. Right-anchored at origin on bottom segment.
+- gap=5, RING_THICK=6, half_w=cx-gap, total=half_w+h+half_w
+
 ### Leading-tick tip highlights (color only)
-- **Hour tip bug fixed (v2.2):** Round watch 12h mode was using the 24h formula for tip slot
-  calculation, causing an extra lit tick at odd hours. Fix: `if (!is_24h)` branch added,
-  mirroring the rect branch. Both now use `filled_slots - 1` for 12h mode.
+- Hour tip bug fixed (v2.2): Round watch 12h mode was using the 24h formula.
+  Fix: `if (!is_24h)` branch added in round section. Both modes now use `filled_slots - 1`.
 - Tip recolors the last lit slot rather than painting an additional tick.
 
 ### Overlay
 - Small: 58px radius, LECO_36_BOLD, GOTHIC_18_BOLD (all platforms except emery/gabbro default)
 - Large: 70px radius, LECO_42, GOTHIC_24_BOLD (emery/gabbro default)
-- All icon+text fields (steps, battery, weather) use dynamic centering via
-  `graphics_text_layout_get_content_size`.
+- All icon+text fields use dynamic centering via `graphics_text_layout_get_content_size`.
 
 ### Info line positioning (single-line per block)
 - Large overlay: top nudge +5px, bottom nudge -8px
@@ -240,8 +247,8 @@ Shown only when `platform === 'emery' || platform === 'chalk'`
 (`chalk` = gabbro in the CloudPebble simulator)
 
 ### Field options
-- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp(F), Temp(C), Battery, Distance, Calories
-- Outer lines (1 & 4): None, Date, Steps, Temp(F), Temp(C), Battery, Distance, Calories
+- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories
+- Outer lines (1 & 4): None, Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories
 
 ### Settings persistence
 - `index.js` uses `localStorage` with key `'radium2_settings'`
@@ -287,13 +294,15 @@ All presets define: bg, obg, tt, lH, lM, lB, lS, dH, dM, dB, dS, tH, tM, l1, l2,
 
 ## 9. HEALTH DATA (PBL_HEALTH guard)
 
-All health metrics are gated with `#if defined(PBL_HEALTH)` — platforms without health (aplite, flint) compile cleanly.
+All health metrics are gated with `#if defined(PBL_HEALTH)` — aplite compiles cleanly without health.
 
 `update_health_data()` reads all three metrics together on every `HealthEventMovementUpdate`:
 - **Steps** → `HealthMetricStepCount` → `s_steps` → `s_steps_buffer` ("12,345")
 - **Distance** → `HealthMetricWalkedDistanceMeters` → `s_distance_m` → locale check:
   `strcmp(i18n_get_system_locale(), "en_US") == 0` → miles, otherwise km
 - **Calories** → `HealthMetricActiveKCalories` → `s_calories` → `s_calories_buffer` ("847cal")
+  Note: this is ACTIVE calories only — does not include resting metabolic rate (~2700 kcal/day).
+  The Pebble Health app shows total (active + resting), so Radium 2 will always read lower.
 
 HR note: basalt (PT), diorite (PT Steel), and emery (PT2) have optical HR sensors. Gabbro (Round 2) does NOT have HR. Heart rate is not yet implemented.
 
@@ -329,10 +338,11 @@ Weather icon types: 0=sun, 1=partly-cloudy, 2=cloud, 3=rain, 4=snow, 5=storm (ma
 | chalk | Pebble Time Round | 180×180 round | 64 color | Yes |
 | diorite | Pebble 2 SE | 144×168 rect | B&W | Yes |
 | emery | Pebble Time 2 | 200×228 rect | 64 color | Yes |
-| flint | Pebble 2 | 144×168 rect | B&W | No |
+| flint | Pebble 2 | 144×168 rect | B&W | Yes |
 | gabbro | Pebble Round 2 (Core Devices, 2026) | 260×260 round | 64 color | Yes |
 
-**gabbro** is the Pebble Round 2 — 260×260 circular color e-paper, round rendering, health-capable. NOT B&W, NOT rect. `chalk` = gabbro in CloudPebble simulator.
+**gabbro** is the Pebble Round 2 — 260×260 circular color e-paper, round rendering, health-capable. NOT B&W, NOT rect. `chalk` = gabbro in CloudPebble simulator.  
+**flint** has health (PBL_HEALTH defined) — only aplite does not.
 
 ---
 
@@ -353,6 +363,7 @@ Weather icon types: 0=sun, 1=partly-cloudy, 2=cloud, 3=rain, 4=snow, 5=storm (ma
 | Calories icon small: 1px overflow on bottom | base rect height 4→3 (fits 11px slot) |
 | Round watch hour tip off-by-one in 12h mode | Added `if (!is_24h)` branch in round section |
 | Ember/Cobalt dim using neutral gray | Fixed: Ember dim = #550000, Cobalt dim = #000055 |
+| Battery ring bottom fill right-anchored from corner | Fixed: left-anchored at cx+gap origin (all rect, v2.2) |
 
 ---
 
@@ -376,14 +387,18 @@ Design: 470×320px, text left / watch mockup right, blurred starburst bg, mint g
 
 ---
 
-## 15. OPEN ITEMS / FUTURE WORK (post-v2.2)
+## 15. OPEN ITEMS / v2.3 CANDIDATES
 
-1. **Store submission** — v2.2 is ready; needs final CloudPebble build + submission to Rebble portal
-2. **Store listing update** — STORE_LISTING.md needs v2.2 feature update
-3. **Heart rate** — basalt/diorite/emery have HR sensors; implement once tested on real hardware
-4. **Sleep data** — available via `HealthMetricSleepSeconds`; lower priority
-5. **Banner update** — may want new banner image for v2.2
-6. **Monogram watchface** — 40 digit bitmap assets to be designed in Photoshop, then JS/TypeScript implementation using Alloy SDK
+v2.2 is shipped and tagged. v2.3 development is open on `master`. Scope TBD — likely informed by real hardware testing once Pebble Round 2 (gabbro) is in hand.
+
+Potential v2.3 items:
+- **Bluetooth disconnect indicator** — icon or visual cue when watch loses phone connection
+- **Charging indicator** — icon when watch is on charger
+- **Heart rate** — basalt/diorite/emery/flint have HR sensors; implement once tested
+- **Sleep data** — available via `HealthMetricSleepSeconds`; lower priority
+- **Gabbro hardware testing** — verify all rendering on actual Round 2 hardware
+- **Banner/store asset update** — new banner image if warranted
+- **Redundant `v2.2` branch** — can be deleted during any repo housekeeping (proper release tag exists)
 
 ---
 
@@ -402,15 +417,16 @@ Design: 470×320px, text left / watch mockup right, blurred starburst bg, mint g
 ```
 Repo:         https://github.com/SterlingEly/Radium2
 Branch:       master
-HEAD:         374cc2ae
+HEAD:         37dfe37  (v2.2 shipped; v2.3 open)
+Release tag:  v2.2 at 37dfe37
 Live store:   https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 UUID:         2609e817-f8f2-4ad2-8846-cb05bb67d047
-Version:      2.2.0 (ready to submit) — 2.1 is live
-SETTINGS_KEY: 7
+Version:      2.2.0 live — 2.3.0 next
+SETTINGS_KEY: 7  (increment when struct layout changes)
 messageKeys:  29 (BackgroundColor … WeatherCode)
 github:push_files preferred for large files; create_or_update_file fails on large payloads
 ```
 
 ---
 
-*End of Radium 2 context seed. v2.1 is live; v2.2 is complete and ready to submit.*
+*End of Radium 2 context seed. v2.2 is live and tagged; v2.3 development begins.*
