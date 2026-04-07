@@ -30,9 +30,9 @@
 - **Radium 2 v2.2 is LIVE on the Rebble/Repebble app stores**
 - Store URL: https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 - GitHub repo: https://github.com/SterlingEly/Radium2 (branch: `master`)
-- HEAD: `37dfe37` — docs: update store listing to Sterling's final v2.2 version
+- HEAD: `148b767` — feat: add Bluetooth and Heart rate to info line dropdowns (v2.3)
 - GitHub Release: `v2.2` tag at `37dfe37`
-- v2.3 development is now open on `master`
+- **v2.3 development is open on `master`** — C pass 1 committed, config.js updated, solar ring pending
 
 ---
 
@@ -60,9 +60,23 @@ SterlingEly/Radium2 (master)
 
 ---
 
-## 5. CURRENT VERSION SPEC (v2.2, live)
+## 5. CURRENT VERSION SPEC
 
-### package.json
+### v2.2 (live, tagged)
+- SETTINGS_KEY: 7
+- Version: 2.2.0
+- 29 messageKeys, 40 presets, 4 info lines, weather support
+
+### v2.3 (in progress, open on master)
+- SETTINGS_KEY: **still 7** (no struct change in C pass 1)
+- New FIELD constants added (no struct change needed):
+  - `FIELD_BT = 10` — bluetooth rune, shown when disconnected
+  - `FIELD_HEART_RATE = 11` — heart icon + BPM
+- Charging bolt replaces battery icon when `s_is_charging`
+- config.js: Bluetooth and Heart rate added to all 4 info line dropdowns
+- **Next:** solar ring mode (SETTINGS_KEY bump to 8 when struct changes)
+
+### package.json (v2.2 baseline)
 - `version`: `"2.2.0"`
 - `uuid`: `2609e817-f8f2-4ad2-8846-cb05bb67d047`
 - `displayName`: `"Radium 2"`
@@ -79,9 +93,9 @@ SterlingEly/Radium2 (master)
   `StepGoal`, `OverlayMode`, `OverlaySize`, `InvertBW`, `ShowRing`,
   `WeatherTempF`, `WeatherTempC`, `WeatherCode`
 
-### C constants (main.c)
+### C constants (main.c, current)
 ```c
-#define SETTINGS_KEY      7          // bumped each time struct layout changes
+#define SETTINGS_KEY      7          // increment when struct layout changes
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2          // px gap between outer ring and tick radials
 #define RING_THICK        6          // outer ring thickness (px)
@@ -92,7 +106,7 @@ SterlingEly/Radium2 (master)
 #define OVERLAY_SHAKE       2
 #define OVERLAY_AUTO        3        // shake to show for ~60s, then art mode
 
-#define OVERLAY_AUTO_HIDE_MS  60000  // auto-hide timeout for OVERLAY_AUTO (ms)
+#define OVERLAY_AUTO_HIDE_MS  60000
 
 // Overlay size
 #define OVERLAY_SMALL  0
@@ -106,9 +120,11 @@ SterlingEly/Radium2 (master)
 #define FIELD_STEPS     4   // footprint icon + step count
 #define FIELD_TEMP_F    5   // weather icon + temperature in F
 #define FIELD_TEMP_C    6   // weather icon + temperature in C
-#define FIELD_BATTERY   7   // battery icon + charge %
+#define FIELD_BATTERY   7   // battery icon + charge % (bolt when charging)
 #define FIELD_DISTANCE  8   // footprint icon + walked distance (mi or km)
 #define FIELD_CALORIES  9   // flame icon + active kcal
+#define FIELD_BT        10  // bluetooth rune -- shown when disconnected (v2.3)
+#define FIELD_HEART_RATE 11 // heart icon + BPM (v2.3, requires HR sensor)
 ```
 
 ### Settings struct (RadiumSettings) — SETTINGS_KEY 7
@@ -143,6 +159,15 @@ typedef struct {
 } RadiumSettings;
 ```
 
+### Runtime state (not persisted)
+```c
+// Added in v2.3 C pass 1:
+static bool s_is_charging  = false; // captured in battery_handler
+static bool s_bt_connected = true;  // managed by bt_handler + connection_service
+static int  s_heart_rate   = 0;    // 0 = unavailable; set via health_service_peek_current_value
+static char s_heart_rate_buffer[8]; // "72bpm" or "--"
+```
+
 ### Defaults (prv_default_settings) — matches Radium preset
 - Background/Overlay: black
 - Color: lit = GColorGreen (#00ff00), dim = GColorDarkGreen (#005500), tips = GColorMintGreen (#aaffaa), time = White
@@ -168,7 +193,7 @@ typedef struct {
 ### Tick geometry — RECT platforms
 - **Minutes:** 12 groups × 5 ticks; 15° pitch (9° tick + 6° gap); start at 3°
   - Color: 1° sub-ticks with 1° bg-color gap cuts between them
-  - B&W: 2° wide ticks, no within-group gaps (9° block, same as color)
+  - B&W: 2° wide ticks, no within-group gaps (9° block)
 - **Hours:** 12 slots; 15° pitch (9° tick + 6° gap); start at 183°
   - 12h: solid 9° per slot
   - 24h: each slot split into two 3° sub-ticks with 3° gap (perfect thirds)
@@ -182,26 +207,27 @@ typedef struct {
 - Ring: `graphics_fill_radial` on bounds, RING_THICK=6px
 
 ### Outer ring — RECT platforms
-- Battery (right half): origin at bottom-center-right (cx+gap=5), fills rightward along
-  bottom → up right side → leftward along top. Left-anchored at origin on bottom segment.
-- Steps (left half): origin at bottom-center-left (cx-gap), fills leftward along
-  bottom → up left side → rightward along top. Right-anchored at origin on bottom segment.
+- Battery (right half): origin at bottom-center-right (cx+gap=5), left-anchored at origin
+- Steps (left half): origin at bottom-center-left (cx-gap), right-anchored at origin
 - gap=5, RING_THICK=6, half_w=cx-gap, total=half_w+h+half_w
 
-### Leading-tick tip highlights (color only)
-- Hour tip bug fixed (v2.2): Round watch 12h mode was using the 24h formula.
-  Fix: `if (!is_24h)` branch added in round section. Both modes now use `filled_slots - 1`.
-- Tip recolors the last lit slot rather than painting an additional tick.
+### Icon sizes
+- Small (OVERLAY_SMALL): 11×11px, paired with GOTHIC_18_BOLD
+- Large (OVERLAY_LARGE): 14×14px, paired with GOTHIC_24_BOLD
+- `SMALL_FONT_PAD=8`, `LARGE_FONT_PAD=10`, `SMALL_ICON_W=11`, `LARGE_ICON_W=14`, `ICON_TEXT_GAP=2`
+
+### Icons (drawn in C, all at 11px and 14px)
+- **Footprint** (`draw_steps_icon`) — two overlapping feet, used for steps and distance
+- **Battery** (`draw_battery_icon`) — outline + fill bar. When `s_is_charging`: shows diagonal Z lightning bolt instead
+- **Bluetooth** (`draw_bt_icon`) — classic BT rune: spine + two right-pointing chevrons + left serifs. Centered, no text. Only drawn when `!s_bt_connected`.
+- **Heart** (`draw_heart_icon`) — two bumps at top, tapering to single-pixel point. Paired with BPM text.
+- **Flame** (`draw_calories_icon`) — base→mid→upper→tip
+- **Weather icons** — sun, partly-cloudy, cloud, rain, snow, storm (`draw_weather_icon`)
 
 ### Overlay
-- Small: 58px radius, LECO_36_BOLD, GOTHIC_18_BOLD (all platforms except emery/gabbro default)
-- Large: 70px radius, LECO_42, GOTHIC_24_BOLD (emery/gabbro default)
-- All icon+text fields use dynamic centering via `graphics_text_layout_get_content_size`.
-
-### Info line positioning (single-line per block)
-- Large overlay: top nudge +5px, bottom nudge -8px
-- Small overlay: top nudge +5px, bottom nudge -1px
-- Double-line: large nudge -2px top / -7px bottom; small nudge 0
+- Small: 58px radius, LECO_36_BOLD, GOTHIC_18_BOLD
+- Large: 70px radius, LECO_42, GOTHIC_24_BOLD
+- Dynamic centering: all icon+text fields use `graphics_text_layout_get_content_size`
 
 ---
 
@@ -242,22 +268,18 @@ BaseAll   → BackgroundColor + OverlayColor
 7. **Health** — StepGoal slider (hidden on aplite)
 8. **Save to Watch** button
 
-### Large overlay toggle
-Shown only when `platform === 'emery' || platform === 'chalk'`  
-(`chalk` = gabbro in the CloudPebble simulator)
-
-### Field options
-- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories
-- Outer lines (1 & 4): None, Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories
+### Field options (current, v2.3)
+- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories, **Bluetooth, Heart rate**
+- Outer lines (1 & 4): None, Date, Steps, Temp(F), Temp(C), Battery, Distance, Active calories, **Bluetooth, Heart rate**
 
 ### Settings persistence
 - `index.js` uses `localStorage` with key `'radium2_settings'`
-- `location.search` is NOT reliable for Pebble settings — localStorage is the correct approach
 
-### Platform detection (in config.js)
+### Platform detection
 - `platform === 'aplite'` → hide health slider, ring unchecked by default
 - `platform === 'bw'` (aplite/diorite/flint) → hide color section, show B&W section
 - `platform === 'emery' || 'chalk'` → show large overlay toggle
+- `chalk` = gabbro in the CloudPebble simulator
 
 ---
 
@@ -271,114 +293,116 @@ All presets define: bg, obg, tt, lH, lM, lB, lS, dH, dM, dB, dS, tH, tM, l1, l2,
 **Color (24–31):** Teal, Flame, Midnight, Forest, Plum, Poison, Ultraviolet, Ash  
 **Special (32–39):** Boreal, Cosmos, Prism, Inferno, Triadic, GoldEye, Rainbow, Radium+
 
-### Dim color convention (established v2.2)
-- Monochromatic dark themes: dim = dark shade of the same hue family (e.g. #550000 for red, not gray)
+### Dim color convention
+- Monochromatic dark themes: dim = dark shade of same hue (e.g. #550000 for red, not gray)
 - Achromatic themes (Slate, Ash): dim = DarkGray (#555555) — only exceptions
-- Light bg themes: dim = pale/pastel version of the accent color
+- Light bg themes: dim = pale/pastel of the accent color
 - Split themes: each channel's dim = dark of that channel's hue
 
 ### Key preset notes
-- **Radium** (Dark #1, system default): GColorGreen (#00ff00) lit everywhere, GColorMintGreen (#aaffaa) tips
-- **Radium+** (Special #8): green hours/battery + cyan minutes/steps, white tips, DukeBlue (#0000aa) dim minutes
-- **Volt**: SpringBud/Yellow split hours/minutes, PastelYellow tips for contrast
-- **Dusk**: pure Magenta (#ff00ff) — sharpened from #ff55ff
-- **Violet**: VividViolet (#aa00ff) mono — fills indigo gap (replaced Crimson)
-- **Jungle**: BrightGreen/Malachite analogous — fills yellow-green gap (replaced Hearth)
-- **Lavender**: VividViolet on white — fills purple gap in Light row (replaced Navy)
-- **Poison**: SpringBud/Malachite on ImperialPurple — max complement contrast (replaced Cinnabar)
-- **Prism**: Red hours / Cyan minutes / SpringBud battery / VividViolet steps — full spectrum quad (replaced Horizon)
-- **GoldEye**: all 4 info lines = #aaff00 (matching lit outer ring)
-- Preset pip: split gradient showing lH (left) / lM (right); solid if same
+- **Radium** (Dark #0, system default): GColorGreen (#00ff00) lit everywhere, GColorMintGreen (#aaffaa) tips, GColorDarkGreen (#005500) dim
+- **Radium+** (Special #7): green hours/battery + cyan minutes/steps, white tips, DukeBlue (#0000aa) dim minutes
 
 ---
 
 ## 9. HEALTH DATA (PBL_HEALTH guard)
 
-All health metrics are gated with `#if defined(PBL_HEALTH)` — aplite compiles cleanly without health.
+All health metrics gated with `#if defined(PBL_HEALTH)` — aplite compiles cleanly without.
 
-`update_health_data()` reads all three metrics together on every `HealthEventMovementUpdate`:
-- **Steps** → `HealthMetricStepCount` → `s_steps` → `s_steps_buffer` ("12,345")
-- **Distance** → `HealthMetricWalkedDistanceMeters` → `s_distance_m` → locale check:
-  `strcmp(i18n_get_system_locale(), "en_US") == 0` → miles, otherwise km
-- **Calories** → `HealthMetricActiveKCalories` → `s_calories` → `s_calories_buffer` ("847cal")
-  Note: this is ACTIVE calories only — does not include resting metabolic rate (~2700 kcal/day).
-  The Pebble Health app shows total (active + resting), so Radium 2 will always read lower.
+`update_health_data()` reads on every `HealthEventMovementUpdate`:
+- **Steps** → `HealthMetricStepCount` → `s_steps`
+- **Distance** → `HealthMetricWalkedDistanceMeters` → locale check: en_US → miles, else km
+- **Calories** → `HealthMetricActiveKCalories` → active only (not resting)
+- **Heart rate** (v2.3) → `HealthMetricHeartRateBPM` → `health_service_peek_current_value` → `s_heart_rate`
 
-HR note: basalt (PT), diorite (PT Steel), and emery (PT2) have optical HR sensors. Gabbro (Round 2) does NOT have HR. Heart rate is not yet implemented.
+HR sensors: basalt (PT), diorite (PT SE), emery (PT2), flint (PT2 Duo). Gabbro (Round 2) does NOT have HR.
 
 ---
 
 ## 10. WEATHER (phone → watch via AppMessage)
 
-Weather data is fetched by `index.js` (phone JS) using Open-Meteo API and sent to the watch via AppMessage:
+Fetched by `index.js` using Open-Meteo API:
 - `WeatherTempF` → `s_weather_temp_f` (INT_MIN = not yet received)
 - `WeatherTempC` → `s_weather_temp_c`
-- `WeatherCode` → `s_weather_code` (WMO code, mapped to icon type 0–5)
+- `WeatherCode` → `s_weather_code` (WMO → icon type 0–5)
 
-Temperature display: plain `"72F"` / `"22C"` — NO degree symbol (0xB0 in format string causes weather text to silently not render).
-
-Weather icon types: 0=sun, 1=partly-cloudy, 2=cloud, 3=rain, 4=snow, 5=storm (mapped from WMO codes in `weather_icon_for_code()`).
+**Critical:** NO degree symbol in format strings — `0xB0` causes weather text to silently not render. Use plain `"72F"` / `"22C"`.
 
 ---
 
-## 11. CLOUDPEBBLE / BUILD RULES (CRITICAL)
+## 11. BLUETOOTH (v2.3)
 
-1. **Remove `resources/media` block** from appinfo.json — causes "Unsupported published resource type" build errors
+```c
+static void bt_handler(bool connected) {
+  s_bt_connected = connected;
+  if (!connected) vibes_double_pulse();
+  layer_mark_dirty(s_canvas_layer);
+}
+// In init(): connection_service_subscribe + peek_pebble_app_connection
+// In deinit(): connection_service_unsubscribe
+```
+
+FIELD_BT (10): renders centered BT rune when disconnected, blank when connected.
+
+---
+
+## 12. CLOUDPEBBLE / BUILD RULES (CRITICAL)
+
+1. **Remove `resources/media` block** from appinfo.json — causes "Unsupported published resource type" errors
 2. **Menu icons** via CloudPebble UI only, not GitHub import
 3. **No tilde (~) in resource filenames** — breaks CloudPebble GitHub import
-4. CloudPebble imports from GitHub `master` branch; Sterling pastes raw content manually
-5. **Always give Sterling full files** to paste — never surgical diffs or partial replacements
+4. CloudPebble imports from GitHub `master`; Sterling pastes raw content manually when needed
+5. **Always give Sterling full files** — never surgical diffs or partial replacements
 6. `chalk` = gabbro in the CloudPebble simulator
 
 ### Platform table
-| Platform | Watch | Screen | Colors | Health |
-|----------|-------|--------|--------|--------|
-| aplite | Pebble Classic / Steel | 144×168 rect | B&W | No |
-| basalt | Pebble Time | 144×168 rect | 64 color | Yes |
-| chalk | Pebble Time Round | 180×180 round | 64 color | Yes |
-| diorite | Pebble 2 SE | 144×168 rect | B&W | Yes |
-| emery | Pebble Time 2 | 200×228 rect | 64 color | Yes |
-| flint | Pebble 2 | 144×168 rect | B&W | Yes |
-| gabbro | Pebble Round 2 (Core Devices, 2026) | 260×260 round | 64 color | Yes |
+| Platform | Watch | Screen | Colors | Health | HR |
+|----------|-------|--------|--------|--------|----|
+| aplite | Pebble Classic / Steel | 144×168 rect | B&W | No | No |
+| basalt | Pebble Time | 144×168 rect | 64 color | Yes | Yes |
+| chalk | Pebble Time Round | 180×180 round | 64 color | Yes | No |
+| diorite | Pebble 2 SE | 144×168 rect | B&W | Yes | Yes |
+| emery | Pebble Time 2 | 200×228 rect | 64 color | Yes | Yes |
+| flint | Pebble 2 | 144×168 rect | B&W | Yes | Yes |
+| gabbro | Pebble Round 2 (Core Devices, 2026) | 260×260 round | 64 color | Yes | No |
 
-**gabbro** is the Pebble Round 2 — 260×260 circular color e-paper, round rendering, health-capable. NOT B&W, NOT rect. `chalk` = gabbro in CloudPebble simulator.  
-**flint** has health (PBL_HEALTH defined) — only aplite does not.
+**gabbro** = Pebble Round 2 — color, round, health, NO HR sensor. NOT B&W. `chalk` = gabbro in CloudPebble simulator.  
+**flint** has PBL_HEALTH — only aplite does not.
 
 ---
 
-## 12. KEY BUGS FIXED (history)
+## 13. KEY BUGS FIXED (history)
 
 | Bug | Fix |
 |-----|-----|
-| Platform detection inversion (B&W vs color) | Fixed in v2.0 |
-| Settings not persisting across config opens | Fixed: localStorage in index.js |
-| Overlay default was "always on" | Changed to OVERLAY_SHAKE |
-| Noon/midnight bug (showed 0 instead of 12) | `(s_hour % 12) ?: 12` |
-| Tick rasterization gaps on B&W | Group-based rendering, 2° B&W ticks |
-| Round battery ring going wrong way | Fixed direction logic |
-| 24h separator sizing too large | 3° cut (perfect thirds of 9° slot) |
-| `prv_overlay_auto_hide` undeclared identifier | Forward declaration added before inbox_received |
-| Degree symbol in weather format string | Removed — use plain "72F"/"22C" |
-| gabbro listed as B&W in platform table | Corrected: gabbro is color + round + health |
-| Calories icon small: 1px overflow on bottom | base rect height 4→3 (fits 11px slot) |
-| Round watch hour tip off-by-one in 12h mode | Added `if (!is_24h)` branch in round section |
-| Ember/Cobalt dim using neutral gray | Fixed: Ember dim = #550000, Cobalt dim = #000055 |
-| Battery ring bottom fill right-anchored from corner | Fixed: left-anchored at cx+gap origin (all rect, v2.2) |
+| Platform detection inversion | Fixed v2.0 |
+| Settings not persisting | Fixed: localStorage in index.js |
+| Overlay default "always on" | Changed to OVERLAY_SHAKE |
+| Noon/midnight showed 0 | `(s_hour % 12) ?: 12` |
+| B&W tick gaps | Group-based rendering, 2° B&W ticks |
+| Round battery ring direction | Fixed v2.0 |
+| 24h separator too large | 3° cut (perfect thirds of 9°) |
+| `prv_overlay_auto_hide` undeclared | Forward declaration added |
+| Degree symbol in weather format | Removed — plain "72F"/"22C" |
+| gabbro listed as B&W | Corrected: color + round + health |
+| Calories icon overflow | base h=3 not 4 |
+| Round hour tip off-by-one (12h) | Added `if (!is_24h)` in round section |
+| Ember/Cobalt dim wrong color | Ember=#550000, Cobalt=#000055 |
+| Battery ring bottom right-anchored | Fixed: left-anchored at cx+gap origin (all rect, v2.2) |
 
 ---
 
-## 13. DESIGN PHILOSOPHY
+## 14. DESIGN PHILOSOPHY
 
-- **Radial bar graph:** The watchface IS a bar graph, arranged radially. Minutes = top half, hours = bottom half. No hands, no numerals.
-- **Overlay / art mode duality:** Center circle shows day/time/date. Without it: pure starburst geometry. Four overlay modes: Always On, Always Off, Shake, 1 min (auto-hide).
-- **"Radium" naming:** Accidental pun — glowing green dial + "radial" design. Both are correct.
-- **Ring toggle:** ShowRing=false → ticks extend to screen edge → pure starburst mode.
-- **Nine-year backstory:** Concept from 2015, finally properly realized in 2026.
-- **64-color palette structure:** 2 bits per channel (0x00/0x55/0xAA/0xFF). Hue families form natural columns: bright/mid/dark within each hue. Preset design follows: lit=bright, tip=mid, dim=dark.
+- **Radial bar graph:** Minutes = top half, hours = bottom half. No hands, no numerals.
+- **Overlay / art mode:** Four modes — Always On, Always Off, Shake, 1 min auto-hide.
+- **"Radium" naming:** Accidental pun — glowing dial + "radial" design.
+- **Ring toggle:** ShowRing=false → pure starburst, ticks to screen edge.
+- **64-color palette:** lit=bright, tip=mid, dim=dark within each hue family.
 
 ---
 
-## 14. BANNER / STORE ASSETS
+## 15. BANNER / STORE ASSETS
 
 **Banner script:** `assets/banner_mockup.py` — Python/Pillow  
 **Banner PNG:** `assets/radium2_banner_mockup.png` — committed to repo
@@ -387,46 +411,62 @@ Design: 470×320px, text left / watch mockup right, blurred starburst bg, mint g
 
 ---
 
-## 15. OPEN ITEMS / v2.3 CANDIDATES
+## 16. OPEN ITEMS / v2.3 REMAINING
 
-v2.2 is shipped and tagged. v2.3 development is open on `master`. Scope TBD — likely informed by real hardware testing once Pebble Round 2 (gabbro) is in hand.
+### C pass 1 — DONE (commit 1a445f0)
+- [x] Charging bolt (replaces battery icon when `s_is_charging`)
+- [x] BT disconnect icon (`draw_bt_icon`, `FIELD_BT=10`, `bt_handler`, connection_service)
+- [x] Heart rate (`draw_heart_icon`, `FIELD_HEART_RATE=11`, `HealthMetricHeartRateBPM`)
 
-Potential v2.3 items:
-- **Bluetooth disconnect indicator** — icon or visual cue when watch loses phone connection
-- **Charging indicator** — icon when watch is on charger
-- **Heart rate** — basalt/diorite/emery/flint have HR sensors; implement once tested
-- **Sleep data** — available via `HealthMetricSleepSeconds`; lower priority
-- **Gabbro hardware testing** — verify all rendering on actual Round 2 hardware
-- **Banner/store asset update** — new banner image if warranted
-- **Redundant `v2.2` branch** — can be deleted during any repo housekeeping (proper release tag exists)
+### config.js — DONE (commit 148b767)
+- [x] Bluetooth and Heart rate in all 4 info line dropdowns
+
+### Still pending for v2.3
+- [ ] **Solar ring mode** — `RingMode` setting (Steps & Battery vs Sunrise & Sunset)
+  - Requires struct change: add `RingMode` field → bump SETTINGS_KEY to 8
+  - C: new ring draw logic using sunrise/sunset Unix timestamps
+  - JS: extend Open-Meteo call with `&daily=sunrise,sunset` → send sunrise[0], sunset[0], sunrise[1] as AppMessage ints
+  - New FIELD constants: FIELD_SUNRISE, FIELD_SUNSET, FIELD_DAYLIGHT
+  - Solar ring math: nighttime fills left toward sunrise; daytime drains right toward sunset
+- [ ] CHANGELOG update for v2.3
+- [ ] README update for v2.3 features
+- [ ] `v2.2` branch cleanup (redundant; proper release tag exists)
+
+### Post-v2.3 ideas
+- Sleep data (`HealthMetricSleepSeconds`)
+- Gabbro hardware verification on actual Round 2
 
 ---
 
-## 16. DEV ENVIRONMENT
+## 17. DEV ENVIRONMENT
 
 - **CloudPebble:** https://cloudpebble.repebble.com — primary build/test (Core Devices account)
 - **GitHub MCP connector:** Live on Mac desktop — Claude commits directly to GitHub
 - **Rebble Developer Portal:** https://dev.rebble.io — for store submissions
 - **Python / Pillow:** Banner/asset generation
-- **Alloy/XS SDK:** For Monogram (JavaScript/TypeScript, ES2025, Moddable's XS engine)
+- **Alloy/XS SDK:** For Monogram (JavaScript/TypeScript, ES2025)
 
 ---
 
-## 17. QUICK REFERENCE
+## 18. QUICK REFERENCE
 
 ```
 Repo:         https://github.com/SterlingEly/Radium2
 Branch:       master
-HEAD:         37dfe37  (v2.2 shipped; v2.3 open)
+HEAD:         148b767  (v2.3 in progress: C pass 1 + config.js done; solar ring pending)
 Release tag:  v2.2 at 37dfe37
 Live store:   https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 UUID:         2609e817-f8f2-4ad2-8846-cb05bb67d047
-Version:      2.2.0 live — 2.3.0 next
-SETTINGS_KEY: 7  (increment when struct layout changes)
-messageKeys:  29 (BackgroundColor … WeatherCode)
-github:push_files preferred for large files; create_or_update_file fails on large payloads
+Version:      2.2.0 live → 2.3.0 next
+SETTINGS_KEY: 7 (will bump to 8 when solar ring RingMode field added)
+messageKeys:  29 (BackgroundColor … WeatherCode) — no change yet in v2.3
+
+GitHub tooling note:
+  create_or_update_file works for files up to ~50KB with correct SHA
+  push_files can fail on large content payloads
+  For large files: get SHA → create_or_update_file with SHA
 ```
 
 ---
 
-*End of Radium 2 context seed. v2.2 is live and tagged; v2.3 development begins.*
+*End of Radium 2 context seed. v2.2 live and tagged; v2.3 C pass 1 done; solar ring next.*
