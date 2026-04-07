@@ -29,10 +29,10 @@
 #define FIELD_STEPS     4  // footprint icon + step count
 #define FIELD_TEMP_F    5  // weather icon + temperature in F
 #define FIELD_TEMP_C    6  // weather icon + temperature in C
-#define FIELD_BATTERY   7  // battery icon + charge %
+#define FIELD_BATTERY   7  // battery icon + charge % (bolt when charging)
 #define FIELD_DISTANCE  8  // footprint icon + walked distance (mi or km)
 #define FIELD_CALORIES  9  // flame icon + active kcal burned
-#define FIELD_BT        10 // bluetooth rune -- visible when disconnected
+#define FIELD_BT        10 // bluetooth rune + "!" -- visible when disconnected
 #define FIELD_HEART_RATE 11 // heart icon + BPM (requires HR sensor)
 
 // Weather icon types -- see weather_icon_for_code() for WMO code mapping
@@ -379,26 +379,37 @@ static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) 
 }
 
 // Heart icon for heart rate field.
-// Two bumps at top, tapering to a single-pixel point at bottom.
+// Two bumps at top with a deep V-split, tapering to a single-pixel point at bottom.
 static void draw_heart_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
   if (!large) {
-    // 11px slot: 1px top pad
+    // 11px slot: heart is 10px wide, 9px tall, 1px top pad
     int y = oy + 1;
     graphics_fill_rect(ctx, GRect(ox+1, y+0, 3, 2), 1, GCornersTop); // left bump
-    graphics_fill_rect(ctx, GRect(ox+6, y+0, 3, 2), 1, GCornersTop); // right bump
-    graphics_fill_rect(ctx, GRect(ox+0, y+1, 10, 2), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+7, y+0, 3, 2), 1, GCornersTop); // right bump (deeper split)
+    // Row 1: side fills only, gap at cols 4-6 deepens the V
+    graphics_fill_rect(ctx, GRect(ox+0, y+1, 4, 1), 0, GCornerNone); // left side
+    graphics_fill_rect(ctx, GRect(ox+7, y+1, 3, 1), 0, GCornerNone); // right side
+    // Row 2: full-width join closes the V
+    graphics_fill_rect(ctx, GRect(ox+0, y+2, 10, 1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+1, y+3, 8,  1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+2, y+4, 6,  1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+3, y+5, 4,  1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+4, y+6, 2,  1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+5, y+7, 1,  1), 0, GCornerNone); // tip
   } else {
-    // 14px slot: 1px top pad
+    // 14px slot: heart is 13px wide, 11px tall, 1px top pad
     int y = oy + 1;
     graphics_fill_rect(ctx, GRect(ox+1, y+0,  4, 2), 1, GCornersTop); // left bump
-    graphics_fill_rect(ctx, GRect(ox+8, y+0,  4, 2), 1, GCornersTop); // right bump
-    graphics_fill_rect(ctx, GRect(ox+0, y+1, 13, 3), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+9, y+0,  4, 2), 1, GCornersTop); // right bump (deeper split)
+    // Row 1: side fills only, gap at cols 5-8 deepens the V
+    graphics_fill_rect(ctx, GRect(ox+0, y+1,  5, 1), 0, GCornerNone); // left side
+    graphics_fill_rect(ctx, GRect(ox+9, y+1,  4, 1), 0, GCornerNone); // right side
+    // Row 2: narrowing gap
+    graphics_fill_rect(ctx, GRect(ox+0, y+2,  6, 1), 0, GCornerNone); // left side
+    graphics_fill_rect(ctx, GRect(ox+8, y+2,  5, 1), 0, GCornerNone); // right side
+    // Row 3: full-width join closes the V
+    graphics_fill_rect(ctx, GRect(ox+0, y+3, 13, 1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+1, y+4, 11, 1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+2, y+5,  9, 1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+3, y+6,  7, 1), 0, GCornerNone);
@@ -579,10 +590,24 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_BATTERY) {
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
-    // Blank when connected; show centered BT rune when disconnected.
+    // Blank when connected; show BT rune + "!" when disconnected.
     if (!s_bt_connected) {
-      int bx = cx - (large ? LARGE_ICON_W : SMALL_ICON_W) / 2;
+      // Center the BT icon + gap + exclamation mark as a unit.
+      int icon_w_bt = large ? LARGE_ICON_W : SMALL_ICON_W;
+      int bx = cx - (icon_w_bt / 2) - 1; // shift left to make room for !
       draw_bt_icon(ctx, bx, iy, col, large);
+      // Pixel-art exclamation mark 2px right of the icon slot
+      int ex = bx + icon_w_bt + 2;
+      if (!large) {
+        // 11px: stem rows 0-6, dot row 8
+        for (int r = 0; r <= 6; r++) graphics_draw_pixel(ctx, GPoint(ex, iy + r));
+        graphics_draw_pixel(ctx, GPoint(ex, iy + 8));
+      } else {
+        // 14px: stem rows 0-8, dot rows 10-11
+        for (int r = 0; r <= 8; r++) graphics_draw_pixel(ctx, GPoint(ex, iy + r));
+        graphics_draw_pixel(ctx, GPoint(ex, iy + 10));
+        graphics_draw_pixel(ctx, GPoint(ex, iy + 11));
+      }
     }
   } else if (field == FIELD_HEART_RATE) {
     DRAW_ICON_TEXT(draw_heart_icon(ctx, icon_x, iy, col, large), s_heart_rate_buffer);
