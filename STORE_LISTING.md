@@ -13,7 +13,7 @@ Time and energy flowing around your wrist — hours and minutes as arcs, with ba
 
 The left half of the face fills with hour blocks, one per hour, sweeping clockwise from the bottom. The right half fills with minute ticks: 60 individual marks in groups of five, lighting up as each minute passes. The outer ring tracks step count toward your daily goal on the left side and battery level on the right.
 
-In the center, an optional overlay shows the time and up to four configurable info lines — mix and match day, date, weather, steps, distance, active calories, and battery % however you like. Shake to dismiss it and see the full radial display: a pure starburst of glowing geometry. Shake again to bring it back. (Or set the overlay to always-on or always-off in settings.)
+In the center, an optional overlay shows the time and up to four configurable info lines — mix and match day, date, weather, steps, distance, active calories, battery %, Bluetooth status, heart rate, and more however you like. Shake to dismiss it and see the full radial display: a pure starburst of glowing geometry. Shake again to bring it back. (Or set the overlay to always-on or always-off in settings.)
 
 Radium 2 is a complete rebuild of the original Radium watchface, designed for Pebble Time Round in 2015 and first published in 2016. Rebuilt for all Pebble platforms with 40 color presets and full per-element color customization.
 
@@ -22,8 +22,11 @@ FEATURES
 - Radial bar graph display — hours on the left, minutes on the right
 - 24h mode: each hour slot splits into two half-segments
 - Optional outer ring: step count (left half) and battery level (right half)
-- Four configurable info lines: day, date, weather, steps, distance, calories, battery %, or none
+- Four configurable info lines: day, date, weather, steps, distance, calories, battery %, Bluetooth, heart rate, or none
 - Live weather from Open-Meteo — no account or API key required
+- Charging indicator: battery icon swaps to a lightning bolt when on the charger
+- Bluetooth alert: BT rune appears and watch vibrates when phone connection is lost
+- Heart rate: live BPM on Pebble Time, Time 2, Pebble 2, and Pebble 2 Duo
 - Full per-element color customization: 17 independent color slots
 - 40 color presets in five rows: Dark, Dark+, Light, Color, Special
 - B&W invert mode for Pebble Classic, Pebble 2, and Pebble 2 Duo
@@ -45,6 +48,11 @@ Feedback is appreciated: please hit me up at @sterlingely on Twitter/X with any 
 ---
 
 ## Release Notes
+
+### v2.3 (upcoming)
+- New info line options: Bluetooth disconnect indicator and Heart rate (on supported hardware)
+- Charging indicator: battery icon swaps to a lightning bolt when the watch is on the charger
+- Double-pulse vibration alert when Bluetooth connection is lost
 
 ### v2.2
 - The text above & below the time are now 4 configurable info lines: Each can show day, date, weather, steps, distance, active calories, battery %, or nothing!
