@@ -39,7 +39,11 @@
             "ShowRing",
             "WeatherTempF",
             "WeatherTempC",
-            "WeatherCode"
+            "WeatherCode",
+            "RingMode",
+            "SunriseTime",
+            "SunsetTime",
+            "SunriseTomorrow"
         ],
         "projectType": "native",
         "resources": {
@@ -60,5 +64,5 @@
             "watchface": true
         }
     },
-    "version": "2.2.0"
+    "version": "2.3.0"
 }
