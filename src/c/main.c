@@ -1043,22 +1043,24 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   if (show_ring) {
     int right_pct, left_pct;
     if (s_settings.RingMode == RING_SOLAR && prv_solar_valid()) {
-      // Solar mode:
+      // Solar ring mode:
       //   Right arc (day):   100% at sunrise, drains to 0% at sunset
       //   Left arc (night):  100% at sunset,  drains to 0% at sunrise
-      // Both arcs are full at their transition point and drain together.
+      // Both arcs use the SAME fill direction as steps/battery mode —
+      // only the pct source changes. The solar "drain" effect comes from
+      // the countdown formula, not from reversing the draw direction.
       time_t now_t = time(NULL);
       if (now_t >= s_sunrise && now_t < s_sunset) {
-        // Daytime
+        // Daytime: day arc drains, night arc stays full
         int day_len = (int)(s_sunset - s_sunrise);
         right_pct = (day_len > 0) ? (int)((s_sunset - now_t) * 100 / day_len) : 0;
         left_pct  = 100;
       } else {
-        // Nighttime
+        // Nighttime: night arc drains toward sunrise, day arc empty
         time_t prev_sunset  = (now_t < s_sunrise) ? (s_sunset - 86400) : s_sunset;
         time_t next_sunrise = (now_t < s_sunrise) ? s_sunrise           : s_sunrise_tomorrow;
         int night_len = (int)(next_sunrise - prev_sunset);
-        // Count DOWN: 100% at sunset, 0% at sunrise (parallels the day arc)
+        // Count DOWN: 100% at sunset, 0% at sunrise (mirrors how day arc drains)
         left_pct  = (night_len > 0) ? (int)((next_sunrise - now_t) * 100 / night_len) : 0;
         right_pct = 0;
       }
@@ -1067,9 +1069,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (right_pct < 0)   right_pct = 0;
       if (right_pct > 100) right_pct = 100;
     } else if (s_settings.RingMode == RING_SOLAR) {
+      // Solar selected but data stale/absent — show dim tracks only
       right_pct = 0;
       left_pct  = 0;
     } else {
+      // Steps & Battery mode (default)
       right_pct = s_battery;
       left_pct  = (s_settings.StepGoal > 0)
         ? (s_steps * 100) / s_settings.StepGoal : 0;
@@ -1077,45 +1081,52 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
     if (is_round) {
+      // Dim tracks
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                            DEG_TO_TRIGANGLE(3),   DEG_TO_TRIGANGLE(177));
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                            DEG_TO_TRIGANGLE(183), DEG_TO_TRIGANGLE(357));
+      // Right arc: fills CW from near-12 (3°) toward near-6 (177°).
+      // Anchor at 177, free end grows toward 3 as pct increases.
       if (right_pct > 0) {
         graphics_context_set_fill_color(ctx, col_batt);
-        // Right arc: anchor at 177 (near 6 o'clock), drains CW toward 12
         graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                              DEG_TO_TRIGANGLE(177 - 174 * right_pct / 100),
                              DEG_TO_TRIGANGLE(177));
       }
+      // Left arc: fills CCW from near-6 (183°) toward near-12 (357°).
+      // Anchor at 183, free end grows toward 357 as pct increases.
+      // Steps mode: grows as steps accumulate.
+      // Solar night: pct=100 at sunset, drains to 0 — arc shrinks from the 12-end back toward 6.
       if (left_pct > 0) {
         graphics_context_set_fill_color(ctx, col_step);
-        // Left arc: anchor at 357 (near 6 o'clock), drains CCW toward 12
-        // Mirrored behavior: both arcs drain away from 6 o'clock toward 12
         graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
-                             DEG_TO_TRIGANGLE(357 - 174 * left_pct / 100),
-                             DEG_TO_TRIGANGLE(357));
+                             DEG_TO_TRIGANGLE(183),
+                             DEG_TO_TRIGANGLE(183 + 174 * left_pct / 100));
       }
     } else {
+      // ---- RECT ----
       int t      = RING_THICK;
       int gap    = 5;
       int half_w = cx - gap;
       int total  = half_w + h + half_w;
 
+      // Clear ring area
       graphics_context_set_fill_color(ctx, col_bg);
       graphics_fill_rect(ctx, GRect(0,   0,   w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
-      // Right half (battery/day): origin at bottom-center-right, fills CW toward 12
+      // Right half dim track (battery/day): bottom-center-right → right side → top-right
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone);
 
+      // Right arc fill: origin at (cx+gap, bottom), fills rightward → up right side → leftward along top
       {
         int filled = total * right_pct / 100;
         graphics_context_set_fill_color(ctx, col_batt);
@@ -1135,12 +1146,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
-      // Left half (steps/night): origin at bottom-center-left, fills CCW toward 12
+      // Left half dim track (steps/night): bottom-center-left → left side → top-left
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, half_w, t), 0, GCornerNone);
 
+      // Left arc fill: origin at (cx-gap, bottom), fills leftward → up left side → rightward along top
+      // Steps mode: grows as steps accumulate.
+      // Solar night: pct=100 at sunset, drains to 0 at sunrise — same fill direction, just pct changes.
       if (left_pct > 0) {
         int filled = total * left_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
