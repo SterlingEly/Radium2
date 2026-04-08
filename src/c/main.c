@@ -4,24 +4,20 @@
 // ============================================================
 // CONSTANTS
 // ============================================================
-#define SETTINGS_KEY      8          // bumped: added RingMode for solar ring
-#define SOLAR_KEY         9          // separate persist key for solar timestamps
+#define SETTINGS_KEY      8
+#define SOLAR_KEY         9
 #define DEFAULT_STEP_GOAL 10000
-#define RING_GAP          2          // px gap between outer ring and tick radials
-#define RING_THICK        6          // outer ring thickness (px)
+#define RING_GAP          2
+#define RING_THICK        6
 
-// Overlay visibility modes
 #define OVERLAY_ALWAYS_ON   0
 #define OVERLAY_OFF         1
 #define OVERLAY_SHAKE       2
 #define OVERLAY_AUTO        3
-
 #define OVERLAY_AUTO_HIDE_MS  60000
-
 #define OVERLAY_SMALL  0
 #define OVERLAY_LARGE  1
 
-// Info line field IDs
 #define FIELD_NONE      0
 #define FIELD_DAY_LONG  1
 #define FIELD_DATE      2
@@ -162,7 +158,6 @@ static bool s_bt_connected = true;
 static int  s_heart_rate   = 0;
 static bool s_show_overlay = true;
 
-// Solar ring timestamps (0 = not yet received from phone)
 static time_t s_sunrise          = 0;
 static time_t s_sunset           = 0;
 static time_t s_sunrise_tomorrow = 0;
@@ -195,8 +190,7 @@ static GPath    *s_tri_path = NULL;
 static void prv_overlay_auto_hide(void *context);
 
 // ============================================================
-// SOLAR CACHE  (persisted at SOLAR_KEY, defined after state vars
-// so prv_save/load_solar can reference s_sunrise etc.)
+// SOLAR CACHE
 // ============================================================
 typedef struct { time_t sunrise; time_t sunset; time_t sunrise_tomorrow; } SolarCache;
 
@@ -215,7 +209,6 @@ static void prv_load_solar(void) {
   }
 }
 
-// True if solar data is present and not yet stale (< 36h since tomorrow's sunrise).
 static bool prv_solar_valid(void) {
   return s_sunrise_tomorrow > 0 && time(NULL) < s_sunrise_tomorrow + 36 * 3600;
 }
@@ -253,12 +246,10 @@ static void update_solar_buffers(void) {
   int h_rise = sr->tm_hour % 12; if (h_rise == 0) h_rise = 12;
   snprintf(s_sunrise_buffer, sizeof(s_sunrise_buffer),
            "%d:%02d%s", h_rise, sr->tm_min, sr->tm_hour >= 12 ? "pm" : "am");
-
   struct tm *ss = localtime(&s_sunset);
   int h_set = ss->tm_hour % 12; if (h_set == 0) h_set = 12;
   snprintf(s_sunset_buffer, sizeof(s_sunset_buffer),
            "%d:%02d%s", h_set, ss->tm_min, ss->tm_hour >= 12 ? "pm" : "am");
-
   if (s_sunset > s_sunrise) {
     int secs = (int)(s_sunset - s_sunrise);
     snprintf(s_daylight_buffer, sizeof(s_daylight_buffer),
@@ -374,59 +365,47 @@ static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) 
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
   if (!large) {
-    // 11px: spine at col 3, chevron peaks at col 6
-    graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10)); // spine
-    // Upper-left diagonal: from spine top (ox+3,oy+0) outward down-left
+    graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10));
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+2));
-    // Lower-left diagonal: from spine bottom (ox+3,oy+10) outward up-left
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+8));
-    // Upper chevron
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+3)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+6, oy+3));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+4));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+5));
-    // Lower chevron
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+6));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+8)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+6, oy+8));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+10));
-    // Exclamation: 2px wide, 1px gap from BT body
     graphics_draw_line(ctx, GPoint(ox+9,  oy+1), GPoint(ox+9,  oy+7));
     graphics_draw_line(ctx, GPoint(ox+10, oy+1), GPoint(ox+10, oy+7));
     graphics_draw_pixel(ctx, GPoint(ox+9,  oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+10, oy+9));
   } else {
-    // 14px: spine at col 4, chevron peaks at col 8
-    graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13)); // spine
-    // Upper-left diagonal: from spine top (ox+4,oy+0) outward down-left
+    graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13));
     graphics_draw_pixel(ctx, GPoint(ox+3, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+2));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+3));
-    // Lower-left diagonal: from spine bottom (ox+4,oy+13) outward up-left
     graphics_draw_pixel(ctx, GPoint(ox+3, oy+12));
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+11));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+10));
-    // Upper chevron
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+2));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+4)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+8, oy+4));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+5));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+6));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    // Lower chevron
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+11)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+8, oy+11));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+12));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+13));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+14));
-    // Exclamation: 2px wide, 1px gap from BT body
     graphics_draw_line(ctx, GPoint(ox+11, oy+1),  GPoint(ox+11, oy+9));
     graphics_draw_line(ctx, GPoint(ox+12, oy+1),  GPoint(ox+12, oy+9));
     graphics_draw_line(ctx, GPoint(ox+11, oy+11), GPoint(ox+12, oy+11));
@@ -635,9 +614,6 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_BATTERY) {
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
-    // Blank when connected; BT rune + "!" when disconnected.
-    // draw_bt_icon includes the "!" -- center on full glyph width.
-    // Small: glyph ~11px wide (to col 10), large: ~13px wide (to col 12).
     if (!s_bt_connected) {
       int bx = cx - (large ? 6 : 5);
       draw_bt_icon(ctx, bx, iy, col, large);
@@ -1043,24 +1019,20 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   if (show_ring) {
     int right_pct, left_pct;
     if (s_settings.RingMode == RING_SOLAR && prv_solar_valid()) {
-      // Solar ring mode:
-      //   Right arc (day):   100% at sunrise, drains to 0% at sunset
-      //   Left arc (night):  100% at sunset,  drains to 0% at sunrise
-      // Both arcs use the SAME fill direction as steps/battery mode —
-      // only the pct source changes. The solar "drain" effect comes from
-      // the countdown formula, not from reversing the draw direction.
+      // Solar ring:
+      //   Right (day arc):   100% at sunrise, drains CW toward 6 as day progresses
+      //   Left (night arc):  100% at sunset,  drains CW toward 6 as night progresses
+      // Both arcs use DIFFERENT draw directions than steps for the left arc:
+      // solar_night_active flag below selects the correct fill path.
       time_t now_t = time(NULL);
       if (now_t >= s_sunrise && now_t < s_sunset) {
-        // Daytime: day arc drains, night arc stays full
         int day_len = (int)(s_sunset - s_sunrise);
         right_pct = (day_len > 0) ? (int)((s_sunset - now_t) * 100 / day_len) : 0;
         left_pct  = 100;
       } else {
-        // Nighttime: night arc drains toward sunrise, day arc empty
         time_t prev_sunset  = (now_t < s_sunrise) ? (s_sunset - 86400) : s_sunset;
         time_t next_sunrise = (now_t < s_sunrise) ? s_sunrise           : s_sunrise_tomorrow;
         int night_len = (int)(next_sunrise - prev_sunset);
-        // Count DOWN: 100% at sunset, 0% at sunrise (mirrors how day arc drains)
         left_pct  = (night_len > 0) ? (int)((next_sunrise - now_t) * 100 / night_len) : 0;
         right_pct = 0;
       }
@@ -1069,64 +1041,70 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (right_pct < 0)   right_pct = 0;
       if (right_pct > 100) right_pct = 100;
     } else if (s_settings.RingMode == RING_SOLAR) {
-      // Solar selected but data stale/absent — show dim tracks only
       right_pct = 0;
       left_pct  = 0;
     } else {
-      // Steps & Battery mode (default)
       right_pct = s_battery;
       left_pct  = (s_settings.StepGoal > 0)
         ? (s_steps * 100) / s_settings.StepGoal : 0;
       if (left_pct > 100) left_pct = 100;
     }
 
+    // Solar night uses the opposite fill direction from steps on the left arc.
+    // Steps fills CW from 6 toward 12 (bottom-center is 0%, top is 100%).
+    // Solar night starts full at sunset and drains CW from 6 toward 12,
+    // meaning the bottom-center (6 o'clock) empties first.
+    // This requires the fill to be anchored at the 12-end and retreat toward 6.
+    bool solar_night_active = (s_settings.RingMode == RING_SOLAR);
+
     if (is_round) {
-      // Dim tracks
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                            DEG_TO_TRIGANGLE(3),   DEG_TO_TRIGANGLE(177));
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                            DEG_TO_TRIGANGLE(183), DEG_TO_TRIGANGLE(357));
-      // Right arc: fills CW from near-12 (3°) toward near-6 (177°).
-      // Anchor at 177, free end grows toward 3 as pct increases.
+      // Right arc (battery/day): anchor at 177 (6 o'clock side), free end near 12.
+      // Drains CW: 12-end retreats toward 6 as pct drops.
       if (right_pct > 0) {
         graphics_context_set_fill_color(ctx, col_batt);
         graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                              DEG_TO_TRIGANGLE(177 - 174 * right_pct / 100),
                              DEG_TO_TRIGANGLE(177));
       }
-      // Left arc: fills CCW from near-6 (183°) toward near-12 (357°).
-      // Anchor at 183, free end grows toward 357 as pct increases.
-      // Steps mode: grows as steps accumulate.
-      // Solar night: pct=100 at sunset, drains to 0 — arc shrinks from the 12-end back toward 6.
+      // Left arc: steps fills from 183 toward 357 (6→12 CW).
+      // Solar night: anchor at 357 (12-side), drains toward 183 (6-side),
+      //              so the 6-end (183) empties first.
       if (left_pct > 0) {
         graphics_context_set_fill_color(ctx, col_step);
-        graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
-                             DEG_TO_TRIGANGLE(183),
-                             DEG_TO_TRIGANGLE(183 + 174 * left_pct / 100));
+        if (solar_night_active) {
+          graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
+                               DEG_TO_TRIGANGLE(357 - 174 * left_pct / 100),
+                               DEG_TO_TRIGANGLE(357));
+        } else {
+          graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
+                               DEG_TO_TRIGANGLE(183),
+                               DEG_TO_TRIGANGLE(183 + 174 * left_pct / 100));
+        }
       }
     } else {
-      // ---- RECT ----
       int t      = RING_THICK;
       int gap    = 5;
       int half_w = cx - gap;
       int total  = half_w + h + half_w;
 
-      // Clear ring area
       graphics_context_set_fill_color(ctx, col_bg);
       graphics_fill_rect(ctx, GRect(0,   0,   w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
-      // Right half dim track (battery/day): bottom-center-right → right side → top-right
+      // Right half (battery/day): origin at bottom-center-right.
+      // Fills: bottom strip rightward → up right side → top strip leftward toward center.
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone);
-
-      // Right arc fill: origin at (cx+gap, bottom), fills rightward → up right side → leftward along top
       {
         int filled = total * right_pct / 100;
         graphics_context_set_fill_color(ctx, col_batt);
@@ -1146,31 +1124,56 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
-      // Left half dim track (steps/night): bottom-center-left → left side → top-left
+      // Left half dim track
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, half_w, t), 0, GCornerNone);
 
-      // Left arc fill: origin at (cx-gap, bottom), fills leftward → up left side → rightward along top
-      // Steps mode: grows as steps accumulate.
-      // Solar night: pct=100 at sunset, drains to 0 at sunrise — same fill direction, just pct changes.
       if (left_pct > 0) {
         int filled = total * left_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
-        if (filled > 0) {
-          int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
-          filled -= seg;
-        }
-        if (filled > 0) {
-          int seg = (filled < h) ? filled : h;
-          graphics_fill_rect(ctx, GRect(0, h-seg, t, seg), 0, GCornerNone);
-          filled -= seg;
-        }
-        if (filled > 0) {
-          int seg = (filled < half_w) ? filled : half_w;
-          graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);
+        if (solar_night_active) {
+          // Solar night: anchor at 12-end (top-center), drains toward 6 (bottom-center).
+          // The bottom-center segment empties first as pct decreases.
+          // Fill order: top first, then left side downward, then bottom last.
+          if (filled > 0) {
+            int seg = (filled < half_w) ? filled : half_w;
+            // Top strip: right-anchored at center (cx-gap), fills leftward toward corner
+            graphics_fill_rect(ctx, GRect(cx-gap-seg, 0, seg, t), 0, GCornerNone);
+            filled -= seg;
+          }
+          if (filled > 0) {
+            int seg = (filled < h) ? filled : h;
+            // Left side: downward from top-left corner
+            graphics_fill_rect(ctx, GRect(0, 0, t, seg), 0, GCornerNone);
+            filled -= seg;
+          }
+          if (filled > 0) {
+            int seg = (filled < half_w) ? filled : half_w;
+            // Bottom strip: left-anchored at corner, fills rightward toward center
+            graphics_fill_rect(ctx, GRect(0, h-t, seg, t), 0, GCornerNone);
+          }
+        } else {
+          // Steps: anchor at 6 (bottom-center), fills CW toward 12.
+          // Fill order: bottom first, then left side upward, then top last.
+          if (filled > 0) {
+            int seg = (filled < half_w) ? filled : half_w;
+            // Bottom strip: right-anchored at center (cx-gap), fills leftward toward corner
+            graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
+            filled -= seg;
+          }
+          if (filled > 0) {
+            int seg = (filled < h) ? filled : h;
+            // Left side: upward from bottom-left corner
+            graphics_fill_rect(ctx, GRect(0, h-seg, t, seg), 0, GCornerNone);
+            filled -= seg;
+          }
+          if (filled > 0) {
+            int seg = (filled < half_w) ? filled : half_w;
+            // Top strip: left-anchored at corner, fills rightward toward center
+            graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);
+          }
         }
       }
     }
@@ -1251,7 +1254,6 @@ static void update_steps_buffer(void) {
 static void tick_handler(struct tm *t, TimeUnits units_changed) {
   s_hour   = t->tm_hour;
   s_minute = t->tm_min;
-
   int disp_hour = clock_is_24h_style() ? t->tm_hour : ((t->tm_hour % 12) ?: 12);
   snprintf(s_time_buffer,     sizeof(s_time_buffer),     "%02d:%02d", disp_hour, t->tm_min);
   snprintf(s_day_buffer,      sizeof(s_day_buffer),      "%s", get_day_name(t->tm_wday));
@@ -1324,7 +1326,6 @@ static void bt_handler(bool connected) {
 
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
-
   t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
   if (t) s_settings.BackgroundColor = GColorFromHEX(t->value->int32);
   t = dict_find(iter, MESSAGE_KEY_OverlayColor);
@@ -1407,7 +1408,6 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherCode);
   if (t) s_weather_code = (int)t->value->int32;
-
   prv_save_settings();
   layer_mark_dirty(s_canvas_layer);
 }
@@ -1448,11 +1448,9 @@ static void window_unload(Window *window) {
 static void init(void) {
   prv_load_settings();
   prv_load_solar();
-
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
   s_weather_code   = 0;
-
   snprintf(s_steps_buffer,      sizeof(s_steps_buffer),      "0");
   snprintf(s_battery_buffer,    sizeof(s_battery_buffer),    "0%%");
   snprintf(s_temp_f_buffer,     sizeof(s_temp_f_buffer),     "--");
@@ -1463,16 +1461,13 @@ static void init(void) {
   snprintf(s_sunrise_buffer,    sizeof(s_sunrise_buffer),    "--");
   snprintf(s_sunset_buffer,     sizeof(s_sunset_buffer),     "--");
   snprintf(s_daylight_buffer,   sizeof(s_daylight_buffer),   "--");
-
   update_solar_buffers();
-
   if (s_settings.OverlayMode == OVERLAY_AUTO) {
     s_show_overlay  = true;
     s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
   } else {
     s_show_overlay = (s_settings.OverlayMode != OVERLAY_OFF);
   }
-
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
     .load   = window_load,
@@ -1480,10 +1475,8 @@ static void init(void) {
   });
   window_set_background_color(s_window, s_settings.BackgroundColor);
   window_stack_push(s_window, true);
-
   time_t now = time(NULL);
   tick_handler(localtime(&now), MINUTE_UNIT);
-
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   battery_state_service_subscribe(battery_handler);
   battery_handler(battery_state_service_peek());
