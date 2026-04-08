@@ -5,6 +5,7 @@
 // CONSTANTS
 // ============================================================
 #define SETTINGS_KEY      8          // bumped: added RingMode for solar ring
+#define SOLAR_KEY         9          // separate persist key for solar timestamps (not part of settings struct)
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2          // px gap between outer ring and tick radials
 #define RING_THICK        6          // outer ring thickness (px)
@@ -151,6 +152,32 @@ static void prv_save_settings(void) {
 static void prv_load_settings(void) {
   prv_default_settings();
   persist_read_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
+}
+
+// Solar timestamps cached to flash so they survive disconnect / reboot.
+// Stored separately from settings to avoid bumping SETTINGS_KEY.
+typedef struct { time_t sunrise; time_t sunset; time_t sunrise_tomorrow; } SolarCache;
+
+static void prv_save_solar(void) {
+  SolarCache c = { s_sunrise, s_sunset, s_sunrise_tomorrow };
+  persist_write_data(SOLAR_KEY, &c, sizeof(c));
+}
+
+static void prv_load_solar(void) {
+  SolarCache c = { 0, 0, 0 };
+  persist_read_data(SOLAR_KEY, &c, sizeof(c));
+  if (c.sunrise_tomorrow > 0 && time(NULL) < c.sunrise_tomorrow + 36 * 3600) {
+    s_sunrise          = c.sunrise;
+    s_sunset           = c.sunset;
+    s_sunrise_tomorrow = c.sunrise_tomorrow;
+  }
+  // else: stale or absent -- leave at 0 (ring shows dim tracks only)
+}
+
+// True if solar data is present and not yet stale.
+// Stale threshold: tomorrow's sunrise is more than 36 hours in the past.
+static bool prv_solar_valid(void) {
+  return s_sunrise_tomorrow > 0 && time(NULL) < s_sunrise_tomorrow + 36 * 3600;
 }
 
 // ============================================================
@@ -354,7 +381,7 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
 // Bluetooth rune icon.
 // Standard BT glyph: vertical spine, two right-pointing chevrons,
 // and diagonal X-lines crossing the spine at top and bottom.
-// Also draws a pixel-art "!" to the right when disconnected.
+// Also draws a pixel-art "!" to the right.
 static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
@@ -620,9 +647,10 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
     // Blank when connected; show BT rune + "!" when disconnected.
+    // draw_bt_icon already includes the "!" -- center on the full glyph width.
+    // Small total width ~10px (cols 1-8+), large ~12px (cols 1-11).
     if (!s_bt_connected) {
-      int icon_w_bt = large ? LARGE_ICON_W : SMALL_ICON_W;
-      int bx = cx - (icon_w_bt / 2) - 1;
+      int bx = cx - (large ? 6 : 5);
       draw_bt_icon(ctx, bx, iy, col, large);
     }
   } else if (field == FIELD_HEART_RATE) {
@@ -1028,10 +1056,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   if (show_ring) {
     // Compute fill percentages for the two ring halves based on ring mode.
     int right_pct, left_pct;
-    if (s_settings.RingMode == RING_SOLAR && s_sunrise != 0 && s_sunset != 0) {
-      // Solar mode:
+    if (s_settings.RingMode == RING_SOLAR && prv_solar_valid()) {
+      // Solar mode -- data is confirmed fresh (prv_solar_valid() passed):
       //   right arc = day progress (full at sunrise, drains toward sunset)
       //   left arc  = night progress (empty at sunset, fills toward sunrise)
+      // If data becomes stale (>36h disconnected), prv_solar_valid() returns
+      // false and we fall through to the else branch with right_pct=0, left_pct=0.
       time_t now_t = time(NULL);
       if (now_t >= s_sunrise && now_t < s_sunset) {
         // Daytime
@@ -1050,6 +1080,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (left_pct  > 100) left_pct  = 100;
       if (right_pct < 0)   right_pct = 0;
       if (right_pct > 100) right_pct = 100;
+    } else if (s_settings.RingMode == RING_SOLAR) {
+      // Solar mode selected but data is stale or not yet received.
+      // Show dim tracks only -- no filled arcs.
+      right_pct = 0;
+      left_pct  = 0;
     } else {
       // Steps & Battery mode (default)
       right_pct = s_battery;
@@ -1354,12 +1389,15 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.ShowRing    = (t->value->int32 == 1);
   t = dict_find(iter, MESSAGE_KEY_RingMode);
   if (t) s_settings.RingMode    = (int)t->value->int32;
+  // Collect all three solar timestamps before updating/saving
   t = dict_find(iter, MESSAGE_KEY_SunriseTime);
-  if (t) { s_sunrise          = (time_t)t->value->int32; update_solar_buffers(); }
+  if (t) s_sunrise          = (time_t)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_SunsetTime);
-  if (t) { s_sunset           = (time_t)t->value->int32; update_solar_buffers(); }
+  if (t) s_sunset           = (time_t)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_SunriseTomorrow);
-  if (t) { s_sunrise_tomorrow = (time_t)t->value->int32; update_solar_buffers(); }
+  if (t) s_sunrise_tomorrow = (time_t)t->value->int32;
+  // Persist and refresh display strings whenever we have valid data
+  if (s_sunrise != 0) { update_solar_buffers(); prv_save_solar(); }
   t = dict_find(iter, MESSAGE_KEY_WeatherTempF);
   if (t) {
     s_weather_temp_f = (int)t->value->int32;
@@ -1412,6 +1450,7 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   prv_load_settings();
+  prv_load_solar();       // restore cached solar timestamps from flash
 
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
@@ -1427,6 +1466,9 @@ static void init(void) {
   snprintf(s_sunrise_buffer,    sizeof(s_sunrise_buffer),    "--");
   snprintf(s_sunset_buffer,     sizeof(s_sunset_buffer),     "--");
   snprintf(s_daylight_buffer,   sizeof(s_daylight_buffer),   "--");
+
+  // Populate solar buffers from restored cache (if valid)
+  update_solar_buffers();
 
   if (s_settings.OverlayMode == OVERLAY_AUTO) {
     s_show_overlay  = true;
