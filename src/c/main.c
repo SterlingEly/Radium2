@@ -359,39 +359,50 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
   }
 }
 
-// BT rune: spine, diagonal X-lines from spine outward at top/bottom,
-// two right chevrons, and a 2px-wide "!" to the right.
+// BT rune: vertical spine with two right-pointing chevrons.
+// Left-side X arms mirror the chevron arms across the spine, reaching the corners.
+// 2px-wide "!" to the right.
 static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
   if (!large) {
-    graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10));
+    // 11px tall (rows 0-10), spine at col 3, chevron peaks at col 6
+    graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10)); // spine
+    // Upper-left arm: mirrors upper chevron's top arm, reaches top-left corner
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+1));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+2));
+    graphics_draw_pixel(ctx, GPoint(ox+1, oy+0));
+    // Lower-left arm: mirrors lower chevron's bottom arm, reaches bottom-left corner
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+9));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+8));
+    graphics_draw_pixel(ctx, GPoint(ox+1, oy+10));
+    // Upper chevron (rows 1-5, peak at row 3)
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+2));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+3));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+4));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+5));
+    // Lower chevron (rows 6-10, peak at row 8)
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+6));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+8));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+10));
+    // Exclamation: 2px wide, 1px gap from BT body
     graphics_draw_line(ctx, GPoint(ox+9,  oy+1), GPoint(ox+9,  oy+7));
     graphics_draw_line(ctx, GPoint(ox+10, oy+1), GPoint(ox+10, oy+7));
     graphics_draw_pixel(ctx, GPoint(ox+9,  oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+10, oy+9));
   } else {
-    graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13));
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+1));
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+12));
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+10));
+    // 14px tall (rows 0-13), spine at col 4, chevron peaks at col 8
+    graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13)); // spine
+    // Upper-left arm: mirrors upper chevron's top arm, reaches top-left corner
+    graphics_draw_pixel(ctx, GPoint(ox+3, oy+2));
+    graphics_draw_pixel(ctx, GPoint(ox+2, oy+1));
+    graphics_draw_pixel(ctx, GPoint(ox+1, oy+0));
+    // Lower-left arm: mirrors lower chevron's bottom arm, reaches bottom-left corner
+    graphics_draw_pixel(ctx, GPoint(ox+3, oy+11));
+    graphics_draw_pixel(ctx, GPoint(ox+2, oy+12));
+    graphics_draw_pixel(ctx, GPoint(ox+1, oy+13));
+    // Upper chevron (rows 1-7, peak at row 4)
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+1));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+2));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+3));
@@ -399,6 +410,7 @@ static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) 
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+5));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+6));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
+    // Lower chevron (rows 8-14, peak at row 11)
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+10));
@@ -406,6 +418,7 @@ static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) 
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+12));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+13));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+14));
+    // Exclamation: 2px wide, 1px gap from BT body
     graphics_draw_line(ctx, GPoint(ox+11, oy+1),  GPoint(ox+11, oy+9));
     graphics_draw_line(ctx, GPoint(ox+12, oy+1),  GPoint(ox+12, oy+9));
     graphics_draw_line(ctx, GPoint(ox+11, oy+11), GPoint(ox+12, oy+11));
@@ -1019,11 +1032,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   if (show_ring) {
     int right_pct, left_pct;
     if (s_settings.RingMode == RING_SOLAR && prv_solar_valid()) {
-      // Solar ring:
-      //   Right (day arc):   100% at sunrise, drains CW toward 6 as day progresses
-      //   Left (night arc):  100% at sunset,  drains CW toward 6 as night progresses
-      // Both arcs use DIFFERENT draw directions than steps for the left arc:
-      // solar_night_active flag below selects the correct fill path.
       time_t now_t = time(NULL);
       if (now_t >= s_sunrise && now_t < s_sunset) {
         int day_len = (int)(s_sunset - s_sunrise);
@@ -1051,10 +1059,8 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
     // Solar night uses the opposite fill direction from steps on the left arc.
-    // Steps fills CW from 6 toward 12 (bottom-center is 0%, top is 100%).
-    // Solar night starts full at sunset and drains CW from 6 toward 12,
-    // meaning the bottom-center (6 o'clock) empties first.
-    // This requires the fill to be anchored at the 12-end and retreat toward 6.
+    // Steps fills CW from 6 toward 12. Solar night starts full at sunset and
+    // drains with the 6-end (bottom-center) emptying first.
     bool solar_night_active = (s_settings.RingMode == RING_SOLAR);
 
     if (is_round) {
@@ -1064,24 +1070,21 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                            DEG_TO_TRIGANGLE(183), DEG_TO_TRIGANGLE(357));
-      // Right arc (battery/day): anchor at 177 (6 o'clock side), free end near 12.
-      // Drains CW: 12-end retreats toward 6 as pct drops.
       if (right_pct > 0) {
         graphics_context_set_fill_color(ctx, col_batt);
         graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                              DEG_TO_TRIGANGLE(177 - 174 * right_pct / 100),
                              DEG_TO_TRIGANGLE(177));
       }
-      // Left arc: steps fills from 183 toward 357 (6→12 CW).
-      // Solar night: anchor at 357 (12-side), drains toward 183 (6-side),
-      //              so the 6-end (183) empties first.
       if (left_pct > 0) {
         graphics_context_set_fill_color(ctx, col_step);
         if (solar_night_active) {
+          // Anchor at 357 (near 12), 183-end (6 o'clock) empties first
           graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                                DEG_TO_TRIGANGLE(357 - 174 * left_pct / 100),
                                DEG_TO_TRIGANGLE(357));
         } else {
+          // Steps: fills from 183 (6 o'clock) toward 357 (12 o'clock)
           graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                                DEG_TO_TRIGANGLE(183),
                                DEG_TO_TRIGANGLE(183 + 174 * left_pct / 100));
@@ -1099,8 +1102,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
-      // Right half (battery/day): origin at bottom-center-right.
-      // Fills: bottom strip rightward → up right side → top strip leftward toward center.
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
@@ -1124,7 +1125,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
-      // Left half dim track
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
@@ -1134,44 +1134,35 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         int filled = total * left_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
         if (solar_night_active) {
-          // Solar night: anchor at 12-end (top-center), drains toward 6 (bottom-center).
-          // The bottom-center segment empties first as pct decreases.
-          // Fill order: top first, then left side downward, then bottom last.
+          // Solar night: anchor at 12-end, 6-end (bottom-center) empties first
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
-            // Top strip: right-anchored at center (cx-gap), fills leftward toward corner
             graphics_fill_rect(ctx, GRect(cx-gap-seg, 0, seg, t), 0, GCornerNone);
             filled -= seg;
           }
           if (filled > 0) {
             int seg = (filled < h) ? filled : h;
-            // Left side: downward from top-left corner
             graphics_fill_rect(ctx, GRect(0, 0, t, seg), 0, GCornerNone);
             filled -= seg;
           }
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
-            // Bottom strip: left-anchored at corner, fills rightward toward center
             graphics_fill_rect(ctx, GRect(0, h-t, seg, t), 0, GCornerNone);
           }
         } else {
-          // Steps: anchor at 6 (bottom-center), fills CW toward 12.
-          // Fill order: bottom first, then left side upward, then top last.
+          // Steps: anchor at 6 (bottom-center), fills toward 12
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
-            // Bottom strip: right-anchored at center (cx-gap), fills leftward toward corner
             graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
             filled -= seg;
           }
           if (filled > 0) {
             int seg = (filled < h) ? filled : h;
-            // Left side: upward from bottom-left corner
             graphics_fill_rect(ctx, GRect(0, h-seg, t, seg), 0, GCornerNone);
             filled -= seg;
           }
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
-            // Top strip: left-anchored at corner, fills rightward toward center
             graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);
           }
         }
