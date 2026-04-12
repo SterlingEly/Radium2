@@ -1017,16 +1017,32 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
   if (show_ring) {
+    // Compute fill percentages for the two ring halves based on mode.
     int right_pct, left_pct;
     if (s_settings.RingMode == RING_SOLAR && prv_solar_present()) {
       time_t now_t = time(NULL);
-      if (now_t >= s_sunrise && now_t < s_sunset) {
-        int day_len = (int)(s_sunset - s_sunrise);
-        right_pct = (day_len > 0) ? (int)((s_sunset - now_t) * 100 / day_len) : 0;
+
+      // If cached sunrise_tomorrow is already past, roll timestamps forward 1 day
+      // so the day/night math stays valid on stale data (~1min/day drift is negligible).
+      time_t eff_sunrise          = s_sunrise;
+      time_t eff_sunset           = s_sunset;
+      time_t eff_sunrise_tomorrow = s_sunrise_tomorrow;
+      if (now_t > eff_sunrise_tomorrow) {
+        time_t day_dur       = eff_sunset - eff_sunrise;
+        eff_sunrise          = eff_sunrise_tomorrow;
+        eff_sunset           = eff_sunrise_tomorrow + day_dur;
+        eff_sunrise_tomorrow = eff_sunrise_tomorrow + 86400;
+      }
+
+      if (now_t >= eff_sunrise && now_t < eff_sunset) {
+        // Daytime: day arc drains, night arc empty
+        int day_len = (int)(eff_sunset - eff_sunrise);
+        right_pct = (day_len > 0) ? (int)((eff_sunset - now_t) * 100 / day_len) : 0;
         left_pct  = 0;
       } else {
-        time_t prev_sunset  = (now_t < s_sunrise) ? (s_sunset - 86400) : s_sunset;
-        time_t next_sunrise = (now_t < s_sunrise) ? s_sunrise           : s_sunrise_tomorrow;
+        // Nighttime: night arc drains toward next sunrise
+        time_t prev_sunset  = (now_t < eff_sunrise) ? (eff_sunset - 86400) : eff_sunset;
+        time_t next_sunrise = (now_t < eff_sunrise) ? eff_sunrise           : eff_sunrise_tomorrow;
         int night_len = (int)(next_sunrise - prev_sunset);
         left_pct  = (night_len > 0) ? (int)((next_sunrise - now_t) * 100 / night_len) : 0;
         right_pct = 0;
