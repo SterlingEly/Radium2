@@ -21,9 +21,10 @@ Radium 2 is a complete rebuild of the original Radium watchface, designed for Pe
 FEATURES
 - Radial bar graph display — hours on the left, minutes on the right
 - 24h mode: each hour slot splits into two half-segments
-- Optional outer ring: step count (left half) and battery level (right half)
-- Four configurable info lines: day, date, weather, steps, distance, calories, battery %, Bluetooth, heart rate, or none
+- Optional outer ring: step count (left half) and battery level (right half), or Solar Ring mode (daylight remaining / time until sunrise)
+- Four configurable info lines: day, date, weather, steps, distance, calories, battery %, Bluetooth, heart rate, sunrise, sunset, daylight duration, or none
 - Live weather from Open-Meteo — no account or API key required
+- Solar Ring mode: outer ring tracks the sun — daylight remaining on the right, time until sunrise on the left
 - Charging indicator: battery icon swaps to a lightning bolt when on the charger
 - Bluetooth alert: BT rune appears and watch vibrates when phone connection is lost
 - Heart rate: live BPM on Pebble Time, Time 2, Pebble 2, and Pebble 2 Duo
@@ -49,10 +50,13 @@ Feedback is appreciated: please hit me up at @sterlingely on Twitter/X with any 
 
 ## Release Notes
 
-### v2.3 (upcoming)
-- New info line options: Bluetooth disconnect indicator and Heart rate (on supported hardware)
-- Charging indicator: battery icon swaps to a lightning bolt when the watch is on the charger
-- Double-pulse vibration alert when Bluetooth connection is lost
+### v2.3
+Solar Ring, new Info Fields, and a Bluetooth Disconnect Indicator, oh my!
+- Solar Ring Mode: A snazzy new outer ring option that tracks the sun instead of steps & battery. The right arc shows daylight remaining; the left arc shows time until sunrise. (stays alive on cached data if you lose phone connection)
+- New Info Line Fields:
+  - ☀️ Sunrise, Sunset, Daylight duration
+  - 🔷 Bluetooth Disconnect Indicator: shows a BT icon when your phone disconnects (blank when connected)
+  - ♥ Heart rate (BPM, on supported models)
 
 ### v2.2
 - The text above & below the time are now 4 configurable info lines: Each can show day, date, weather, steps, distance, active calories, battery %, or nothing!
