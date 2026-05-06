@@ -25,10 +25,11 @@ Original Radium repo: https://github.com/MathewReiss/radium
 
 ## 3. LIVE STATUS
 
-- **v2.2 is LIVE** on Rebble/Repebble store
+- **v2.3.1 is LIVE** on Rebble and Repebble stores
 - Store URL: https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 - GitHub repo: https://github.com/SterlingEly/Radium2 (branch: `master`)
-- **v2.3 is in development on `master`** (not yet submitted to store)
+- HEAD: `a4b777a` (docs: v2.3.1 changelog)
+- No active development branch; master is stable
 
 ---
 
@@ -46,7 +47,7 @@ SterlingEly/Radium2 (master)
     ├── c/
     │   └── main.c         ← ~1650 lines, entire watchface
     └── pkjs/
-        ├── config.js      ← config page (data URL)
+        ├── config.js      ← config page (data URL, ~44KB)
         └── index.js       ← PebbleKit JS: weather + solar fetch, settings relay
 ```
 
@@ -54,14 +55,14 @@ SterlingEly/Radium2 (master)
 
 ## 5. VERSION SPEC
 
-### v2.3 (in development)
+### v2.3 / v2.3.1 (current live)
 - `SETTINGS_KEY = 8` (bumped from 7; added `RingMode`)
 - `SOLAR_KEY = 9` (separate persist key for solar timestamps)
 - **messageKeys** (33 total): all v2.2 keys plus `RingMode`, `SunriseTime`, `SunsetTime`, `SunriseTomorrow`
 - New info line fields: `FIELD_BT=10`, `FIELD_HEART_RATE=11`, `FIELD_SUNRISE=12`, `FIELD_SUNSET=13`, `FIELD_DAYLIGHT=14`
 - New ring mode: `RING_SOLAR=1` (right=day progress, left=night progress)
 
-### v2.2 (live)
+### v2.2 (previous)
 - `SETTINGS_KEY = 7`
 - **messageKeys** (29): BackgroundColor … WeatherCode
 - `uuid`: `2609e817-f8f2-4ad2-8846-cb05bb67d047`
@@ -71,8 +72,8 @@ SterlingEly/Radium2 (master)
 ## 6. C CONSTANTS (main.c, v2.3)
 
 ```c
-#define SETTINGS_KEY      8
-#define SOLAR_KEY         9
+#define SETTINGS_KEY      8          // bumped: added RingMode
+#define SOLAR_KEY         9          // separate persist key for solar timestamps
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2
 #define RING_THICK        6
@@ -80,10 +81,10 @@ SterlingEly/Radium2 (master)
 #define OVERLAY_ALWAYS_ON   0
 #define OVERLAY_OFF         1
 #define OVERLAY_SHAKE       2
-#define OVERLAY_AUTO        3
+#define OVERLAY_AUTO        3        // shake to show, auto-hides after 60s
 #define OVERLAY_AUTO_HIDE_MS  60000
 #define OVERLAY_SMALL  0
-#define OVERLAY_LARGE  1
+#define OVERLAY_LARGE  1             // default on emery + gabbro
 
 // Info line field IDs
 #define FIELD_NONE      0
@@ -96,8 +97,8 @@ SterlingEly/Radium2 (master)
 #define FIELD_BATTERY   7   // battery icon + %
 #define FIELD_DISTANCE  8   // footprint + mi/km
 #define FIELD_CALORIES  9   // flame + kcal
-#define FIELD_BT        10  // BT rune+! when disconnected
-#define FIELD_HEART_RATE 11 // heart + BPM
+#define FIELD_BT        10  // BT rune+! when disconnected; blank when connected
+#define FIELD_HEART_RATE 11 // heart + BPM (emery, diorite, flint only)
 #define FIELD_SUNRISE   12  // sun + "6:23am"
 #define FIELD_SUNSET    13  // sun + "7:41pm"
 #define FIELD_DAYLIGHT  14  // sun + "13h18m"
@@ -120,7 +121,7 @@ typedef struct {
   int Line1Field, Line2Field, Line3Field, Line4Field;
   int StepGoal, OverlayMode, OverlaySize;
   bool InvertBW, ShowRing;
-  int RingMode;   // NEW in v2.3
+  int RingMode;
 } RadiumSettings;
 ```
 
@@ -139,10 +140,9 @@ typedef struct { time_t sunrise; time_t sunset; time_t sunrise_tomorrow; } Solar
 - **Fetch gate:** `prv_solar_valid()` = within 36h of `s_sunrise_tomorrow` — triggers JS re-fetch on reconnect
 
 ### Stale data ring math
-The ring uses `eff_*` timestamps computed by rolling forward from cached values:
 ```c
 time_t eff_sunrise = s_sunrise, eff_sunset = s_sunset, eff_sunrise_tomorrow = s_sunrise_tomorrow;
-// Roll forward one day at a time until the window is current (~1min/day drift, negligible)
+// Roll forward one day at a time until current (~1min/day drift, negligible)
 while (now_t > eff_sunrise_tomorrow) {
     time_t day_dur       = eff_sunset - eff_sunrise;
     eff_sunrise          = eff_sunrise_tomorrow;
@@ -150,15 +150,12 @@ while (now_t > eff_sunrise_tomorrow) {
     eff_sunrise_tomorrow = eff_sunrise_tomorrow + 86400;
 }
 ```
-This keeps ring math valid for any number of days of stale data. Info lines and ring therefore degrade together (both persist indefinitely; both show `--` only before first sync).
+Ring and info lines degrade/recover together — both persist indefinitely on stale data.
 
 ### JS (index.js) — Open-Meteo request
 ```
-?latitude=…&longitude=…
-&current=temperature_2m,weather_code
-&daily=sunrise,sunset
-&timezone=auto
-&forecast_days=2
+?latitude=…&longitude=…&current=temperature_2m,weather_code
+&daily=sunrise,sunset&timezone=auto&forecast_days=2
 ```
 Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `WeatherTempF`, `WeatherTempC`, `WeatherCode`.
 
@@ -195,8 +192,8 @@ Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `Weathe
 - Solar night (left): anchored at 12-end, fills toward 6 (opposite of steps)
 
 ### Overlay
-- Small: 58px, LECO_36_BOLD, GOTHIC_18_BOLD
-- Large: 70px, LECO_42, GOTHIC_24_BOLD (default on emery/gabbro)
+- Small: 58px radius, LECO_36_BOLD, GOTHIC_18_BOLD
+- Large: 70px radius, LECO_42, GOTHIC_24_BOLD (default on emery/gabbro)
 - Icon+text: dynamic centering via `graphics_text_layout_get_content_size`
 
 ---
@@ -217,12 +214,21 @@ Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `Weathe
 - Spine at col 3, chevron peak at col 6
 - Upper-left diagonal: `(ox+2, oy+4)`, `(ox+1, oy+3)`
 - Lower-left diagonal: `(ox+2, oy+7)`, `(ox+1, oy+8)`
-- Exclamation stem rows 1–6, dot: 4 explicit pixels at `(ox+9..10, oy+8..9)`
-  (NOT `fill_rect` — causes diagonal artifact on e-paper at stroke context)
+- Exclamation dot: 4 explicit `draw_pixel` calls at `(ox+9..10, oy+8..9)` — NOT `fill_rect` (diagonal artifact on e-paper)
 
 ---
 
-## 11. CONFIG PAGE (config.js)
+## 11. CONFIG PAGE (config.js + index.js)
+
+### Platform detection (index.js)
+`index.js` passes one of these strings to `config.js buildUrl(platform, ...)`:
+- `'aplite'` — B&W, no health slider
+- `'bw'` — B&W with health (diorite, flint)
+- `'emery'` — large overlay toggle shown + checked by default
+- `'gabbro'` — large overlay toggle shown + checked by default
+- `'color'` — default (basalt, chalk)
+
+**chalk (Pebble Time Round, small round 180×180) is `'color'` — does NOT get large overlay toggle.**
 
 ### Color slots (17)
 TimeColor · LitHourColor · LitMinuteColor · LitBatteryColor · LitStepsColor · HourTipColor · MinuteTipColor · DimHourColor · DimMinuteColor · DimBatteryColor · DimStepsColor · Line1–4Color · BackgroundColor · OverlayColor
@@ -238,8 +244,8 @@ BaseAll → Background + Overlay
 ```
 
 ### Field options (v2.3)
-- Inner lines: None, Day, Date, Day+Date, Steps, Temp°F, Temp°C, Battery, Distance, Calories, Heart Rate, Sunrise, Sunset, Daylight, BT
-- Outer lines: same compact list (no Day/Date text fields)
+- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp°F, Temp°C, Battery, Distance, Calories, Heart Rate, Sunrise, Sunset, Daylight, BT
+- Outer lines (1 & 4): same compact list (no Day/Day+Date)
 
 ### Settings persistence
 - `localStorage` key `'radium2_settings'` in `index.js`
@@ -262,26 +268,22 @@ BaseAll → Background + Overlay
 
 ---
 
-## 13. CLOUDPEBBLE / BUILD RULES
+## 13. PLATFORM TABLE
 
-1. Remove `resources/media` block from appinfo.json
-2. Menu icons via CloudPebble UI only
-3. No tilde in resource filenames
-4. CloudPebble import is additive only — use manual copy-paste for code updates
-5. Always give full files for copy-paste; never partial diffs
-
-### Platform table
-| Platform | Watch | Screen | Colors | Health | Touch |
-|----------|-------|--------|--------|--------|-------|
+| Platform | Watch | Screen | Color | HR | Touch |
+|----------|-------|--------|-------|----|-------|
 | aplite | Pebble Classic/Steel | 144×168 rect | B&W | No | No |
-| basalt | Pebble Time | 144×168 rect | 64-color | Yes | No |
-| chalk | Pebble Time Round | 180×180 round | 64-color | Yes | No |
-| diorite | Pebble 2 SE | 144×168 rect | B&W | Yes | No |
-| emery | Pebble Time 2 | 200×228 rect | 64-color | Yes | **Yes** |
-| flint | Pebble 2 | 144×168 rect | B&W | Yes | No |
-| gabbro | Pebble Round 2 (Core Devices) | 260×260 round | 64-color | Yes | No |
+| basalt | Pebble Time | 144×168 rect | 64-color | No | No |
+| chalk | **Pebble Time Round** | **180×180 round** | 64-color | No | No |
+| diorite | Pebble 2 SE | 144×168 rect | B&W | **Yes** | No |
+| emery | Pebble Time 2 | 200×228 rect | 64-color | **Yes** | **Yes** |
+| flint | Pebble 2 | 144×168 rect | B&W | **Yes** | No |
+| gabbro | **Pebble Round 2** (Core Devices 2026) | **260×260 round** | 64-color | No | No |
 
-Note: `chalk` = gabbro in CloudPebble simulator. Only emery has touchscreen.
+**HR sensors: emery, diorite, flint ONLY.** basalt, chalk, gabbro, aplite have NO HR.
+**Touchscreen: emery ONLY.**
+**Large overlay default: emery + gabbro** (both high-res). chalk is small round — no large overlay.
+**In store copy:** use "on supported models" for HR — never list specific platforms.
 
 ---
 
@@ -295,30 +297,48 @@ Note: `chalk` = gabbro in CloudPebble simulator. Only emery has touchscreen.
 | Calories icon 1px overflow on small overlay | v2.2 |
 | BT icon exclamation dot: diagonal artifact on e-paper | v2.3 |
 | Solar ring dying after 1 day stale (single `if`) | v2.3 |
-| Solar ring dying after 2+ days (changed to `while` loop) | v2.3 |
+| Solar ring dying after 2+ days (`if` → `while` loop) | v2.3 |
+| Config page: large overlay toggle missing on emery/gabbro (index.js not passing platform string) | v2.3.1 |
+| Config page: large overlay toggle defaulting to Small on emery/gabbro (missing `checked`) | v2.3.1 |
+| Config page: `isLargePlatform` included chalk incorrectly (`emery\|\|chalk` → `emery\|\|gabbro`) | v2.3.1 |
 
 ---
 
-## 15. GITHUB MCP NOTES
+## 15. CLOUDPEBBLE / BUILD RULES
 
-- `create_or_update_file` for all pushes — requires current file SHA
-- `push_files` tool sends empty content — do NOT use it
-- Cannot delete files via MCP — use GitHub web UI
+1. Remove `resources/media` block from appinfo.json to avoid "Unsupported published resource type" errors
+2. Menu icons via CloudPebble UI only (not appinfo.json)
+3. No tilde in resource filenames (breaks GitHub import)
+4. Duplicate source files at different paths cause CloudPebble import errors
+5. Always give full files for copy-paste; never partial diffs
+6. Fresh CloudPebble re-import required after every appinfo change
+
+---
+
+## 16. GITHUB MCP NOTES
+
+- `create_or_update_file` for all pushes — requires current file SHA (fetch first)
+- `push_files` tool sends **empty content** — NEVER USE IT
+- Cannot create release tags via MCP — use GitHub web UI
+- Cannot truly delete files via MCP (produces zero-byte file) — use GitHub web UI trash icon
 - Radium2 repo uses `master` branch
+- `get_file_contents` times out on files >~15KB; for large files write locally first
+- For main.c (~63KB), `create_or_update_file` may time out — retry or use GitHub web UI
 
 ---
 
-## 16. QUICK REFERENCE
+## 17. QUICK REFERENCE
 
 ```
 Repo:         https://github.com/SterlingEly/Radium2
 Branch:       master
+HEAD:         a4b777a
 Live store:   https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 UUID:         2609e817-f8f2-4ad2-8846-cb05bb67d047
-v2.2 live:    SETTINGS_KEY=7, 29 messageKeys
-v2.3 dev:     SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
+Current:      v2.3.1 — SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
+Previous:     v2.2   — SETTINGS_KEY=7, 29 messageKeys
 ```
 
 ---
 
-*End of context seed. v2.2 live; v2.3 in development on master.*
+*End of context seed. v2.3.1 is live and stable.*
