@@ -94,14 +94,22 @@ Pebble.addEventListener('ready', function() {
 });
 
 Pebble.addEventListener('showConfiguration', function() {
-  // Detect B&W vs color platform to show the appropriate config UI
+  // Detect platform to show the appropriate config UI.
+  // 'aplite' -- B&W, no health slider
+  // 'bw'     -- B&W with health (diorite, flint)
+  // 'emery'  -- large overlay toggle (Pebble Time 2)
+  // 'chalk'  -- large overlay toggle (gabbro/Round 2 in CloudPebble simulator)
+  // 'color'  -- default (basalt, gabbro)
   var platform = 'color';
   try {
     if (Pebble.getActiveWatchInfo) {
       var info = Pebble.getActiveWatchInfo();
-      // gabbro (Pebble Round 2) is color -- only aplite/diorite/flint are B&W
       var bwPlatforms = ['aplite', 'diorite', 'flint'];
-      platform = (bwPlatforms.indexOf(info.platform) >= 0) ? 'bw' : 'color';
+      if (bwPlatforms.indexOf(info.platform) >= 0) {
+        platform = (info.platform === 'aplite') ? 'aplite' : 'bw';
+      } else if (info.platform === 'emery' || info.platform === 'chalk') {
+        platform = info.platform;  // large-overlay platforms
+      }
     }
   } catch(e) {}
   var saved = localStorage.getItem('radium2_settings');
