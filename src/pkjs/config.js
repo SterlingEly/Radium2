@@ -304,12 +304,14 @@ module.exports = {
       return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
     }
 
-    // Large overlay on emery and chalk (chalk = gabbro in CloudPebble simulator)
-    var isLargePlatform = (platform === 'emery' || platform === 'chalk');
+    // Large overlay toggle: emery (Pebble Time 2) and gabbro (Pebble Round 2).
+    // chalk = Pebble Time Round (original, small), does NOT get large overlay.
+    // Default checked because C code defaults to OVERLAY_LARGE on these platforms.
+    var isLargePlatform = (platform === 'emery' || platform === 'gabbro');
     var isAplite = (platform === 'aplite');
     var overlayLargeRow = isLargePlatform
       ? '<div class="row"><label>Large overlay</label>' +
-        '<label class="toggle"><input type="checkbox" id="OverlaySize"><span class="knob"></span></label></div>'
+        '<label class="toggle"><input type="checkbox" id="OverlaySize" checked><span class="knob"></span></label></div>'
       : '';
 
     var platformData = 'var PLATFORM=' + JSON.stringify(platform || 'color') + ';'
@@ -499,7 +501,6 @@ module.exports = {
       + '<div class="row"><label>Show outer ring</label>'
       + '<label class="toggle"><input type="checkbox" id="ShowRing"' + (isAplite ? '' : ' checked') + '><span class="knob"></span></label></div>'
       + '<span class="note">When hidden, tick art extends to screen edge</span>'
-      // Ring mode: Steps & Battery vs Sunrise & Sunset
       + '<div class="radio-group" style="padding:10px 14px 14px">'
       + '<input type="radio" name="ringmode" id="rm0" value="0" checked><label for="rm0">Steps &amp; Battery</label>'
       + '<input type="radio" name="ringmode" id="rm1" value="1"><label for="rm1">Sunrise &amp; Sunset</label>'
