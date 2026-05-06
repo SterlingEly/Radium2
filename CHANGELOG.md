@@ -2,6 +2,15 @@
 
 ---
 
+## v2.3.1
+
+### Bug fixes
+- Config page: large overlay toggle now correctly appears on emery (Pebble Time 2) and gabbro (Pebble Round 2); was missing due to platform string not being passed from index.js
+- Config page: large overlay toggle now defaults to checked on emery/gabbro, matching C default (`OVERLAY_LARGE`)
+- Config page: `isLargePlatform` corrected to `emery || gabbro`; chalk (Pebble Time Round, small screen) was incorrectly included
+
+---
+
 ## v2.3
 
 ### Solar ring mode
@@ -31,7 +40,7 @@
 ### Heart rate info line
 - `FIELD_HEART_RATE`: heart rate in BPM (`--` when unavailable)
 - Custom heart icon in C at both overlay sizes
-- Available on all health platforms (basalt, diorite, emery, flint, gabbro)
+- Available on supported models only (emery, diorite, flint)
 
 ### Settings
 - `SETTINGS_KEY` bumped to `8` (added `RingMode`)
