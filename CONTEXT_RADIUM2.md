@@ -25,11 +25,11 @@ Original Radium repo: https://github.com/MathewReiss/radium
 
 ## 3. LIVE STATUS
 
-- **v2.3.1 is LIVE** on Rebble and Repebble stores
+- **v2.3 is LIVE** on Rebble and Repebble stores
+- **v2.3.1 is in development on master** (not yet submitted to store)
 - Store URL: https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 - GitHub repo: https://github.com/SterlingEly/Radium2 (branch: `master`)
-- HEAD: `a4b777a` (docs: v2.3.1 changelog)
-- No active development branch; master is stable
+- HEAD: `4e6d548` (docs: v2.3.1 changelog)
 
 ---
 
@@ -45,7 +45,7 @@ SterlingEly/Radium2 (master)
 ├── wscript
 └── src/
     ├── c/
-    │   └── main.c         ← ~1650 lines, entire watchface
+    │   └── main.c         ← ~1640 lines, entire watchface
     └── pkjs/
         ├── config.js      ← config page (data URL, ~44KB)
         └── index.js       ← PebbleKit JS: weather + solar fetch, settings relay
@@ -55,7 +55,13 @@ SterlingEly/Radium2 (master)
 
 ## 5. VERSION SPEC
 
-### v2.3 / v2.3.1 (current live)
+### v2.3.1 (in development — not yet in store)
+All v2.3 features plus:
+- Config page large overlay toggle working correctly on emery/gabbro
+- Heart rate fixed (correct SDK accessibility check)
+- Health data polled once/minute from tick_handler (no separate health event subscription)
+
+### v2.3 (current live)
 - `SETTINGS_KEY = 8` (bumped from 7; added `RingMode`)
 - `SOLAR_KEY = 9` (separate persist key for solar timestamps)
 - **messageKeys** (33 total): all v2.2 keys plus `RingMode`, `SunriseTime`, `SunsetTime`, `SunriseTomorrow`
@@ -69,7 +75,7 @@ SterlingEly/Radium2 (master)
 
 ---
 
-## 6. C CONSTANTS (main.c, v2.3)
+## 6. C CONSTANTS (main.c, v2.3+)
 
 ```c
 #define SETTINGS_KEY      8          // bumped: added RingMode
@@ -109,7 +115,7 @@ SterlingEly/Radium2 (master)
 
 ---
 
-## 7. SETTINGS STRUCT (v2.3)
+## 7. SETTINGS STRUCT (v2.3+)
 
 ```c
 typedef struct {
@@ -129,7 +135,7 @@ Defaults: Radium preset colors (GColorGreen lit, GColorDarkGreen dim, GColorMint
 
 ---
 
-## 8. SOLAR DATA SYSTEM (v2.3)
+## 8. SOLAR DATA SYSTEM (v2.3+)
 
 ### Solar cache (SOLAR_KEY=9)
 ```c
@@ -137,7 +143,7 @@ typedef struct { time_t sunrise; time_t sunset; time_t sunrise_tomorrow; } Solar
 ```
 - **Load:** Always restores any cached data (no stale gate on boot)
 - **Display gate:** `prv_solar_present()` = `s_sunrise_tomorrow > 0` — never expires once received
-- **Fetch gate:** `prv_solar_valid()` = within 36h of `s_sunrise_tomorrow` — triggers JS re-fetch on reconnect
+- **Fetch note:** `prv_solar_valid()` is defined in C for reference, but JS manages its own 30-min refresh timer independently
 
 ### Stale data ring math
 ```c
@@ -166,7 +172,23 @@ Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `Weathe
 
 ---
 
-## 9. DRAWING ARCHITECTURE
+## 9. HEALTH DATA (v2.3.1+)
+
+All health data is polled once per minute directly from `tick_handler`. There is **no** `health_service_events_subscribe` call — no background health event handler. This is intentional: sub-minute granularity is unnecessary for a watchface display and wastes battery.
+
+```c
+// In tick_handler:
+#if defined(PBL_HEALTH)
+  update_steps_health();   // steps, distance, calories
+  update_heart_rate();     // HR via aggregate_averaged_accessible
+#endif
+```
+
+**HR SDK note:** `health_service_metric_accessible` always returns false for `HealthMetricHeartRateBPM` (known SDK quirk). The correct check is `health_service_metric_aggregate_averaged_accessible` with a point-in-time range. `health_service_peek_current_value` is still the correct read function.
+
+---
+
+## 10. DRAWING ARCHITECTURE
 
 ### Layer stack (bottom to top)
 1. Background fill
@@ -191,14 +213,15 @@ Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `Weathe
 - Steps (left): right-anchored at `(cx-gap, h-t)`, fills CCW (bottom→left→top)
 - Solar night (left): anchored at 12-end, fills toward 6 (opposite of steps)
 
-### Overlay
-- Small: 58px radius, LECO_36_BOLD, GOTHIC_18_BOLD
-- Large: 70px radius, LECO_42, GOTHIC_24_BOLD (default on emery/gabbro)
-- Icon+text: dynamic centering via `graphics_text_layout_get_content_size`
+### Overlay fonts
+| | Small overlay | Large overlay |
+|---|---|---|
+| Time | `FONT_KEY_LECO_36_BOLD_NUMBERS` | `FONT_KEY_LECO_42_NUMBERS` |
+| Info lines | `FONT_KEY_GOTHIC_18_BOLD` | `FONT_KEY_GOTHIC_24_BOLD` |
 
 ---
 
-## 10. ICONS (drawn in C, two sizes: 11px small / 14px large)
+## 11. ICONS (drawn in C, two sizes: 11px small / 14px large)
 
 | Icon | Function | Notes |
 |------|----------|-------|
@@ -218,7 +241,7 @@ Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `Weathe
 
 ---
 
-## 11. CONFIG PAGE (config.js + index.js)
+## 12. CONFIG PAGE (config.js + index.js)
 
 ### Platform detection (index.js)
 `index.js` passes one of these strings to `config.js buildUrl(platform, ...)`:
@@ -243,7 +266,7 @@ TextAll → TimeColor + Line1-4  InfoLinesAll → Line1-4
 BaseAll → Background + Overlay
 ```
 
-### Field options (v2.3)
+### Field options (v2.3+)
 - Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp°F, Temp°C, Battery, Distance, Calories, Heart Rate, Sunrise, Sunset, Daylight, BT
 - Outer lines (1 & 4): same compact list (no Day/Day+Date)
 
@@ -252,7 +275,7 @@ BaseAll → Background + Overlay
 
 ---
 
-## 12. PRESET SYSTEM (40 presets, 5 × 8)
+## 13. PRESET SYSTEM (40 presets, 5 × 8)
 
 **Dark (0–7):** Radium, Scarlet, Ember, Cobalt, Volt, Slate, Violet, Dusk
 **Dark+ (8–15):** Ocean, Aurora, Solar, Venom, Reactor, Neon, Blossom, Jungle
@@ -268,7 +291,7 @@ BaseAll → Background + Overlay
 
 ---
 
-## 13. PLATFORM TABLE
+## 14. PLATFORM TABLE
 
 | Platform | Watch | Screen | Color | HR | Touch |
 |----------|-------|--------|-------|----|-------|
@@ -287,7 +310,7 @@ BaseAll → Background + Overlay
 
 ---
 
-## 14. KEY BUGS FIXED
+## 15. KEY BUGS FIXED
 
 | Bug | Fixed |
 |-----|-------|
@@ -298,13 +321,15 @@ BaseAll → Background + Overlay
 | BT icon exclamation dot: diagonal artifact on e-paper | v2.3 |
 | Solar ring dying after 1 day stale (single `if`) | v2.3 |
 | Solar ring dying after 2+ days (`if` → `while` loop) | v2.3 |
-| Config page: large overlay toggle missing on emery/gabbro (index.js not passing platform string) | v2.3.1 |
-| Config page: large overlay toggle defaulting to Small on emery/gabbro (missing `checked`) | v2.3.1 |
-| Config page: `isLargePlatform` included chalk incorrectly (`emery\|\|chalk` → `emery\|\|gabbro`) | v2.3.1 |
+| Config page: large overlay toggle missing on emery/gabbro | v2.3.1 |
+| Config page: large overlay defaulting to Small on emery/gabbro | v2.3.1 |
+| Config page: `isLargePlatform` included chalk incorrectly | v2.3.1 |
+| Heart rate: `health_service_metric_accessible` always returns false for HR | v2.3.1 |
+| Health updates firing on background events instead of once/minute | v2.3.1 |
 
 ---
 
-## 15. CLOUDPEBBLE / BUILD RULES
+## 16. CLOUDPEBBLE / BUILD RULES
 
 1. Remove `resources/media` block from appinfo.json to avoid "Unsupported published resource type" errors
 2. Menu icons via CloudPebble UI only (not appinfo.json)
@@ -315,30 +340,30 @@ BaseAll → Background + Overlay
 
 ---
 
-## 16. GITHUB MCP NOTES
+## 17. GITHUB MCP NOTES
 
 - `create_or_update_file` for all pushes — requires current file SHA (fetch first)
 - `push_files` tool sends **empty content** — NEVER USE IT
 - Cannot create release tags via MCP — use GitHub web UI
 - Cannot truly delete files via MCP (produces zero-byte file) — use GitHub web UI trash icon
 - Radium2 repo uses `master` branch
-- `get_file_contents` times out on files >~15KB; for large files write locally first
-- For main.c (~63KB), `create_or_update_file` may time out — retry or use GitHub web UI
+- For main.c (~64KB), `create_or_update_file` may time out — retry in fresh context if needed
 
 ---
 
-## 17. QUICK REFERENCE
+## 18. QUICK REFERENCE
 
 ```
 Repo:         https://github.com/SterlingEly/Radium2
 Branch:       master
-HEAD:         a4b777a
+HEAD:         4e6d548
 Live store:   https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 UUID:         2609e817-f8f2-4ad2-8846-cb05bb67d047
-Current:      v2.3.1 — SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
-Previous:     v2.2   — SETTINGS_KEY=7, 29 messageKeys
+Live:         v2.3  — SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
+In dev:       v2.3.1 — on master, not yet submitted
+Previous:     v2.2  — SETTINGS_KEY=7, 29 messageKeys
 ```
 
 ---
 
-*End of context seed. v2.3.1 is live and stable.*
+*End of context seed. v2.3 live; v2.3.1 in development on master.*
