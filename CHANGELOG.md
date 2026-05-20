@@ -2,12 +2,14 @@
 
 ---
 
-## v2.3.1
+## v2.3.1 (in development)
 
 ### Bug fixes
-- Config page: large overlay toggle now correctly appears on emery (Pebble Time 2) and gabbro (Pebble Round 2); was missing due to platform string not being passed from index.js
-- Config page: large overlay toggle now defaults to checked on emery/gabbro, matching C default (`OVERLAY_LARGE`)
+- Config page: large overlay toggle now correctly appears on emery (Pebble Time 2) and gabbro (Pebble Round 2); was missing because index.js was not passing the platform string through
+- Config page: large overlay toggle now defaults to checked on emery/gabbro, matching the C default (`OVERLAY_LARGE`)
 - Config page: `isLargePlatform` corrected to `emery || gabbro`; chalk (Pebble Time Round, small screen) was incorrectly included
+- Heart rate: fixed — `health_service_metric_accessible` always returns false for HR; switched to `health_service_metric_aggregate_averaged_accessible` as the SDK requires
+- Health updates (steps, distance, calories, heart rate) now all refresh once per minute in sync with the tick handler, rather than on separate background health events
 
 ---
 
@@ -29,7 +31,6 @@
 ### Graceful degradation on Bluetooth disconnect
 - Solar data is always restored from cache on boot — no stale gate on load
 - `prv_solar_present()` gates display (never expires once data received)
-- `prv_solar_valid()` gates fresh-data fetch only (36h window)
 - Ring uses `eff_*` timestamp roll-forward loop — handles any number of days of stale data (~1 min/day drift)
 - Info lines and ring degrade/recover together
 
