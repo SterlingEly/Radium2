@@ -1269,31 +1269,10 @@ static void update_steps_buffer(void) {
   }
 }
 
-static void tick_handler(struct tm *t, TimeUnits units_changed) {
-  s_hour   = t->tm_hour;
-  s_minute = t->tm_min;
-  int disp_hour = clock_is_24h_style() ? t->tm_hour : ((t->tm_hour % 12) ?: 12);
-  snprintf(s_time_buffer,     sizeof(s_time_buffer),     "%02d:%02d", disp_hour, t->tm_min);
-  snprintf(s_day_buffer,      sizeof(s_day_buffer),      "%s", get_day_name(t->tm_wday));
-  snprintf(s_date_buffer,     sizeof(s_date_buffer),     "%s %02d",
-           get_month_abbr(t->tm_mon), t->tm_mday);
-  snprintf(s_day_date_buffer, sizeof(s_day_date_buffer), "%s %s %02d",
-           s_short_days[t->tm_wday], get_month_abbr(t->tm_mon), t->tm_mday);
-  update_steps_buffer();
-  update_solar_buffers();
-  layer_mark_dirty(s_canvas_layer);
-}
-
-static void battery_handler(BatteryChargeState state) {
-  s_battery     = state.charge_percent;
-  s_is_charging = state.is_charging;
-  snprintf(s_battery_buffer, sizeof(s_battery_buffer), "%d%%", s_battery);
-  layer_mark_dirty(s_canvas_layer);
-}
-
 #if defined(PBL_HEALTH)
+// Read steps, distance, and calories from the health service.
+// Called once per minute from tick_handler.
 static void update_steps_health(void) {
-  // Steps, distance, calories -- use time-range accessibility check (correct for cumulative metrics)
   time_t start = time_start_of_today();
   time_t now   = time(NULL);
   HealthServiceAccessibilityMask mask;
@@ -1322,10 +1301,11 @@ static void update_steps_health(void) {
   snprintf(s_calories_buffer, sizeof(s_calories_buffer), "%dcal", s_calories);
 }
 
+// Read the latest buffered heart rate value from the health service.
+// Called once per minute from tick_handler.
+// SDK note: health_service_metric_accessible always returns false for HR;
+// health_service_metric_aggregate_averaged_accessible is the correct check.
 static void update_heart_rate(void) {
-  // SDK note: health_service_metric_accessible always returns false for HR.
-  // The correct availability check for instantaneous metrics is
-  // health_service_metric_aggregate_averaged_accessible with a point-in-time range.
   time_t now = time(NULL);
   HealthServiceAccessibilityMask mask =
     health_service_metric_aggregate_averaged_accessible(
@@ -1345,18 +1325,35 @@ static void update_heart_rate(void) {
     snprintf(s_heart_rate_buffer, sizeof(s_heart_rate_buffer), "--");
   }
 }
-
-static void health_handler(HealthEventType event, void *context) {
-  if (event == HealthEventMovementUpdate) {
-    update_steps_health();
-    layer_mark_dirty(s_canvas_layer);
-  } else if (event == HealthEventHeartRateUpdate) {
-    // HR has its own event -- update independently of step/movement data
-    update_heart_rate();
-    layer_mark_dirty(s_canvas_layer);
-  }
-}
 #endif
+
+static void tick_handler(struct tm *t, TimeUnits units_changed) {
+  s_hour   = t->tm_hour;
+  s_minute = t->tm_min;
+  int disp_hour = clock_is_24h_style() ? t->tm_hour : ((t->tm_hour % 12) ?: 12);
+  snprintf(s_time_buffer,     sizeof(s_time_buffer),     "%02d:%02d", disp_hour, t->tm_min);
+  snprintf(s_day_buffer,      sizeof(s_day_buffer),      "%s", get_day_name(t->tm_wday));
+  snprintf(s_date_buffer,     sizeof(s_date_buffer),     "%s %02d",
+           get_month_abbr(t->tm_mon), t->tm_mday);
+  snprintf(s_day_date_buffer, sizeof(s_day_date_buffer), "%s %s %02d",
+           s_short_days[t->tm_wday], get_month_abbr(t->tm_mon), t->tm_mday);
+  update_steps_buffer();
+  update_solar_buffers();
+#if defined(PBL_HEALTH)
+  // Poll health data once per minute alongside the time update.
+  // Sub-minute granularity is unnecessary for a watchface display.
+  update_steps_health();
+  update_heart_rate();
+#endif
+  layer_mark_dirty(s_canvas_layer);
+}
+
+static void battery_handler(BatteryChargeState state) {
+  s_battery     = state.charge_percent;
+  s_is_charging = state.is_charging;
+  snprintf(s_battery_buffer, sizeof(s_battery_buffer), "%d%%", s_battery);
+  layer_mark_dirty(s_canvas_layer);
+}
 
 static void bt_handler(bool connected) {
   s_bt_connected = connected;
@@ -1524,11 +1521,6 @@ static void init(void) {
     .pebble_app_connection_handler = bt_handler
   });
   s_bt_connected = connection_service_peek_pebble_app_connection();
-#if defined(PBL_HEALTH)
-  health_service_events_subscribe(health_handler, NULL);
-  update_steps_health();
-  update_heart_rate();
-#endif
   app_message_register_inbox_received(inbox_received);
   app_message_open(768, 64);
 }
@@ -1539,8 +1531,6 @@ static void deinit(void) {
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
   connection_service_unsubscribe();
-#if defined(PBL_HEALTH)\n  health_service_events_unsubscribe();
-#endif
   window_destroy(s_window);
 }
 
