@@ -1161,7 +1161,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         int filled = total * left_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
         if (solar_night_active) {
-          // Solar night: fill top→left→bottom so bottom empties first
+          // Solar night: fill top->left->bottom so bottom empties first
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
             graphics_fill_rect(ctx, GRect(cx-gap-seg, 0, seg, t), 0, GCornerNone);
@@ -1177,7 +1177,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
             graphics_fill_rect(ctx, GRect(0, h-t, seg, t), 0, GCornerNone);
           }
         } else {
-          // Steps: fill bottom→left→top toward 12
+          // Steps: fill bottom->left->top toward 12
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
             graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
@@ -1292,7 +1292,8 @@ static void battery_handler(BatteryChargeState state) {
 }
 
 #if defined(PBL_HEALTH)
-static void update_health_data(void) {
+static void update_steps_health(void) {
+  // Steps, distance, calories -- use time-range accessibility check (correct for cumulative metrics)
   time_t start = time_start_of_today();
   time_t now   = time(NULL);
   HealthServiceAccessibilityMask mask;
@@ -1319,20 +1320,41 @@ static void update_health_data(void) {
   s_calories = (mask & HealthServiceAccessibilityMaskAvailable)
     ? (int)health_service_sum_today(HealthMetricActiveKCalories) : 0;
   snprintf(s_calories_buffer, sizeof(s_calories_buffer), "%dcal", s_calories);
+}
 
-  mask = health_service_metric_accessible(HealthMetricHeartRateBPM, start, now);
-  s_heart_rate = (mask & HealthServiceAccessibilityMaskAvailable)
-    ? (int)health_service_peek_current_value(HealthMetricHeartRateBPM) : 0;
+static void update_heart_rate(void) {
+  // SDK note: health_service_metric_accessible always returns false for HR.
+  // The correct availability check for instantaneous metrics is
+  // health_service_metric_aggregate_averaged_accessible with a point-in-time range.
+  time_t now = time(NULL);
+  HealthServiceAccessibilityMask mask =
+    health_service_metric_aggregate_averaged_accessible(
+      HealthMetricHeartRateBPM, now, now,
+      HealthAggregationAvg, HealthServiceTimeScopeOnce);
+
+  if (mask & HealthServiceAccessibilityMaskAvailable) {
+    HealthValue val = health_service_peek_current_value(HealthMetricHeartRateBPM);
+    s_heart_rate = (val > 0) ? (int)val : 0;
+  } else {
+    s_heart_rate = 0;
+  }
+
   if (s_heart_rate > 0) {
     snprintf(s_heart_rate_buffer, sizeof(s_heart_rate_buffer), "%dbpm", s_heart_rate);
   } else {
     snprintf(s_heart_rate_buffer, sizeof(s_heart_rate_buffer), "--");
   }
-  layer_mark_dirty(s_canvas_layer);
 }
 
 static void health_handler(HealthEventType event, void *context) {
-  if (event == HealthEventMovementUpdate) update_health_data();
+  if (event == HealthEventMovementUpdate) {
+    update_steps_health();
+    layer_mark_dirty(s_canvas_layer);
+  } else if (event == HealthEventHeartRateUpdate) {
+    // HR has its own event -- update independently of step/movement data
+    update_heart_rate();
+    layer_mark_dirty(s_canvas_layer);
+  }
 }
 #endif
 
@@ -1504,7 +1526,8 @@ static void init(void) {
   s_bt_connected = connection_service_peek_pebble_app_connection();
 #if defined(PBL_HEALTH)
   health_service_events_subscribe(health_handler, NULL);
-  update_health_data();
+  update_steps_health();
+  update_heart_rate();
 #endif
   app_message_register_inbox_received(inbox_received);
   app_message_open(768, 64);
@@ -1516,8 +1539,7 @@ static void deinit(void) {
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
   connection_service_unsubscribe();
-#if defined(PBL_HEALTH)
-  health_service_events_unsubscribe();
+#if defined(PBL_HEALTH)\n  health_service_events_unsubscribe();
 #endif
   window_destroy(s_window);
 }
