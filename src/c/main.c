@@ -4,8 +4,8 @@
 // ============================================================
 // CONSTANTS
 // ============================================================
-#define SETTINGS_KEY      8          // bumped: added RingMode for solar ring
-#define SOLAR_KEY         9          // separate persist key for solar timestamps (not part of settings struct)
+#define SETTINGS_KEY      8          // bumped v2.3: added RingMode
+#define SOLAR_KEY         9          // separate persist key for solar timestamps
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2          // px gap between outer ring and tick radials
 #define RING_THICK        6          // outer ring thickness (px)
@@ -15,31 +15,30 @@
 #define OVERLAY_OFF         1
 #define OVERLAY_SHAKE       2
 #define OVERLAY_AUTO        3        // shake to show, auto-hides after OVERLAY_AUTO_HIDE_MS
+#define OVERLAY_AUTO_HIDE_MS  60000
 
-#define OVERLAY_AUTO_HIDE_MS  60000  // auto-hide timeout for OVERLAY_AUTO mode (ms)
-
-// Overlay sizes -- large is default on emery/gabbro (high-res screens)
+// Overlay sizes (large is default on emery/gabbro)
 #define OVERLAY_SMALL  0
 #define OVERLAY_LARGE  1
 
-// Info line field IDs -- what each of the 4 lines can display
-#define FIELD_NONE      0
-#define FIELD_DAY_LONG  1  // "SATURDAY"
-#define FIELD_DATE      2  // "MAR 21"
-#define FIELD_DAY_DATE  3  // "SAT MAR 21"
-#define FIELD_STEPS     4  // footprint icon + step count
-#define FIELD_TEMP_F    5  // weather icon + temperature in F
-#define FIELD_TEMP_C    6  // weather icon + temperature in C
-#define FIELD_BATTERY   7  // battery icon + charge %
-#define FIELD_DISTANCE  8  // footprint icon + walked distance (mi or km)
-#define FIELD_CALORIES  9  // flame icon + active kcal burned
-#define FIELD_BT        10 // bluetooth rune -- visible when disconnected
-#define FIELD_HEART_RATE 11 // heart icon + BPM (requires HR sensor)
-#define FIELD_SUNRISE   12  // sun icon + sunrise time ("6:23am")
-#define FIELD_SUNSET    13  // sun icon + sunset time  ("7:41pm")
-#define FIELD_DAYLIGHT  14  // sun icon + daylight duration ("13h18m")
+// Info line field IDs
+#define FIELD_NONE       0
+#define FIELD_DAY_LONG   1   // "SATURDAY"
+#define FIELD_DATE       2   // "MAR 21"
+#define FIELD_DAY_DATE   3   // "SAT MAR 21"
+#define FIELD_STEPS      4   // footprint icon + step count
+#define FIELD_TEMP_F     5   // weather icon + temperature in F
+#define FIELD_TEMP_C     6   // weather icon + temperature in C
+#define FIELD_BATTERY    7   // battery icon + charge %
+#define FIELD_DISTANCE   8   // footprint icon + walked distance (mi or km)
+#define FIELD_CALORIES   9   // flame icon + active kcal burned
+#define FIELD_BT         10  // BT rune -- visible when disconnected, blank when connected
+#define FIELD_HEART_RATE 11  // heart icon + BPM (emery, diorite, flint only)
+#define FIELD_SUNRISE    12  // sun icon + sunrise time ("6:23am")
+#define FIELD_SUNSET     13  // sun icon + sunset time  ("7:41pm")
+#define FIELD_DAYLIGHT   14  // sun icon + daylight duration ("13h18m")
 
-// Ring mode -- what the outer ring tracks
+// Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
 #define RING_SOLAR          1   // right=day progress, left=night progress toward sunrise
 
@@ -86,6 +85,7 @@ static void prv_default_settings(void) {
   s_settings.BackgroundColor = GColorBlack;
   s_settings.OverlayColor    = GColorBlack;
 #if defined(PBL_COLOR)
+  // Radium preset: green lit, dark-green dim, mint-green tips
   s_settings.TimeColor         = GColorWhite;
   s_settings.LitHourColor      = GColorGreen;
   s_settings.LitMinuteColor    = GColorGreen;
@@ -122,7 +122,7 @@ static void prv_default_settings(void) {
   s_settings.OverlayMode = OVERLAY_SHAKE;
   s_settings.InvertBW    = false;
 #if defined(PBL_PLATFORM_APLITE)
-  s_settings.ShowRing    = false;
+  s_settings.ShowRing    = false;  // aplite has no health service, ring less useful
 #else
   s_settings.ShowRing    = true;
 #endif
@@ -132,7 +132,7 @@ static void prv_default_settings(void) {
   s_settings.Line3Field  = FIELD_DATE;
   s_settings.Line4Field  = FIELD_NONE;
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-  s_settings.OverlaySize = OVERLAY_LARGE;
+  s_settings.OverlaySize = OVERLAY_LARGE;  // high-res screens get large overlay by default
 #else
   s_settings.OverlaySize = OVERLAY_SMALL;
 #endif
@@ -168,7 +168,7 @@ static time_t s_sunrise          = 0;
 static time_t s_sunset           = 0;
 static time_t s_sunrise_tomorrow = 0;
 
-static int  s_weather_temp_f = INT_MIN;
+static int  s_weather_temp_f = INT_MIN;  // INT_MIN = not yet received
 static int  s_weather_temp_c = INT_MIN;
 static int  s_weather_code   = 0;
 
@@ -209,7 +209,7 @@ static void prv_load_solar(void) {
   SolarCache c = { 0, 0, 0 };
   persist_read_data(SOLAR_KEY, &c, sizeof(c));
   // Always restore cached data -- stale data is still useful for display.
-  // prv_solar_valid() gates fresh-data requests; prv_solar_present() gates display.
+  // prv_solar_present() gates display; JS manages its own 30-min refresh independently.
   if (c.sunrise_tomorrow > 0) {
     s_sunrise          = c.sunrise;
     s_sunset           = c.sunset;
@@ -217,15 +217,9 @@ static void prv_load_solar(void) {
   }
 }
 
-// True if solar data is fresh (< 36h since tomorrow's sunrise).
-// Used to decide whether to request a fresh fetch from the phone.
-static bool prv_solar_valid(void) {
-  return s_sunrise_tomorrow > 0 && time(NULL) < s_sunrise_tomorrow + 36 * 3600;
-}
-
 // True if any solar data is cached, even if stale.
 // Used for ring and info line display -- show plausible old data rather than
-// going dark. Sunrise times drift only ~1min/day so a missed sync is negligible.
+// going dark. Sunrise times drift only ~1min/day so missed days are negligible.
 static bool prv_solar_present(void) {
   return s_sunrise_tomorrow > 0;
 }
@@ -263,12 +257,14 @@ static void update_solar_buffers(void) {
   int h_rise = sr->tm_hour % 12; if (h_rise == 0) h_rise = 12;
   snprintf(s_sunrise_buffer, sizeof(s_sunrise_buffer),
            "%d:%02d%s", h_rise, sr->tm_min, sr->tm_hour >= 12 ? "pm" : "am");
+
   struct tm *ss = localtime(&s_sunset);
   int h_set = ss->tm_hour % 12; if (h_set == 0) h_set = 12;
   snprintf(s_sunset_buffer, sizeof(s_sunset_buffer),
            "%d:%02d%s", h_set, ss->tm_min, ss->tm_hour >= 12 ? "pm" : "am");
+
   if (s_sunset > s_sunrise) {
-    int secs  = (int)(s_sunset - s_sunrise);
+    int secs = (int)(s_sunset - s_sunrise);
     snprintf(s_daylight_buffer, sizeof(s_daylight_buffer),
              "%dh%02dm", secs / 3600, (secs % 3600) / 60);
   } else {
@@ -288,7 +284,7 @@ static void draw_wedge(GContext *ctx, int cx, int cy, int radius,
 }
 
 // ============================================================
-// WEATHER CODE -> ICON TYPE  (WMO mapping)
+// WEATHER CODE -> ICON TYPE  (WMO code mapping)
 // ============================================================
 static int weather_icon_for_code(int code) {
   if (code == 0)                              return 0; // clear
@@ -299,12 +295,12 @@ static int weather_icon_for_code(int code) {
   if ((code >= 71 && code <= 77) ||
       (code >= 85 && code <= 86))            return 4; // snow
   if (code >= 95 && code <= 99)              return 5; // storm
-  return 2;
+  return 2;                                            // default: cloud
 }
 
 // ============================================================
 // ICON DRAWING
-// All icons in two sizes: small=11px (GOTHIC_18_BOLD), large=14px (GOTHIC_24_BOLD)
+// Two sizes: small=11px (GOTHIC_18_BOLD cap), large=14px (GOTHIC_24_BOLD cap)
 // ============================================================
 #define SMALL_FONT_PAD  8
 #define LARGE_FONT_PAD  10
@@ -336,7 +332,7 @@ static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col, bool larg
 static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct, bool large) {
   graphics_context_set_fill_color(ctx, col);
   if (s_is_charging) {
-    // Lightning bolt when charging
+    // Charging: lightning bolt (diagonal Z-shape, upper-right to lower-left)
     if (!large) {
       graphics_fill_rect(ctx, GRect(ox+5, oy+0, 4, 1), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(ox+4, oy+1, 4, 1), 0, GCornerNone);
@@ -361,7 +357,7 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
       graphics_fill_rect(ctx, GRect(ox+1, oy+11, 5, 1), 0, GCornerNone);
     }
   } else {
-    // Battery outline with charge fill
+    // Normal: battery outline with charge-level fill
     graphics_context_set_stroke_color(ctx, col);
     graphics_context_set_stroke_width(ctx, 1);
     if (!large) {
@@ -380,63 +376,60 @@ static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct
   }
 }
 
-// BT rune + "!" -- shown when phone is disconnected, blank when connected.
+// BT rune + "!" -- visible when phone is disconnected, blank when connected.
 // Exclamation dot uses explicit draw_pixel (not fill_rect) to avoid e-paper diagonal artifact.
 static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_stroke_color(ctx, col);
   graphics_context_set_stroke_width(ctx, 1);
   if (!large) {
+    // 11px: spine col=3, chevron peak col=6
     graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10)); // spine
-    // Upper-left diagonal: (ox+2, oy+4), (ox+1, oy+3)
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+4));
+    graphics_draw_pixel(ctx, GPoint(ox+2, oy+4));  // upper-left diagonal
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+3));
-    // Lower-left diagonal
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+7));
+    graphics_draw_pixel(ctx, GPoint(ox+2, oy+7));  // lower-left diagonal
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+8));
-    // Upper chevron
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+1));
+    graphics_draw_pixel(ctx, GPoint(ox+4, oy+1));  // upper chevron
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+3)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+6, oy+3));  // peak
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+4));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+5));
-    // Lower chevron
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+6));
+    graphics_draw_pixel(ctx, GPoint(ox+4, oy+6));  // lower chevron
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+8)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+6, oy+8));  // peak
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+4, oy+10));
-    // Exclamation stem + dot
-    graphics_draw_line(ctx, GPoint(ox+9,  oy+1), GPoint(ox+9,  oy+6));
+    graphics_draw_line(ctx, GPoint(ox+9,  oy+1), GPoint(ox+9,  oy+6));  // "!" stem
     graphics_draw_line(ctx, GPoint(ox+10, oy+1), GPoint(ox+10, oy+6));
-    graphics_draw_pixel(ctx, GPoint(ox+9,  oy+8));
+    graphics_draw_pixel(ctx, GPoint(ox+9,  oy+8));  // "!" dot (explicit pixels, not fill_rect)
     graphics_draw_pixel(ctx, GPoint(ox+10, oy+8));
     graphics_draw_pixel(ctx, GPoint(ox+9,  oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+10, oy+9));
   } else {
+    // 14px: spine col=4, chevron peak col=8
     graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13)); // spine
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+4));
+    graphics_draw_pixel(ctx, GPoint(ox+3, oy+4));  // upper-left diagonal
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+3));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+9));
+    graphics_draw_pixel(ctx, GPoint(ox+3, oy+9));  // lower-left diagonal
     graphics_draw_pixel(ctx, GPoint(ox+2, oy+10));
     graphics_draw_pixel(ctx, GPoint(ox+1, oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+1));
+    graphics_draw_pixel(ctx, GPoint(ox+5, oy+1));  // upper chevron
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+2));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+4)); // peak
+    graphics_draw_pixel(ctx, GPoint(ox+8, oy+4));  // peak
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+5));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+6));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));
+    graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));  // lower chevron
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+9));
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+10));
     graphics_draw_pixel(ctx, GPoint(ox+8, oy+11)); // peak
     graphics_draw_pixel(ctx, GPoint(ox+7, oy+12));
     graphics_draw_pixel(ctx, GPoint(ox+6, oy+13));
     graphics_draw_pixel(ctx, GPoint(ox+5, oy+14));
-    graphics_draw_line(ctx, GPoint(ox+11, oy+1),  GPoint(ox+11, oy+9));
+    graphics_draw_line(ctx, GPoint(ox+11, oy+1),  GPoint(ox+11, oy+9));  // "!" stem
     graphics_draw_line(ctx, GPoint(ox+12, oy+1),  GPoint(ox+12, oy+9));
-    graphics_draw_line(ctx, GPoint(ox+11, oy+11), GPoint(ox+12, oy+11));
+    graphics_draw_line(ctx, GPoint(ox+11, oy+11), GPoint(ox+12, oy+11)); // "!" dot
   }
 }
 
@@ -446,14 +439,14 @@ static void draw_heart_icon(GContext *ctx, int ox, int oy, GColor col, bool larg
     int y = oy + 1;
     graphics_fill_rect(ctx, GRect(ox+1, y+0, 3, 2), 1, GCornersTop);
     graphics_fill_rect(ctx, GRect(ox+7, y+0, 3, 2), 1, GCornersTop);
-    graphics_fill_rect(ctx, GRect(ox+0, y+1, 4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+7, y+1, 3, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+0, y+1,  4, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+7, y+1,  3, 1), 0, GCornerNone);
     graphics_fill_rect(ctx, GRect(ox+0, y+2, 10, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, y+3, 8,  1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+2, y+4, 6,  1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+3, y+5, 4,  1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+4, y+6, 2,  1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, y+7, 1,  1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+1, y+3,  8, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+2, y+4,  6, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+3, y+5,  4, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+4, y+6,  2, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(ox+5, y+7,  1, 1), 0, GCornerNone);
   } else {
     int y = oy + 1;
     graphics_fill_rect(ctx, GRect(ox+1, y+0,  4, 2), 1, GCornersTop);
@@ -494,10 +487,10 @@ static void draw_sun_icon(GContext *ctx, int ox, int oy, GColor col, bool large)
   int icx = ox + sz/2;
   int icy = oy + sz/2;
   graphics_draw_circle(ctx, GPoint(icx, icy), 3);
-  graphics_draw_pixel(ctx, GPoint(icx,     oy));      graphics_draw_pixel(ctx, GPoint(icx,     oy+1));
-  graphics_draw_pixel(ctx, GPoint(icx,     oy+sz-1)); graphics_draw_pixel(ctx, GPoint(icx,     oy+sz-2));
-  graphics_draw_pixel(ctx, GPoint(ox,      icy));      graphics_draw_pixel(ctx, GPoint(ox+1,    icy));
-  graphics_draw_pixel(ctx, GPoint(ox+sz-1, icy));      graphics_draw_pixel(ctx, GPoint(ox+sz-2, icy));
+  graphics_draw_pixel(ctx, GPoint(icx,      oy));       graphics_draw_pixel(ctx, GPoint(icx,      oy+1));
+  graphics_draw_pixel(ctx, GPoint(icx,      oy+sz-1));  graphics_draw_pixel(ctx, GPoint(icx,      oy+sz-2));
+  graphics_draw_pixel(ctx, GPoint(ox,       icy));       graphics_draw_pixel(ctx, GPoint(ox+1,     icy));
+  graphics_draw_pixel(ctx, GPoint(ox+sz-1,  icy));       graphics_draw_pixel(ctx, GPoint(ox+sz-2,  icy));
 }
 
 static void draw_cloud_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
@@ -609,6 +602,7 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   int icon_w   = large ? LARGE_ICON_W  : SMALL_ICON_W;
   int iy       = y + font_pad;
 
+  // Macro: measure text, center icon+text unit, draw both.
   #define DRAW_ICON_TEXT(draw_icon_call, text_buf) do { \
     GSize sz = graphics_text_layout_get_content_size( \
       (text_buf), font, GRect(0, 0, 200, 20), \
@@ -642,6 +636,7 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_BATTERY) {
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
+    // Blank when connected; rune+! when disconnected
     if (!s_bt_connected) {
       int bx = cx - (large ? 6 : 5);
       draw_bt_icon(ctx, bx, iy, col, large);
@@ -761,6 +756,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Dim (unlit) minute groups
     graphics_context_set_fill_color(ctx, col_dmin);
     for (int g = first_empty; g < 12; g++) {
       int a = 3 + 15*g;
@@ -777,6 +773,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Lit (filled) minute groups
     graphics_context_set_fill_color(ctx, col_min);
     for (int g = 0; g < filled_groups; g++) {
       int a = 3 + 15*g;
@@ -793,6 +790,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Partial minute group
     if (partial_min > 0) {
       int a = 3 + 15*filled_groups;
       graphics_context_set_fill_color(ctx, col_dmin);
@@ -818,6 +816,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
+    // Leading minute tip
     if (s_minute > 0) {
       graphics_context_set_fill_color(ctx, col_min_tip);
       draw_wedge(ctx, cx, cy, radius,
@@ -839,6 +838,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Dim hour slots
     graphics_context_set_fill_color(ctx, col_dhour);
     for (int h2 = 0; h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -858,6 +858,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 #endif
 
+    // Lit hour slots
     if (!is_24h) {
       graphics_context_set_fill_color(ctx, col_hour);
       for (int h2 = 0; h2 < filled_slots; h2++) {
@@ -865,6 +866,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         draw_wedge(ctx, cx, cy, radius, DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 9));
       }
     } else {
+      // 24h: two 3° sub-ticks per slot with a 3° gap between them
       graphics_context_set_fill_color(ctx, col_hour);
       for (int h2 = 0; h2 < filled_slots; h2++) {
         int a = 183 + 15*h2;
@@ -878,6 +880,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
 
 #if defined(PBL_COLOR)
+    // Leading hour tip
     if (s_hour > 0 || is_24h) {
       if (!is_24h && filled_slots > 0) {
         graphics_context_set_fill_color(ctx, col_hour_tip);
@@ -896,6 +899,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
     }
+    // Trailing gap cuts (keep slots separated)
     graphics_context_set_fill_color(ctx, col_bg);
     for (int h2 = 0; h2 < filled_slots && h2 < 12; h2++) {
       int a = 183 + 15*h2;
@@ -930,6 +934,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(a), DEG_TO_TRIGANGLE(a + 1));
       }
 #if defined(PBL_COLOR)
+      // Recolor the last lit tick as leading tip
       graphics_context_set_fill_color(ctx, col_min_tip);
       {
         int i = s_minute - 1;
@@ -1034,6 +1039,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 
 #if !defined(PBL_ROUND)
+  // Erase ring area corners so tick radials don't bleed into ring padding
   if (show_ring) {
     int strip = RING_THICK + RING_GAP;
     graphics_context_set_fill_color(ctx, col_bg);
@@ -1046,11 +1052,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
   if (show_ring) {
     int right_pct, left_pct;
+
     if (s_settings.RingMode == RING_SOLAR && prv_solar_present()) {
       time_t now_t = time(NULL);
 
-      // Roll timestamps forward until the window is current.
-      // Handles any number of days of stale data; ~1min/day drift is negligible.
+      // Roll timestamps forward one day at a time until the window is current.
+      // Handles any number of days of stale data; drift is ~1min/day, negligible.
       time_t eff_sunrise          = s_sunrise;
       time_t eff_sunset           = s_sunset;
       time_t eff_sunrise_tomorrow = s_sunrise_tomorrow;
@@ -1079,13 +1086,14 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (right_pct < 0)   right_pct = 0;
       if (right_pct > 100) right_pct = 100;
     } else {
+      // Steps & Battery mode (default), or solar with no data yet
       right_pct = s_battery;
       left_pct  = (s_settings.StepGoal > 0)
         ? (s_steps * 100) / s_settings.StepGoal : 0;
       if (left_pct > 100) left_pct = 100;
     }
 
-    // Left arc direction: steps fills CW from 6; solar night fills CCW from 12
+    // Left arc fill direction differs between steps (CW from 6) and solar night (CCW from 12)
     bool solar_night_active = (s_settings.RingMode == RING_SOLAR);
 
     if (is_round) {
@@ -1119,19 +1127,20 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       int half_w = cx - gap;
       int total  = half_w + h + half_w;
 
+      // Clear ring area
       graphics_context_set_fill_color(ctx, col_bg);
       graphics_fill_rect(ctx, GRect(0,   0,   w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   h-t, w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t, h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t, 0,   t, h), 0, GCornerNone);
 
-      // Battery dim track (right half)
+      // Right half: battery/day dim track
       graphics_context_set_fill_color(ctx, col_dbatt);
       graphics_fill_rect(ctx, GRect(cx+gap, 0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(w-t,    0,   t,      h), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(cx+gap, h-t, half_w, t), 0, GCornerNone);
 
-      // Battery fill: left-anchored at (cx+gap, bottom), CW toward 12
+      // Right half: battery/day fill -- origin at (cx+gap, bottom), CW toward 12
       {
         int filled = total * right_pct / 100;
         graphics_context_set_fill_color(ctx, col_batt);
@@ -1151,7 +1160,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
 
-      // Steps dim track (left half)
+      // Left half: steps/night dim track
       graphics_context_set_fill_color(ctx, col_dstep);
       graphics_fill_rect(ctx, GRect(0,   0,   half_w, t), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(0,   0,   t,      h), 0, GCornerNone);
@@ -1161,7 +1170,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         int filled = total * left_pct / 100;
         graphics_context_set_fill_color(ctx, col_step);
         if (solar_night_active) {
-          // Solar night: fill top->left->bottom so bottom empties first
+          // Solar night: fill top->left->bottom (anchored at 12, drains toward 6)
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
             graphics_fill_rect(ctx, GRect(cx-gap-seg, 0, seg, t), 0, GCornerNone);
@@ -1177,7 +1186,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
             graphics_fill_rect(ctx, GRect(0, h-t, seg, t), 0, GCornerNone);
           }
         } else {
-          // Steps: fill bottom->left->top toward 12
+          // Steps: fill bottom->left->top (anchored at 6, fills toward 12)
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
             graphics_fill_rect(ctx, GRect(cx-gap-seg, h-t, seg, t), 0, GCornerNone);
@@ -1301,10 +1310,12 @@ static void update_steps_health(void) {
   snprintf(s_calories_buffer, sizeof(s_calories_buffer), "%dcal", s_calories);
 }
 
-// Read the latest buffered heart rate value from the health service.
+// Read the latest buffered heart rate value.
 // Called once per minute from tick_handler.
-// SDK note: health_service_metric_accessible always returns false for HR;
-// health_service_metric_aggregate_averaged_accessible is the correct check.
+//
+// SDK quirk: health_service_metric_accessible always returns false for HR.
+// health_service_metric_aggregate_averaged_accessible with a point-in-time
+// range is the correct availability check for instantaneous metrics.
 static void update_heart_rate(void) {
   time_t now = time(NULL);
   HealthServiceAccessibilityMask mask =
@@ -1312,12 +1323,9 @@ static void update_heart_rate(void) {
       HealthMetricHeartRateBPM, now, now,
       HealthAggregationAvg, HealthServiceTimeScopeOnce);
 
-  if (mask & HealthServiceAccessibilityMaskAvailable) {
-    HealthValue val = health_service_peek_current_value(HealthMetricHeartRateBPM);
-    s_heart_rate = (val > 0) ? (int)val : 0;
-  } else {
-    s_heart_rate = 0;
-  }
+  s_heart_rate = (mask & HealthServiceAccessibilityMaskAvailable)
+    ? (int)health_service_peek_current_value(HealthMetricHeartRateBPM) : 0;
+  if (s_heart_rate < 0) s_heart_rate = 0;
 
   if (s_heart_rate > 0) {
     snprintf(s_heart_rate_buffer, sizeof(s_heart_rate_buffer), "%dbpm", s_heart_rate);
@@ -1337,13 +1345,15 @@ static void tick_handler(struct tm *t, TimeUnits units_changed) {
            get_month_abbr(t->tm_mon), t->tm_mday);
   snprintf(s_day_date_buffer, sizeof(s_day_date_buffer), "%s %s %02d",
            s_short_days[t->tm_wday], get_month_abbr(t->tm_mon), t->tm_mday);
-  update_steps_buffer();
   update_solar_buffers();
 #if defined(PBL_HEALTH)
-  // Poll health data once per minute alongside the time update.
-  // Sub-minute granularity is unnecessary for a watchface display.
+  // Poll all health data once per minute alongside the time update.
+  // update_steps_health() also calls update_steps_buffer() internally.
   update_steps_health();
   update_heart_rate();
+#else
+  // On aplite (no health service), keep steps buffer initialized
+  update_steps_buffer();
 #endif
   layer_mark_dirty(s_canvas_layer);
 }
@@ -1485,9 +1495,11 @@ static void window_unload(Window *window) {
 static void init(void) {
   prv_load_settings();
   prv_load_solar();
+
   s_weather_temp_f = INT_MIN;
   s_weather_temp_c = INT_MIN;
   s_weather_code   = 0;
+
   snprintf(s_steps_buffer,      sizeof(s_steps_buffer),      "0");
   snprintf(s_battery_buffer,    sizeof(s_battery_buffer),    "0%%");
   snprintf(s_temp_f_buffer,     sizeof(s_temp_f_buffer),     "--");
@@ -1499,12 +1511,14 @@ static void init(void) {
   snprintf(s_sunset_buffer,     sizeof(s_sunset_buffer),     "--");
   snprintf(s_daylight_buffer,   sizeof(s_daylight_buffer),   "--");
   update_solar_buffers();
+
   if (s_settings.OverlayMode == OVERLAY_AUTO) {
     s_show_overlay  = true;
     s_overlay_timer = app_timer_register(OVERLAY_AUTO_HIDE_MS, prv_overlay_auto_hide, NULL);
   } else {
     s_show_overlay = (s_settings.OverlayMode != OVERLAY_OFF);
   }
+
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
     .load   = window_load,
@@ -1512,8 +1526,11 @@ static void init(void) {
   });
   window_set_background_color(s_window, s_settings.BackgroundColor);
   window_stack_push(s_window, true);
+
+  // Initial tick populates all time/date/health buffers before first draw
   time_t now = time(NULL);
   tick_handler(localtime(&now), MINUTE_UNIT);
+
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   battery_state_service_subscribe(battery_handler);
   battery_handler(battery_state_service_peek());
