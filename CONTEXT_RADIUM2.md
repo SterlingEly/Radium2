@@ -25,11 +25,11 @@ Original Radium repo: https://github.com/MathewReiss/radium
 
 ## 3. LIVE STATUS
 
-- **v2.3 is LIVE** on Rebble and Repebble stores
-- **v2.3.1 is in development on master** (not yet submitted to store)
+- **v2.3.1 is LIVE** on Rebble and Repebble stores
 - Store URL: https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 - GitHub repo: https://github.com/SterlingEly/Radium2 (branch: `master`)
-- HEAD: `4e6d548` (docs: v2.3.1 changelog)
+- HEAD: `91eda9f` (docs: v2.3.1 released)
+- No active feature development; master is stable
 
 ---
 
@@ -55,31 +55,33 @@ SterlingEly/Radium2 (master)
 
 ## 5. VERSION SPEC
 
-### v2.3.1 (in development — not yet in store)
+### v2.3.1 (current live)
 All v2.3 features plus:
 - Config page large overlay toggle working correctly on emery/gabbro
-- Heart rate fixed (correct SDK accessibility check)
+- Heart rate fixed (correct SDK accessibility check: `health_service_metric_aggregate_averaged_accessible`)
 - Health data polled once/minute from tick_handler (no separate health event subscription)
+- Code: removed redundant `update_steps_buffer()` call, removed unused `prv_solar_valid()`
 
-### v2.3 (current live)
+### v2.3 (previous)
 - `SETTINGS_KEY = 8` (bumped from 7; added `RingMode`)
 - `SOLAR_KEY = 9` (separate persist key for solar timestamps)
 - **messageKeys** (33 total): all v2.2 keys plus `RingMode`, `SunriseTime`, `SunsetTime`, `SunriseTomorrow`
 - New info line fields: `FIELD_BT=10`, `FIELD_HEART_RATE=11`, `FIELD_SUNRISE=12`, `FIELD_SUNSET=13`, `FIELD_DAYLIGHT=14`
-- New ring mode: `RING_SOLAR=1` (right=day progress, left=night progress)
+- New ring mode: `RING_SOLAR=1`
 
-### v2.2 (previous)
-- `SETTINGS_KEY = 7`
-- **messageKeys** (29): BackgroundColor … WeatherCode
-- `uuid`: `2609e817-f8f2-4ad2-8846-cb05bb67d047`
+### v2.2 (older)
+- `SETTINGS_KEY = 7`, messageKeys (29), `uuid`: `2609e817-f8f2-4ad2-8846-cb05bb67d047`
+
+### v2.4 (next — no features defined yet)
+- Next version is v2.4; no features planned at time of writing
 
 ---
 
-## 6. C CONSTANTS (main.c, v2.3+)
+## 6. C CONSTANTS (main.c, v2.3.1)
 
 ```c
-#define SETTINGS_KEY      8          // bumped: added RingMode
-#define SOLAR_KEY         9          // separate persist key for solar timestamps
+#define SETTINGS_KEY      8
+#define SOLAR_KEY         9
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2
 #define RING_THICK        6
@@ -87,27 +89,26 @@ All v2.3 features plus:
 #define OVERLAY_ALWAYS_ON   0
 #define OVERLAY_OFF         1
 #define OVERLAY_SHAKE       2
-#define OVERLAY_AUTO        3        // shake to show, auto-hides after 60s
+#define OVERLAY_AUTO        3
 #define OVERLAY_AUTO_HIDE_MS  60000
 #define OVERLAY_SMALL  0
-#define OVERLAY_LARGE  1             // default on emery + gabbro
+#define OVERLAY_LARGE  1   // default on emery + gabbro
 
-// Info line field IDs
-#define FIELD_NONE      0
-#define FIELD_DAY_LONG  1   // "SATURDAY"
-#define FIELD_DATE      2   // "MAR 21"
-#define FIELD_DAY_DATE  3   // "SAT MAR 21"
-#define FIELD_STEPS     4   // footprint + step count
-#define FIELD_TEMP_F    5   // weather icon + °F
-#define FIELD_TEMP_C    6   // weather icon + °C
-#define FIELD_BATTERY   7   // battery icon + %
-#define FIELD_DISTANCE  8   // footprint + mi/km
-#define FIELD_CALORIES  9   // flame + kcal
-#define FIELD_BT        10  // BT rune+! when disconnected; blank when connected
-#define FIELD_HEART_RATE 11 // heart + BPM (emery, diorite, flint only)
-#define FIELD_SUNRISE   12  // sun + "6:23am"
-#define FIELD_SUNSET    13  // sun + "7:41pm"
-#define FIELD_DAYLIGHT  14  // sun + "13h18m"
+#define FIELD_NONE       0
+#define FIELD_DAY_LONG   1   // "SATURDAY"
+#define FIELD_DATE       2   // "MAR 21"
+#define FIELD_DAY_DATE   3   // "SAT MAR 21"
+#define FIELD_STEPS      4
+#define FIELD_TEMP_F     5
+#define FIELD_TEMP_C     6
+#define FIELD_BATTERY    7
+#define FIELD_DISTANCE   8
+#define FIELD_CALORIES   9
+#define FIELD_BT         10  // BT rune+! when disconnected
+#define FIELD_HEART_RATE 11  // emery and diorite ONLY
+#define FIELD_SUNRISE    12
+#define FIELD_SUNSET     13
+#define FIELD_DAYLIGHT   14
 
 #define RING_STEPS_BATTERY  0
 #define RING_SOLAR          1
@@ -131,24 +132,23 @@ typedef struct {
 } RadiumSettings;
 ```
 
-Defaults: Radium preset colors (GColorGreen lit, GColorDarkGreen dim, GColorMintGreen tips), OVERLAY_SHAKE, OVERLAY_SMALL (LARGE on emery/gabbro), ShowRing=false on aplite, RingMode=RING_STEPS_BATTERY.
+Defaults: Radium preset (GColorGreen lit, GColorDarkGreen dim, GColorMintGreen tips), OVERLAY_SHAKE, OVERLAY_SMALL (LARGE on emery/gabbro), ShowRing=false on aplite, RingMode=RING_STEPS_BATTERY.
 
 ---
 
-## 8. SOLAR DATA SYSTEM (v2.3+)
+## 8. SOLAR DATA SYSTEM
 
 ### Solar cache (SOLAR_KEY=9)
 ```c
 typedef struct { time_t sunrise; time_t sunset; time_t sunrise_tomorrow; } SolarCache;
 ```
-- **Load:** Always restores any cached data (no stale gate on boot)
+- **Load:** Always restores cached data (no stale gate on boot)
 - **Display gate:** `prv_solar_present()` = `s_sunrise_tomorrow > 0` — never expires once received
-- **Fetch note:** `prv_solar_valid()` is defined in C for reference, but JS manages its own 30-min refresh timer independently
+- **Fetch:** JS manages its own 30-min refresh independently; no C-side fetch gate
 
 ### Stale data ring math
 ```c
 time_t eff_sunrise = s_sunrise, eff_sunset = s_sunset, eff_sunrise_tomorrow = s_sunrise_tomorrow;
-// Roll forward one day at a time until current (~1min/day drift, negligible)
 while (now_t > eff_sunrise_tomorrow) {
     time_t day_dur       = eff_sunset - eff_sunrise;
     eff_sunrise          = eff_sunrise_tomorrow;
@@ -156,35 +156,27 @@ while (now_t > eff_sunrise_tomorrow) {
     eff_sunrise_tomorrow = eff_sunrise_tomorrow + 86400;
 }
 ```
-Ring and info lines degrade/recover together — both persist indefinitely on stale data.
-
-### JS (index.js) — Open-Meteo request
-```
-?latitude=…&longitude=…&current=temperature_2m,weather_code
-&daily=sunrise,sunset&timezone=auto&forecast_days=2
-```
-Sends: `SunriseTime`, `SunsetTime`, `SunriseTomorrow` (Unix timestamps), `WeatherTempF`, `WeatherTempC`, `WeatherCode`.
+Ring and info lines degrade/recover together; both persist indefinitely on stale data.
 
 ### Solar ring fill direction
-- **Right arc (day):** 100% at sunrise, drains CW toward 6-o'clock (same as battery arc)
-- **Left arc (night):** 100% at sunset, drains CW toward 6-o'clock — anchored at 12-end (opposite of steps arc)
-- During daytime: `left_pct = 0`; during nighttime: `right_pct = 0`
+- **Right arc (day):** 100% at sunrise, drains CW toward 6 (same as battery)
+- **Left arc (night):** 100% at sunset, drains CW toward 6 — anchored at 12-end (opposite of steps)
 
 ---
 
-## 9. HEALTH DATA (v2.3.1+)
+## 9. HEALTH DATA
 
-All health data is polled once per minute directly from `tick_handler`. There is **no** `health_service_events_subscribe` call — no background health event handler. This is intentional: sub-minute granularity is unnecessary for a watchface display and wastes battery.
+All health data is polled once per minute from `tick_handler`. No `health_service_events_subscribe`.
 
 ```c
-// In tick_handler:
-#if defined(PBL_HEALTH)
-  update_steps_health();   // steps, distance, calories
-  update_heart_rate();     // HR via aggregate_averaged_accessible
-#endif
+// In tick_handler (PBL_HEALTH platforms):
+update_steps_health();   // steps, distance, calories via health_service_metric_accessible
+update_heart_rate();     // HR via health_service_metric_aggregate_averaged_accessible
+// On aplite (no health service):
+update_steps_buffer();   // just format the zero-initialized s_steps
 ```
 
-**HR SDK note:** `health_service_metric_accessible` always returns false for `HealthMetricHeartRateBPM` (known SDK quirk). The correct check is `health_service_metric_aggregate_averaged_accessible` with a point-in-time range. `health_service_peek_current_value` is still the correct read function.
+**HR SDK note:** `health_service_metric_accessible` always returns false for `HealthMetricHeartRateBPM`. Use `health_service_metric_aggregate_averaged_accessible(metric, now, now, HealthAggregationAvg, HealthServiceTimeScopeOnce)` instead.
 
 ---
 
@@ -199,19 +191,18 @@ All health data is polled once per minute directly from `tick_handler`. There is
 6. Info lines + time digits
 
 ### Tick geometry — RECT
-- **Minutes:** 12 groups × 5; 15° pitch (9° tick + 6° gap); start at 3°. Color: 1° sub-ticks with bg cuts. B&W: 2° solid blocks.
+- **Minutes:** 12 groups × 5 ticks; 15° pitch (9° tick + 6° gap); start at 3°. Color: 1° sub-ticks with bg cuts. B&W: 2° solid.
 - **Hours:** 12 slots; 15° pitch; start at 183°. 12h: solid 9°/slot. 24h: two 3° sub-ticks + 3° gap.
 - Thickness: `inner_short * 19/164` (overlay on); full `inner_short` (overlay off)
 
 ### Tick geometry — ROUND
-- `graphics_fill_radial()` on inset tick_rect
-- 60 × 1° minute arcs; 12 × 9° hour arcs
+- `graphics_fill_radial()` on inset tick_rect; 60 × 1° minute arcs; 12 × 9° hour arcs
 
 ### Outer ring — RECT
 - `gap=5`, `RING_THICK=6`, `half_w=cx-gap`, `total=half_w+h+half_w`
 - Battery/day (right): left-anchored at `(cx+gap, h-t)`, fills CW (bottom→right→top)
 - Steps (left): right-anchored at `(cx-gap, h-t)`, fills CCW (bottom→left→top)
-- Solar night (left): anchored at 12-end, fills toward 6 (opposite of steps)
+- Solar night (left): anchored at 12-end, fills toward 6
 
 ### Overlay fonts
 | | Small overlay | Large overlay |
@@ -228,50 +219,31 @@ All health data is polled once per minute directly from `tick_handler`. There is
 | Footprint pair | `draw_steps_icon` | Steps + distance |
 | Battery | `draw_battery_icon` | Fill level; charging = lightning bolt |
 | BT rune | `draw_bt_icon` | BT symbol + `!`; invisible when connected |
-| Heart | `draw_heart_icon` | Heart rate |
+| Heart | `draw_heart_icon` | Heart rate (emery + diorite only) |
 | Flame | `draw_calories_icon` | Active calories |
 | Sun | `draw_sun_icon` | Solar fields; drawn at `iy-1` for vertical alignment |
-| Weather | `draw_weather_icon` | Dispatches: sun/partly-cloudy/cloud/rain/snow/storm |
+| Weather | `draw_weather_icon` | sun / partly-cloudy / cloud / rain / snow / storm |
 
-**BT icon pixel notes (11px):**
-- Spine at col 3, chevron peak at col 6
-- Upper-left diagonal: `(ox+2, oy+4)`, `(ox+1, oy+3)`
-- Lower-left diagonal: `(ox+2, oy+7)`, `(ox+1, oy+8)`
-- Exclamation dot: 4 explicit `draw_pixel` calls at `(ox+9..10, oy+8..9)` — NOT `fill_rect` (diagonal artifact on e-paper)
+**BT icon (11px):** spine col=3, chevron peak col=6, upper-left diagonal at `(ox+2,oy+4)/(ox+1,oy+3)`, exclamation dot = 4 explicit `draw_pixel` (NOT `fill_rect` — e-paper artifact).
 
 ---
 
 ## 12. CONFIG PAGE (config.js + index.js)
 
-### Platform detection (index.js)
-`index.js` passes one of these strings to `config.js buildUrl(platform, ...)`:
+### Platform strings passed by index.js
 - `'aplite'` — B&W, no health slider
 - `'bw'` — B&W with health (diorite, flint)
-- `'emery'` — large overlay toggle shown + checked by default
-- `'gabbro'` — large overlay toggle shown + checked by default
+- `'emery'` — large overlay toggle shown + checked
+- `'gabbro'` — large overlay toggle shown + checked
 - `'color'` — default (basalt, chalk)
 
-**chalk (Pebble Time Round, small round 180×180) is `'color'` — does NOT get large overlay toggle.**
+**chalk (Pebble Time Round, 180×180) = `'color'` — no large overlay toggle.**
 
 ### Color slots (17)
 TimeColor · LitHourColor · LitMinuteColor · LitBatteryColor · LitStepsColor · HourTipColor · MinuteTipColor · DimHourColor · DimMinuteColor · DimBatteryColor · DimStepsColor · Line1–4Color · BackgroundColor · OverlayColor
 
-### Cascade hierarchy
-```
-LitAll → all lit + tips       LitTicks → Lit H/M + tips
-LitHourColor → Lit + HourTip  LitMinuteColor → Lit + MinuteTip
-LitRing → LitBattery+Steps    DimAll → all dim
-DimTicks → Dim H/M            DimRing → Dim Battery+Steps
-TextAll → TimeColor + Line1-4  InfoLinesAll → Line1-4
-BaseAll → Background + Overlay
-```
-
-### Field options (v2.3+)
-- Inner lines (2 & 3): None, Day, Date, Day+Date, Steps, Temp°F, Temp°C, Battery, Distance, Calories, Heart Rate, Sunrise, Sunset, Daylight, BT
-- Outer lines (1 & 4): same compact list (no Day/Day+Date)
-
 ### Settings persistence
-- `localStorage` key `'radium2_settings'` in `index.js`
+`localStorage` key `'radium2_settings'` in `index.js`
 
 ---
 
@@ -283,11 +255,8 @@ BaseAll → Background + Overlay
 **Color (24–31):** Teal, Flame, Midnight, Forest, Plum, Poison, Ultraviolet, Ash
 **Special (32–39):** Boreal, Cosmos, Prism, Inferno, Triadic, GoldEye, Rainbow, Radium+
 
-**Dim convention:** monochromatic = dark same-hue; achromatic (Slate, Ash) = DarkGray #555555; light-bg = pale accent; split = dark of each channel's hue.
-
-**Key presets:**
-- **Radium** (slot 0, default): GColorGreen lit, GColorMintGreen tips, GColorDarkGreen dim
-- **Radium+** (slot 39): green hours/battery + cyan minutes/steps, white tips
+**Radium** (slot 0): GColorGreen lit, GColorMintGreen tips, GColorDarkGreen dim.
+**Radium+** (slot 39): green hours/battery + cyan minutes/steps, white tips.
 
 ---
 
@@ -300,13 +269,13 @@ BaseAll → Background + Overlay
 | chalk | **Pebble Time Round** | **180×180 round** | 64-color | No | No |
 | diorite | Pebble 2 SE | 144×168 rect | B&W | **Yes** | No |
 | emery | Pebble Time 2 | 200×228 rect | 64-color | **Yes** | **Yes** |
-| flint | Pebble 2 | 144×168 rect | B&W | **Yes** | No |
+| flint | Pebble 2 | 144×168 rect | B&W | No | No |
 | gabbro | **Pebble Round 2** (Core Devices 2026) | **260×260 round** | 64-color | No | No |
 
-**HR sensors: emery, diorite, flint ONLY.** basalt, chalk, gabbro, aplite have NO HR.
+**HR sensors: emery and diorite ONLY.** flint, basalt, chalk, gabbro, aplite have NO HR.
 **Touchscreen: emery ONLY.**
-**Large overlay default: emery + gabbro** (both high-res). chalk is small round — no large overlay.
-**In store copy:** use "on supported models" for HR — never list specific platforms.
+**Large overlay: emery + gabbro** (both high-res). chalk = small round, no large overlay.
+**Store copy:** use "on supported models" for HR — never list specific platforms.
 
 ---
 
@@ -316,7 +285,7 @@ BaseAll → Background + Overlay
 |-----|-------|
 | Battery ring bottom fill right-anchored from corner | v2.2 |
 | Round hour tick off-by-one in 12h mode | v2.2 |
-| Degree symbol in weather string caused silent render failure | v2.2 |
+| Degree symbol in weather string: silent render failure | v2.2 |
 | Calories icon 1px overflow on small overlay | v2.2 |
 | BT icon exclamation dot: diagonal artifact on e-paper | v2.3 |
 | Solar ring dying after 1 day stale (single `if`) | v2.3 |
@@ -331,23 +300,22 @@ BaseAll → Background + Overlay
 
 ## 16. CLOUDPEBBLE / BUILD RULES
 
-1. Remove `resources/media` block from appinfo.json to avoid "Unsupported published resource type" errors
-2. Menu icons via CloudPebble UI only (not appinfo.json)
+1. Remove `resources/media` block from appinfo.json
+2. Menu icons via CloudPebble UI only
 3. No tilde in resource filenames (breaks GitHub import)
-4. Duplicate source files at different paths cause CloudPebble import errors
+4. Duplicate source files at different paths cause import errors
 5. Always give full files for copy-paste; never partial diffs
-6. Fresh CloudPebble re-import required after every appinfo change
 
 ---
 
 ## 17. GITHUB MCP NOTES
 
 - `create_or_update_file` for all pushes — requires current file SHA (fetch first)
-- `push_files` tool sends **empty content** — NEVER USE IT
+- `push_files` sends **empty content** — NEVER USE IT
 - Cannot create release tags via MCP — use GitHub web UI
-- Cannot truly delete files via MCP (produces zero-byte file) — use GitHub web UI trash icon
-- Radium2 repo uses `master` branch
-- For main.c (~64KB), `create_or_update_file` may time out — retry in fresh context if needed
+- Cannot truly delete files via MCP — use GitHub web UI trash icon
+- Radium2 uses `master` branch
+- main.c (~65KB): `create_or_update_file` may time out — retry or use GitHub web UI
 
 ---
 
@@ -356,14 +324,14 @@ BaseAll → Background + Overlay
 ```
 Repo:         https://github.com/SterlingEly/Radium2
 Branch:       master
-HEAD:         4e6d548
+HEAD:         91eda9f
 Live store:   https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
 UUID:         2609e817-f8f2-4ad2-8846-cb05bb67d047
-Live:         v2.3  — SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
-In dev:       v2.3.1 — on master, not yet submitted
-Previous:     v2.2  — SETTINGS_KEY=7, 29 messageKeys
+Current live: v2.3.1 — SETTINGS_KEY=8, SOLAR_KEY=9, 33 messageKeys
+Previous:     v2.3, v2.2 (SETTINGS_KEY=7, 29 messageKeys)
+Next:         v2.4 — no features defined
 ```
 
 ---
 
-*End of context seed. v2.3 live; v2.3.1 in development on master.*
+*End of context seed. v2.3.1 live and stable. Next version is v2.4.*
