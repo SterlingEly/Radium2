@@ -48,6 +48,11 @@ Feedback is appreciated: please hit me up at @sterlingely on Twitter/X with any 
 
 ## Release Notes
 
+### v2.3.1
+- Fixed: Large overlay size option now appears in settings on Pebble Time 2 and Round 2 (and defaults to on, matching the watchface)
+- Fixed: Heart rate display now works correctly on supported models
+- Minor: Health data (steps, distance, calories, heart rate) now refreshes in sync with the minute tick
+
 ### v2.3
 Solar Ring, new Info Fields, and a Bluetooth Disconnect Indicator, oh my!
 - Solar Ring Mode: A snazzy new outer ring option that tracks the sun instead of steps & battery. The right arc shows daylight remaining; the left arc shows time until sunrise. (stays alive on cached data if you lose phone connection)
