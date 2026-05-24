@@ -2,7 +2,7 @@
 
 ---
 
-## v2.3.1 (in development)
+## v2.3.1
 
 ### Bug fixes
 - Config page: large overlay toggle now correctly appears on emery (Pebble Time 2) and gabbro (Pebble Round 2); was missing because index.js was not passing the platform string through
@@ -41,7 +41,7 @@
 ### Heart rate info line
 - `FIELD_HEART_RATE`: heart rate in BPM (`--` when unavailable)
 - Custom heart icon in C at both overlay sizes
-- Available on supported models only (emery, diorite, flint)
+- Available on supported models only (emery, diorite)
 
 ### Settings
 - `SETTINGS_KEY` bumped to `8` (added `RingMode`)
