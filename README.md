@@ -4,6 +4,10 @@
 
 ---
 
+> **AI collaborators:** Read [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) before making any code changes. It has the authoritative platform table, build rules, and role split. Then read [`CONTEXT_RADIUM2.md`](./CONTEXT_RADIUM2.md) for Radium 2 specifics.
+
+---
+
 ## The idea
 
 Old radium dial watches are beautiful objects. The hour and minute markings glow independently of the hands, giving you a sense of time without needing to parse a needle position. Radium 2 brings that idea to Pebble: the right half of the screen fills with minute ticks, the left half with hour blocks, a thin outer ring tracks battery and steps — and in the center, optionally, a clean digital readout.
@@ -16,13 +20,14 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 - **Radial time display** — right half: 60 minute ticks in groups of 5. Left half: 12 hour blocks (or 24 in 24h mode, each block split in two)
 - **Overlay modes** — Always On, Shake, 1 min auto-hide, or Always Off (pure art mode)
-- **4 configurable info lines** — choose from: Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, Battery, Bluetooth status, Heart rate, or None
+- **4 configurable info lines** — choose from: Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, Battery, Bluetooth status, Heart rate, Sunrise, Sunset, Daylight duration, or None
+- **Solar Ring mode** — outer ring tracks daylight remaining (right) and time until sunrise (left) instead of steps/battery; stays alive on cached data if phone disconnects
 - **Live weather** — current conditions fetched from Open-Meteo via phone; displayed with a small custom icon
 - **Outer ring** — battery level on the right, step count on the left, both filling from 6 o'clock toward 12; hideable
 - **Leading tick highlights** — the current hour and minute ticks glow brighter, independently colorable
 - **Charging indicator** — battery icon swaps to a lightning bolt when the watch is on the charger
 - **Bluetooth alert** — Bluetooth rune appears on a configured info line when phone connection is lost, with a double vibration alert
-- **Heart rate** — live BPM display on supported hardware (Pebble Time, Time 2, Pebble 2)
+- **Heart rate** — live BPM display on supported models
 - **24h support** — each hour slot splits into two segments with a gap between them
 - **17 independently configurable color slots** across time, ticks, tips, ring, info lines, and base
 - **40 presets** in five rows (Dark, Dark+, Light, Color, Special) — one tap to apply
@@ -77,11 +82,12 @@ Four independently configurable lines surround the time display (two above, two 
 | Steps | footprint icon + step count |
 | Distance | footprint icon + walked distance (mi or km) |
 | Calories | flame icon + active kcal |
-| Temp °F | weather icon + temperature |
-| Temp °C | weather icon + temperature |
+| Temp °F / °C | weather icon + temperature |
 | Battery | battery icon + charge % (bolt when charging) |
 | Bluetooth | BT rune — visible when disconnected, blank when connected |
 | Heart rate | heart icon + BPM ("72bpm" or "--") |
+| Sunrise / Sunset | sun icon + time ("6:23am" / "7:41pm") |
+| Daylight | sun icon + duration ("13h18m") |
 
 ---
 
@@ -90,29 +96,29 @@ Four independently configurable lines surround the time display (two above, two 
 | Platform | Watch | Screen | Notes |
 |---|---|---|---|
 | Aplite | Pebble Classic, Steel | 144×168 B&W | High-contrast, invert option, no health |
-| Basalt | Pebble Time | 144×168 color | Heart rate supported |
+| Basalt | Pebble Time | 144×168 color | |
 | Chalk | Pebble Time Round | 180×180 color | Round rendering |
-| Diorite | Pebble 2 SE | 144×168 B&W | High-contrast, invert option, heart rate supported |
-| Emery | Pebble Time 2 | 200×228 color | Large overlay default, heart rate supported |
-| Flint | Pebble 2 | 144×168 B&W | High-contrast, invert option, heart rate supported |
+| Diorite | Pebble 2 SE | 144×168 B&W | High-contrast, invert option, heart rate |
+| Emery | Pebble Time 2 | 200×228 color | Large overlay default, heart rate |
+| Flint | Pebble 2 | 144×168 B&W | High-contrast, invert option |
 | Gabbro | Pebble Round 2 | 260×260 color | Round rendering, large overlay default |
 
 ---
 
 ## History & credits
 
-**December 2015 — Original design (Sterling Ely)**  
-The concept was designed by Sterling Ely for the Pebble Time Round. The core idea: a radial bar graph where filled wedge segments encode time, battery, and steps — readable as pure geometry even without a digital readout.
+**~2015 — Original design (Sterling Ely)**
+The concept was designed by Sterling Ely for the Pebble Time Round: a radial bar graph where filled wedge segments encode time, battery, and steps — readable as pure geometry without a digital readout.
 
-**December 9, 2015 — Prototype implementation (MathewReiss)**  
+**December 2015 — Prototype implementation (MathewReiss)**
 GitHub: [MathewReiss/radium](https://github.com/MathewReiss/radium)
 
-**December 9, 2016 — v1.0 release (MicroByte)**  
+**December 2016 — v1.0 release (MicroByte)**
 [apps.rebble.io](https://apps.rebble.io/en_US/application/584b212dce45dc907d00008f)
 
-**March 2026 — Radium 2 (Sterling Ely & Claude)**  
-Full rebuild for all modern Pebble platforms. Adds full color customization, 40 presets, 24h mode, 4 configurable info lines, live weather, health metrics, and improved cross-platform layout.  
-GitHub: [SterlingEly/Radium2](https://github.com/SterlingEly/Radium2)  
+**March 2026 — Radium 2 (Sterling Ely & Claude)**
+Full rebuild for all modern Pebble platforms. Adds full color customization, 40 presets, 24h mode, 4 configurable info lines, live weather, solar ring, health metrics, and improved cross-platform layout.
+GitHub: [SterlingEly/Radium2](https://github.com/SterlingEly/Radium2)
 Appstore: [apps.rebble.io](https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926)
 
 ---
@@ -138,8 +144,6 @@ Source files:
 - `src/pkjs/config.js` — config page HTML/JS (built as a data URL)
 - `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay, weather fetch
 - `package.json` — message keys, target platforms, version
-
-Note: `resources/fonts/` contains Roboto font files from an earlier iteration. They are not used by the current build and can be safely deleted.
 
 ---
 
