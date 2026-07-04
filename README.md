@@ -4,7 +4,7 @@
 
 ---
 
-> **AI collaborators:** Read [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) before making any code changes. It has the authoritative platform table, build rules, and role split. Then read [`CONTEXT_RADIUM2.md`](./CONTEXT_RADIUM2.md) for Radium 2 specifics.
+> **Technical contributors and AI collaborators:** Read [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) before making any code changes. It contains the authoritative architecture, constants, platform table, build rules, and known traps for this project.
 
 ---
 
@@ -20,18 +20,18 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 - **Radial time display** — right half: 60 minute ticks in groups of 5. Left half: 12 hour blocks (or 24 in 24h mode, each block split in two)
 - **Overlay modes** — Always On, Shake, 1 min auto-hide, or Always Off (pure art mode)
-- **4 configurable info lines** — choose from: Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, Battery, Bluetooth status, Heart rate, Sunrise, Sunset, Daylight duration, or None
-- **Solar Ring mode** — outer ring tracks daylight remaining (right) and time until sunrise (left) instead of steps/battery; stays alive on cached data if phone disconnects
-- **Live weather** — current conditions fetched from Open-Meteo via phone; displayed with a small custom icon
-- **Outer ring** — battery level on the right, step count on the left, both filling from 6 o'clock toward 12; hideable
-- **Leading tick highlights** — the current hour and minute ticks glow brighter, independently colorable
-- **Charging indicator** — battery icon swaps to a lightning bolt when the watch is on the charger
-- **Bluetooth alert** — Bluetooth rune appears on a configured info line when phone connection is lost, with a double vibration alert
-- **Heart rate** — live BPM display on supported models
-- **24h support** — each hour slot splits into two segments with a gap between them
-- **17 independently configurable color slots** across time, ticks, tips, ring, info lines, and base
-- **40 presets** in five rows (Dark, Dark+, Light, Color, Special) — one tap to apply
-- **B&W support** — Aplite, Diorite, and Flint get a clean high-contrast layout with optional invert toggle
+- **4 configurable info lines** — Day, Date, Day+Date, Steps, Distance, Calories, Temp °F, Temp °C, Battery, Bluetooth status, Heart rate, Sunrise, Sunset, Daylight duration, or None
+- **Solar Ring mode** — outer ring tracks daylight remaining and time until sunrise instead of steps and battery; stays alive on cached data if the phone disconnects
+- **Live weather** — current conditions from Open-Meteo via phone, displayed with a custom icon
+- **Outer ring** — battery level on the right, step count on the left, both filling from 6 o'clock toward 12
+- **Leading tick highlights** — current hour and minute ticks glow brighter, independently colorable
+- **Charging indicator** — battery icon swaps to a lightning bolt when on the charger
+- **Bluetooth alert** — BT rune appears when phone connection is lost, with a double vibration
+- **Heart rate** — live BPM on supported models
+- **24h support** — each hour slot splits into two segments with a gap between
+- **17 independently configurable color slots**
+- **40 presets** in five rows (Dark, Dark+, Light, Color, Special)
+- **B&W support** with optional invert toggle
 - **All 7 platforms** — Aplite, Basalt, Chalk, Diorite, Emery, Flint, Gabbro
 
 ---
@@ -50,11 +50,11 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
          6
 ```
 
-- **Right half (3→12 o'clock):** minutes, filling clockwise. Each group of 5 ticks is one 5-minute block
-- **Left half (9→12 o'clock):** hours, filling counter-clockwise. Each block = 1 hour (12h) or half-block = 1 hour (24h)
+- **Right half (3→12 o'clock):** minutes, filling clockwise — each group of 5 ticks = one 5-minute block
+- **Left half (9→12 o'clock):** hours, filling counter-clockwise — each block = 1 hour
 - **Outer ring right:** battery, filling up from 6 toward 12
-- **Outer ring left:** steps toward daily step goal, filling up from 6 toward 12
-- **Center:** configurable info lines above and below the time, with optional overlay circle
+- **Outer ring left:** steps toward daily goal, filling up from 6 toward 12
+- **Center:** configurable info lines and time, with optional overlay circle
 
 ---
 
@@ -69,64 +69,39 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 ---
 
-## Info lines
-
-Four independently configurable lines surround the time display (two above, two below). Each can show:
-
-| Option | Display |
-|---|---|
-| None | blank |
-| Day | "WEDNESDAY" |
-| Date | "MAR 21" |
-| Day + Date | "WED MAR 21" |
-| Steps | footprint icon + step count |
-| Distance | footprint icon + walked distance (mi or km) |
-| Calories | flame icon + active kcal |
-| Temp °F / °C | weather icon + temperature |
-| Battery | battery icon + charge % (bolt when charging) |
-| Bluetooth | BT rune — visible when disconnected, blank when connected |
-| Heart rate | heart icon + BPM ("72bpm" or "--") |
-| Sunrise / Sunset | sun icon + time ("6:23am" / "7:41pm") |
-| Daylight | sun icon + duration ("13h18m") |
-
----
-
 ## Platforms
 
-| Platform | Watch | Screen | Notes |
-|---|---|---|---|
-| Aplite | Pebble Classic, Steel | 144×168 B&W | High-contrast, invert option, no health |
-| Basalt | Pebble Time | 144×168 color | |
-| Chalk | Pebble Time Round | 180×180 color | Round rendering |
-| Diorite | Pebble 2 SE | 144×168 B&W | High-contrast, invert option, heart rate |
-| Emery | Pebble Time 2 | 200×228 color | Large overlay default, heart rate |
-| Flint | Pebble 2 | 144×168 B&W | High-contrast, invert option |
-| Gabbro | Pebble Round 2 | 260×260 color | Round rendering, large overlay default |
+| Platform | Watch | Screen |
+|---|---|---|
+| Aplite | Pebble Classic, Steel | 144×168 B&W |
+| Basalt | Pebble Time | 144×168 color |
+| Chalk | Pebble Time Round | 180×180 color |
+| Diorite | Pebble 2 SE | 144×168 B&W |
+| Emery | Pebble Time 2 | 200×228 color |
+| Flint | Pebble 2 | 144×168 B&W |
+| Gabbro | Pebble Round 2 | 260×260 color |
 
 ---
 
-## History & credits
+## History and credits
 
 **~2015 — Original design (Sterling Ely)**
-The concept was designed by Sterling Ely for the Pebble Time Round: a radial bar graph where filled wedge segments encode time, battery, and steps — readable as pure geometry without a digital readout.
+The concept was designed for the Pebble Time Round: a radial bar graph where filled wedge segments encode time, battery, and steps — readable as pure geometry without a digital readout.
 
-**December 2015 — Prototype implementation (MathewReiss)**
+**December 2015 — Prototype (MathewReiss)**
 GitHub: [MathewReiss/radium](https://github.com/MathewReiss/radium)
 
 **December 2016 — v1.0 release (MicroByte)**
-[apps.rebble.io](https://apps.rebble.io/en_US/application/584b212dce45dc907d00008f)
 
-**March 2026 — Radium 2 (Sterling Ely & Claude)**
-Full rebuild for all modern Pebble platforms. Adds full color customization, 40 presets, 24h mode, 4 configurable info lines, live weather, solar ring, health metrics, and improved cross-platform layout.
-GitHub: [SterlingEly/Radium2](https://github.com/SterlingEly/Radium2)
-Appstore: [apps.rebble.io](https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926)
+**March 2026 — Radium 2 (Sterling Ely and Claude)**
+Full rebuild for all modern Pebble platforms. Adds color customization, 40 presets, 24h mode, 4 configurable info lines, live weather, solar ring, and health metrics.
 
 ---
 
 ## Store
 
-- **Rebble Appstore:** [apps.rebble.io](https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926)
-- **Pebble Appstore:** [apps.repebble.com](https://apps.repebble.com/en_US/application/69a6531826cc4f0009c65926)
+- **Rebble:** https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
+- **Repebble:** https://apps.repebble.com/en_US/application/69a6531826cc4f0009c65926
 
 ---
 
@@ -140,9 +115,9 @@ pebble install --emulator basalt
 ```
 
 Source files:
-- `src/c/main.c` — all drawing, event handling, settings persistence, health & weather data
-- `src/pkjs/config.js` — config page HTML/JS (built as a data URL)
-- `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay, weather fetch
+- `src/c/main.c` — all drawing, event handling, settings, health, and weather
+- `src/pkjs/config.js` — config page (data URL)
+- `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay, weather and solar fetch
 - `package.json` — message keys, target platforms, version
 
 ---
