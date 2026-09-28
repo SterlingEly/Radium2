@@ -24,7 +24,7 @@ The design originated around 2015 (Sterling Ely). First implemented by MathewRei
 | Store (Repebble) | https://apps.repebble.com/69a6531826cc4f0009c65926 |
 | Repo | https://github.com/SterlingEly/Radium2 (branch: `master`) |
 | Next version | v2.4 — no features defined |
-| Pending | Create v2.3.1 GitHub release tag via web UI |
+| GitHub releases | v2.1, v2.2, v2.3, v2.3.1 (v2.3.1 release created 2026-09-28 on commit `91eda9f`) |
 
 ### Version history
 
@@ -287,7 +287,6 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 
 **LIVE** — Update as work progresses.
 
-- Create v2.3.1 GitHub release tag via web UI (MCP cannot create tags)
 - v2.4 features: none defined yet
 
 ---
@@ -329,4 +328,6 @@ Before shipping any new version:
 
 ## Last Updated
 
-2026-07-03 — v2.3.1 live and stable. v2.4 features not yet defined.
+2026-09-28 — v2.3.1 GitHub release created (tag `v2.3.1` on `91eda9f`, the 2026-05-24 release commit); release-tag TODO closed. v2.3.1 live and stable; v2.4 features not yet defined.
+
+Previous: 2026-07-03 — v2.3.1 live and stable. v2.4 features not yet defined.
