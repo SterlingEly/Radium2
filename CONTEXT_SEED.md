@@ -1,3 +1,5 @@
+> **Deprecated (2026-09-28).** This is an early-2026 context seed kept for history only. It is **not maintained** and may be out of date. The single authoritative handoff document is [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) — read that instead.
+
 # RADIUM 2 — CONTEXT SEED FOR NEW THREAD
 *Everything a fresh Claude session needs to resume Radium 2.x development*
 
