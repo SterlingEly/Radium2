@@ -50,7 +50,6 @@ The design originated around 2015 (Sterling Ely). First implemented by MathewRei
 ```
 SterlingEly/Radium2 (branch: master)
 ├── PROJECT_CONTEXT.md   ← this file — read before making changes
-├── CONTEXT_RADIUM2.md   ← deprecated, see PROJECT_CONTEXT.md
 ├── README.md            ← human-facing overview
 ├── STORE_LISTING.md     ← store copy and release notes
 ├── CHANGELOG.md         ← developer changelog
