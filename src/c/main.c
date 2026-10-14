@@ -26,9 +26,24 @@
 #define OVERLAY_AUTO        3        // shake to show, auto-hides after OVERLAY_AUTO_HIDE_MS
 #define OVERLAY_AUTO_HIDE_MS  60000
 
-// Overlay sizes (large is default on emery/gabbro)
-#define OVERLAY_SMALL  0
-#define OVERLAY_LARGE  1
+// Overlay sizes. The stored value 1 was called "large" through v2.3.1; it is now "medium" and
+// looks exactly the same, so existing saved settings keep working. The new Large is value 2.
+#define OVERLAY_SMALL   0   // LECO_36 time, GOTHIC_18 lines, 11px icons, 58px circle
+#define OVERLAY_MEDIUM  1   // LECO_42 time, GOTHIC_24 lines, 14px icons, 70px circle (default on emery/gabbro)
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 time, same lines/icons as medium, bigger circle
+
+// The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
+// on any other platform would not compile. Elsewhere Large is treated as Medium.
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+  #define HAS_LARGE_OVERLAY 1
+#endif
+
+// Large overlay circle radius -- tune on device. Bigger leaves less starburst visible around it.
+#if defined(PBL_PLATFORM_GABBRO)
+  #define OVERLAY_LARGE_R 100
+#else
+  #define OVERLAY_LARGE_R 84
+#endif
 
 // Info line field IDs
 #define FIELD_NONE       0
@@ -147,7 +162,7 @@ static void prv_default_settings(void) {
   s_settings.Line3Field  = FIELD_DATE;
   s_settings.Line4Field  = FIELD_NONE;
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-  s_settings.OverlaySize = OVERLAY_LARGE;  // high-res screens get large overlay by default
+  s_settings.OverlaySize = OVERLAY_MEDIUM;  // high-res screens default to the 70px overlay (same look as the old "large")
 #else
   s_settings.OverlaySize = OVERLAY_SMALL;
 #endif
@@ -892,7 +907,14 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   const bool is_round = false;
 #endif
 
-  bool large = (s_settings.OverlaySize == OVERLAY_LARGE);
+  // Overlay size. Medium and Large both use the 14px icon set and GOTHIC_24_BOLD lines ("large"
+  // here means that tier); Large additionally uses the LECO_60 time font and a bigger circle.
+  int osize = s_settings.OverlaySize;
+#if !defined(HAS_LARGE_OVERLAY)
+  if (osize > OVERLAY_MEDIUM) osize = OVERLAY_MEDIUM;   // the largest LECO font only exists on emery/gabbro
+#endif
+  bool large = (osize >= OVERLAY_MEDIUM);
+  bool xl    = (osize == OVERLAY_LARGE);
 
 #if defined(PBL_BW)
   GColor bw_lit    = s_settings.InvertBW ? GColorBlack     : GColorWhite;
@@ -1242,7 +1264,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
   }
 
-  int overlay_r = large ? 70 : 58;
+  int overlay_r = xl ? OVERLAY_LARGE_R : (large ? 70 : 58);
   if (prv_overlay_visible()) {
     graphics_context_set_fill_color(ctx, col_obg);
     graphics_fill_circle(ctx, GPoint(cx, cy), overlay_r);
@@ -1452,25 +1474,53 @@ static void draw_layer(Layer *layer, GContext *ctx) {
   }
 
   if (prv_overlay_visible()) {
+    // Per-size overlay metrics. The nudges are hand-tuned vertical corrections for how each LECO
+    // font sits in its text box. Small and Medium are tuned on device; Large is a first estimate
+    // (Medium's values scaled by the font size) and the first thing to adjust if it looks off.
     int time_h, cap_h, line_gap, single_offset;
+    int time_dy, top2_nudge, bot1_nudge, bot2_nudge;
     GFont time_font;
 
-    if (large) {
-      time_font     = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
-      time_h        = 52;
-      cap_h         = 14;
-      line_gap      = 7;
-      single_offset = 16;
-    } else {
+    if (!large) {
+      // Small
       time_font     = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
       time_h        = 40;
       cap_h         = 11;
       line_gap      = 6;
       single_offset = 12;
+      time_dy       = -3;
+      top2_nudge    = 0;
+      bot1_nudge    = -1;
+      bot2_nudge    = 0;
+    } else {
+      // Medium (the old "large")
+      time_font     = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+      time_h        = 52;
+      cap_h         = 14;
+      line_gap      = 7;
+      single_offset = 16;
+      time_dy       = -1;
+      top2_nudge    = -2;
+      bot1_nudge    = -8;
+      bot2_nudge    = -7;
+#if defined(HAS_LARGE_OVERLAY)
+      if (xl) {
+        // Large: same lines and icons as Medium, much bigger time
+        time_font     = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
+        time_h        = 70;
+        cap_h         = 14;
+        line_gap      = 9;
+        single_offset = 18;
+        time_dy       = -2;
+        top2_nudge    = -3;
+        bot1_nudge    = -11;
+        bot2_nudge    = -10;
+      }
+#endif
     }
     int stride   = cap_h + line_gap;
     int font_pad = large ? LARGE_FONT_PAD : SMALL_FONT_PAD;
-    int time_y   = large ? (cy - time_h/2 - 1) : (cy - time_h/2 - 3);
+    int time_y   = cy - time_h/2 + time_dy;
 
     int f1 = s_settings.Line1Field;
     int f2 = s_settings.Line2Field;
@@ -1489,8 +1539,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       GColor col = f2 ? col_l2 : col_l1;
       draw_info_line(ctx, field, time_y - single_offset - cap_h + 5, w, cx, col, large);
     } else if (top_count == 2) {
-      int nudge   = large ? -2 : 0;
-      int inner_y = time_y - font_pad - line_gap + 1 + nudge;
+      int inner_y = time_y - font_pad - line_gap + 1 + top2_nudge;
       int outer_y = inner_y - stride;
       draw_info_line(ctx, f2, inner_y, w, cx, col_l2, large);
       draw_info_line(ctx, f1, outer_y, w, cx, col_l1, large);
@@ -1499,11 +1548,9 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      int nudge  = large ? -8 : -1;
-      draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + nudge, w, cx, col, large);
+      draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + bot1_nudge, w, cx, col, large);
     } else if (bot_count == 2) {
-      int nudge   = large ? -7 : 0;
-      int inner_y = time_y + time_h + line_gap - font_pad - 3 + nudge;
+      int inner_y = time_y + time_h + line_gap - font_pad - 3 + bot2_nudge;
       int outer_y = inner_y + stride;
       draw_info_line(ctx, f3, inner_y, w, cx, col_l3, large);
       draw_info_line(ctx, f4, outer_y, w, cx, col_l4, large);
