@@ -32,9 +32,15 @@ Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 tes
 - Both options **default on** (Sterling's decision, 2026-10-13); Steps & Battery ring mode only; stored in their own persist key (`PACE_KEY=10`) so `RadiumSettings` and existing saved settings are untouched
 - The settings page shows both toggles checked by default, matching the watch
 
+### Ring gap, marker color, battery colors (2026-10-14)
+- **Gabbro ring gap doubled**: the bg-colored gap between the outer ring and the tick radials is now 4px on gabbro (`RING_GAP`), was 2px. Ring is still 6px thick (radius 124–130); ticks now end at radius 120. Other platforms stay at 2px; emery can follow if wanted
+- **Pace marker color** (color platforms): its own color row on the settings page, shown next to the marker toggle. Every preset sets it to its time text color (`tt`, usually white). Until the settings page sends one, the marker simply follows the time color, so existing users see no change
+- **Battery level colors** (option, color platforms, default **off**): ≤20% red, ≤50% yellow, above that green. Colors the **battery ring only** (Steps & Battery mode; solar mode's right side stays "day"); info line colors are untouched. On light backgrounds it switches to darker lit colors (dark red / amber / jade) and forces the unfilled track to a pale tint of the same hue; on dark backgrounds the track becomes a dark shade. Hidden on B&W platforms
+- Both stored by extending the `PACE_KEY` blob (appended fields; an old 2-byte blob loads with defaults). New message keys `PaceMarkerColor`, `BattColorOverride`
+
 ### Data fetch
 - One location lookup, then forecast then air-quality, then a **single** AppMessage to the watch (was: separate fetch + message per data source). A failure in one request no longer blocks the other
-- New message keys appended: `UvIndex`, `AqiIndex`, `PaceColor`, `PaceMarker` (37 total)
+- New message keys appended: `UvIndex`, `AqiIndex`, `PaceColor`, `PaceMarker`, `PaceMarkerColor`, `BattColorOverride` (39 total)
 
 ### Bug fixes
 - Large-overlay option now actually appears on gabbro (Pebble Round 2): `index.js` never passed `'gabbro'` to the config page. (The v2.3.1 entry below claimed this was fixed; only emery was.) Saves made while the option was hidden stored "Small", so it may show Small until set again
