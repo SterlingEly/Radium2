@@ -39,10 +39,11 @@
 #endif
 
 // Large overlay circle radius -- tune on device. Bigger leaves less starburst visible around it.
+// v2.4: trimmed 84->80 / 100->94 after the first device look ("a bit smaller").
 #if defined(PBL_PLATFORM_GABBRO)
-  #define OVERLAY_LARGE_R 100
+  #define OVERLAY_LARGE_R 94
 #else
-  #define OVERLAY_LARGE_R 84
+  #define OVERLAY_LARGE_R 80
 #endif
 
 // Info line field IDs
@@ -1513,8 +1514,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         single_offset = 18;
         time_dy       = -2;
         top2_nudge    = -3;
-        bot1_nudge    = -11;
-        bot2_nudge    = -10;
+        // Bottom lines +4 (down) after device review: the first line below the time sat closer
+        // to it than the first line above did. If the gaps still differ, adjust these two by
+        // the difference (keep them moving together).
+        bot1_nudge    = -7;
+        bot2_nudge    = -6;
       }
 #endif
     }
