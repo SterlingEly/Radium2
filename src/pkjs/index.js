@@ -98,8 +98,8 @@ Pebble.addEventListener('showConfiguration', function() {
   // 'aplite' -- B&W, no health slider
   // 'bw'     -- B&W with health (diorite, flint)
   // 'emery'  -- large overlay toggle (Pebble Time 2)
-  // 'chalk'  -- large overlay toggle (gabbro/Round 2 in CloudPebble simulator)
-  // 'color'  -- default (basalt, gabbro)
+  // 'gabbro' -- large overlay toggle (Pebble Round 2)
+  // 'color'  -- default (basalt, chalk -- chalk is the small original Time Round)
   var platform = 'color';
   try {
     if (Pebble.getActiveWatchInfo) {
@@ -107,7 +107,7 @@ Pebble.addEventListener('showConfiguration', function() {
       var bwPlatforms = ['aplite', 'diorite', 'flint'];
       if (bwPlatforms.indexOf(info.platform) >= 0) {
         platform = (info.platform === 'aplite') ? 'aplite' : 'bw';
-      } else if (info.platform === 'emery' || info.platform === 'chalk') {
+      } else if (info.platform === 'emery' || info.platform === 'gabbro') {
         platform = info.platform;  // large-overlay platforms
       }
     }
