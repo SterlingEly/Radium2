@@ -317,26 +317,33 @@ module.exports = {
       return '<select id="' + id + '" style="background:#242424;color:#ddd;border:1px solid #333;border-radius:6px;padding:6px 8px;font-size:14px;flex:1">' + opts + '</select>';
     }
 
-    // Large overlay toggle: emery (Pebble Time 2) and gabbro (Pebble Round 2).
-    // chalk = Pebble Time Round (original, small), does NOT get large overlay.
-    // Default checked because C code defaults to OVERLAY_LARGE on these platforms.
-    var isLargePlatform = (platform === 'emery' || platform === 'gabbro');
+    // Overlay size selector: Small / Medium / Large, on emery (Pebble Time 2) and gabbro (Pebble Round 2).
+    // chalk = Pebble Time Round (original, small) and the other platforms only have the small overlay.
+    // Values match OVERLAY_* in main.c: 0 = Small, 1 = Medium (was "Large" through v2.3.1 -- same look),
+    // 2 = Large (LECO_60 time, emery/gabbro only). Medium is checked by default because the C code
+    // defaults to OVERLAY_MEDIUM on these platforms.
+    var hasSizeChoice = (platform === 'emery' || platform === 'gabbro');
     var isAplite = (platform === 'aplite');
-    var overlayLargeRow = isLargePlatform
-      ? '<div class="row"><label>Large overlay</label>' +
-        '<label class="toggle"><input type="checkbox" id="OverlaySize" checked><span class="knob"></span></label></div>'
+    var overlaySizeRow = hasSizeChoice
+      ? '<span class="note" style="padding-top:2px;padding-bottom:0">Overlay size</span>' +
+        '<div class="radio-group" style="padding:6px 14px 12px">' +
+        '<input type="radio" name="osize" id="os0" value="0"><label for="os0">Small</label>' +
+        '<input type="radio" name="osize" id="os1" value="1" checked><label for="os1">Medium</label>' +
+        '<input type="radio" name="osize" id="os2" value="2"><label for="os2">Large</label>' +
+        '</div>'
       : '';
 
     // Pace options (steps vs. a typical day). Aplite has no health data so gets neither;
     // B&W platforms (diorite, flint) get the marker only -- pace color needs a color screen.
+    // Both default checked to match the watch (PaceSettings defaults to on); a saved CURRENT overrides this.
     var hasPaceColor = !(isAplite || platform === 'bw');
     var paceRows = isAplite ? '' :
         (hasPaceColor
           ? '<div class="row"><label>Color steps by pace</label>' +
-            '<label class="toggle"><input type="checkbox" id="PaceColor"><span class="knob"></span></label></div>'
+            '<label class="toggle"><input type="checkbox" id="PaceColor" checked><span class="knob"></span></label></div>'
           : '')
       + '<div class="row"><label>Pace marker on ring</label>' +
-        '<label class="toggle"><input type="checkbox" id="PaceMarker"><span class="knob"></span></label></div>'
+        '<label class="toggle"><input type="checkbox" id="PaceMarker" checked><span class="knob"></span></label></div>'
       + '<span class="note">Pace compares your steps so far today with a typical day (same weekday, last 4 weeks). ' +
         'Steps &amp; Battery ring only. The marker shows where a typical day would put you.</span>';
 
@@ -459,7 +466,7 @@ module.exports = {
       + '<input type="radio" name="overlay" id="ov2" value="2" checked><label for="ov2">Shake</label>'
       + '<input type="radio" name="overlay" id="ov3" value="3"><label for="ov3">1 min</label>'
       + '</div>'
-      + overlayLargeRow
+      + overlaySizeRow
       + '</div>'
 
       + '<h2>Info Lines</h2><div class="card">'
@@ -613,7 +620,7 @@ module.exports = {
       + 'Object.keys(CURRENT).forEach(function(k){'
       + 'if(k==="OverlayMode"){var el=document.getElementById("ov"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="RingMode"){var el=document.getElementById("rm"+CURRENT[k]);if(el)el.checked=true;}'
-      + 'else if(k==="OverlaySize"){var el=document.getElementById("OverlaySize");if(el)el.checked=(CURRENT[k]===1);}'
+      + 'else if(k==="OverlaySize"){var el=document.getElementById("os"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="PaceColor"||k==="PaceMarker"){var el=document.getElementById(k);if(el)el.checked=!!CURRENT[k];}'
       + 'else if(k==="InvertBW"){document.getElementById("InvertBW").checked=!!CURRENT[k];}'
       + 'else if(k==="ShowRing"){document.getElementById("ShowRing").checked=!!CURRENT[k];}'
@@ -657,7 +664,7 @@ module.exports = {
       + 'HourTipColor:h(colors.HourTipColor),MinuteTipColor:h(colors.MinuteTipColor),'
       + 'Line1Color:h(colors.Line1Color),Line2Color:h(colors.Line2Color),'
       + 'Line3Color:h(colors.Line3Color),Line4Color:h(colors.Line4Color),'
-      + 'InvertBW:tog("InvertBW"),ShowRing:tog("ShowRing"),OverlaySize:tog("OverlaySize"),'
+      + 'InvertBW:tog("InvertBW"),ShowRing:tog("ShowRing"),OverlaySize:rad("osize"),'
       + 'PaceColor:tog("PaceColor"),PaceMarker:tog("PaceMarker"),'
       + 'StepGoal:parseInt((document.getElementById("StepGoal")||{value:"10000"}).value),'
       + 'Line1Field:sel("Line1Field"),Line2Field:sel("Line2Field"),'
