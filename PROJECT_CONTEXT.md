@@ -30,7 +30,7 @@ The design originated around 2015 (Sterling Ely). First implemented by MathewRei
 Sterling increments the version number **only on official store releases.** Everything on `master` after v2.3.1 is "v2.4 (unreleased)" regardless of how many internal iterations it took. `package.json` still says `2.3.0` (it lags the live v2.3.1) — set it to the real number when v2.4 ships.
 
 ### v2.4 (unreleased) — on master, NOT yet compiled or device-tested
-All of the following was written on 2026-10-13 without a build; treat each item as unverified until Sterling has run it on a watch. (Sterling began testing the Round 2 / Time 2 builds that evening; results not yet recorded here.)
+Written 2026-10-13 and 2026-10-14 without a build; treat each item as unverified until Sterling has run it on a watch. (Sterling began testing the Round 2 / Time 2 builds on the evening of 2026-10-13; results not yet recorded here, except where noted.)
 
 **Fixes**
 - Large-overlay option now appears on gabbro: `index.js` was passing `'chalk'` through and never `'gabbro'` (the v2.3.1 fix only changed `config.js`, so only emery was actually fixed). chalk now correctly gets the plain `'color'` UI. Saves made while the option was hidden stored "Small", so on first opening settings it may show Small — pick the size you want and save.
@@ -47,6 +47,11 @@ All of the following was written on 2026-10-13 without a build; treat each item 
 - *Color steps by pace* (color platforms): the lit steps arc takes the pace color; fill length is still steps ÷ goal. Medium palette, brightest/boldest hue per step (≤30% red, ≤60% orange, ≤90% yellow, ≤200% green, ≤400% blue, ≤700% violet, beyond magenta — same thresholds as TallBoy).
 - *Pace marker on ring*: a notch on the steps arc where a typical day would have put you (typical-so-far ÷ goal).
 - Both **default on** (Sterling's decision, 2026-10-13, committed by him in `main.c`; the settings page shows them checked to match). Apply only in Steps & Battery ring mode, and fall back silently (preset color / no marker) when there is no usable typical-steps history. A freshly set-up watch has no history, so pace shows nothing for about a week.
+- **Pace marker color** (color platforms, added 2026-10-14): a color picker on the settings page (`PaceMarkerColor`). Until the config page has sent one (`MarkerSet` false) the marker follows `TimeColor`; choosing a preset in the config page sets the picker to that preset's time-text color. B&W platforms have no picker.
+
+**Battery ring color override** (color platforms, added 2026-10-14; `BattColorOverride`, **default off**): an optional setting that colors the battery **ring** by level — ≤20% red, ≤50% yellow, otherwise green. It applies to the ring only and only in Steps & Battery mode; the info-line battery text keeps the theme's line colors (an earlier version that also recolored the info line was rejected by Sterling). On light backgrounds (`prv_is_light`: R+G+B ≥ 6 of 9) the bright hues wash out, so `prv_batt_level_colors` uses darker lit colors (DarkCandyAppleRed / WindsorTan / JaegerGreen) and forces the unfilled track to a pale tint of the same hue (Melon / PastelYellow / MintGreen); on dark backgrounds the lit colors are Red / Yellow / Green and the track is a dark shade (BulgarianRose / ArmyGreen / DarkGreen). B&W platforms have no such option.
+
+**Ring gap (gabbro):** `RING_GAP` is **4** on gabbro (Sterling, 2026-10-14) and 2 everywhere else. On gabbro the ring spans radius 124..130 and the ticks end at 130 − 6 − 4 = 120. Ring thickness (`RING_THICK` 6) is unchanged; making thickness/gap configurable (8/4 was floated) is a candidate after Sterling sees it on device.
 
 **Data fetch**: `index.js` does one location lookup, then forecast (now with `uv_index`) then air-quality (`us_aqi`), and sends everything in a **single** AppMessage. If one request fails the other's data is still sent.
 
@@ -54,7 +59,7 @@ All of the following was written on 2026-10-13 without a build; treat each item 
 
 | Version | SETTINGS_KEY | Summary |
 |---------|-------------|---------|
-| v2.4 (unreleased) | 8 | Three overlay sizes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on), Quick View on round, gabbro option, aplite/solar fixes |
+| v2.4 (unreleased) | 8 | Three overlay sizes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on) + marker color, optional battery ring color override (default off), gabbro ring gap 4, Quick View on round, gabbro option, aplite/solar fixes |
 | v2.3.1 | 8 | HR API fix, large overlay config fix (emery), health polling consolidation |
 | v2.3 | 8 | Solar ring, BT disconnect indicator, HR field, solar info lines |
 | v2.2 | 7 | Four configurable info lines, live weather, distance, calories, preset overhaul |
@@ -81,9 +86,9 @@ SterlingEly/Radium2 (branch: master)
 ├── package.json         ← manifest: message keys, platforms, version (lags live release)
 └── src/
     ├── c/
-    │   └── main.c       ← ~81KB, entire watchface C implementation
+    │   └── main.c       ← ~84KB, entire watchface C implementation
     └── pkjs/
-        ├── config.js    ← config page (data URL, ~46KB HTML/JS)
+        ├── config.js    ← config page (data URL, ~46KB+ HTML/JS)
         └── index.js     ← PebbleKit JS: weather/UV/AQI/solar fetch, settings relay
 ```
 
@@ -108,7 +113,8 @@ SterlingEly/Radium2 (branch: master)
 - Never use `push_files` — it sends empty content silently
 - Cannot create release tags via MCP — use GitHub web UI
 - Cannot truly delete files via MCP — use GitHub web UI trash icon
-- `get_file_contents` / pushes of `main.c` (~81KB) have timed out in some sessions and worked in others — retry before falling back to the GitHub web UI. Fetching a directory path (e.g. `src/c`) returns file SHAs cheaply without the content.
+- `get_file_contents` / pushes of `main.c` (~84KB) have timed out in some sessions and worked in others (the bridge to the Mac can also disconnect) — retry before falling back to the GitHub web UI. Fetching a directory path (e.g. `src/c`) returns file SHAs cheaply without the content.
+- After pushing a large file, compare the returned blob SHA with `git hash-object` of the local copy — equal means the upload is byte-identical
 
 ### Dev environment
 
@@ -156,7 +162,7 @@ SterlingEly/Radium2 (branch: master)
 
 ### Tick geometry — round
 
-`graphics_fill_radial()` on inset tick_rect. 60 × 1° minute arcs; 12 × 9° hour arcs.
+`graphics_fill_radial()` on inset tick_rect. 60 × 1° minute arcs; 12 × 9° hour arcs. The inset is `RING_THICK + RING_GAP` when the ring is shown.
 
 ### Quick View
 
@@ -169,11 +175,11 @@ SterlingEly/Radium2 (branch: master)
 - Battery / day (right): left-anchored at `(cx+gap, h-t)`, fills CW — bottom → right → top
 - Steps (left): right-anchored, fills CCW — bottom → left → top
 - Solar night (left): anchored at 12-end, fills toward 6 — opposite of steps
-- Pace marker: a 3px notch along the steps path at `total * (typical ÷ goal)`, protruding 2px inward (into the ring gap strip), drawn in `col_time`
+- Pace marker: a 3px notch along the steps path at `total * (typical ÷ goal)`, protruding 2px inward (into the ring gap strip), drawn in the marker color (`TimeColor` unless a custom marker color has been set)
 
 ### Outer ring — round
 
-`graphics_fill_radial` on the full bounds. Steps arc spans 183°→357°; battery 3°→177°. Pace marker is a ~3° arc at `183 + 174 * (typical ÷ goal)`, thickness `RING_THICK + 2`.
+`graphics_fill_radial` on the full bounds. Steps arc spans 183°→357°; battery 3°→177°. Pace marker is a ~3° arc at `183 + 174 * (typical ÷ goal)`, thickness `RING_THICK + 2`, in the marker color. On gabbro `RING_GAP` is 4 (radius 124..130, ticks end at 120); other round/rect platforms use 2.
 
 ### Overlay sizes and fonts
 
@@ -205,7 +211,23 @@ All health data is polled once per minute from `tick_handler`. No background `he
 - `s_steps_expected` = `health_service_sum_averaged(StepCount, start_of_today, now, HealthServiceTimeScopeWeekly)` — same-weekday average up to now; `-1` when unavailable.
 - `prv_pace_pct()` = steps ÷ typical ×100 (capped 999); `-1` when typical < `PACE_MIN_EXPECTED` (300) — early in the day the typical number is tiny and the percentage meaningless.
 - Pace color applies only when `s_pace.PaceColor && !solar_active && pace >= 0`; marker only when `s_pace.PaceMarker && !solar_active && StepGoal > 0 && typical >= PACE_MIN_EXPECTED`.
-- Pace options live in their own persist blob (`PACE_KEY=10`, `PaceSettings {bool PaceColor; bool PaceMarker;}`, default `{ true, true }`), **not** in `RadiumSettings`, so adding them never changed the settings layout or reset anyone's saved settings. The defaults apply only when nothing is stored yet; once the config page has saved, its values win.
+- Pace options live in their own persist blob (`PACE_KEY=10`), **not** in `RadiumSettings`, so adding them never changed the settings layout or reset anyone's saved settings:
+
+```c
+typedef struct {
+  bool   PaceColor;    // default true
+  bool   PaceMarker;   // default true
+  bool   BattColors;   // default false -- battery ring color override (2026-10-14)
+  bool   MarkerSet;    // default false -- true once the config page sent a marker color
+  GColor MarkerColor;  // only meaningful when MarkerSet
+} PaceSettings;        // static s_pace = { true, true, false, false, { 0 } }
+```
+
+Fields were appended, so an older 2-byte blob loads fine and the new fields keep their defaults. The defaults apply only when nothing is stored yet; once the config page has saved, its values win. Message keys: `PaceColor`, `PaceMarker`, `PaceMarkerColor`, `BattColorOverride`.
+
+### Battery ring color override (v2.4)
+
+`if (s_pace.BattColors && !solar_active) prv_batt_level_colors(s_battery, prv_is_light(col_bg), &col_batt, &col_dbatt);` — ring only, color platforms only, Steps & Battery mode only (solar mode's right side is "day"). See Current Status for the palettes. The info-line battery text is intentionally **not** affected.
 
 ### UV / AQI (v2.4)
 
@@ -229,12 +251,12 @@ All health data is polled once per minute from `tick_handler`. No background `he
 | String | Platforms | Effect |
 |--------|-----------|--------|
 | `'aplite'` | aplite | B&W section, no health (no step goal, no pace) |
-| `'bw'` | diorite, flint | B&W section, health shown; pace marker only (no pace color) |
+| `'bw'` | diorite, flint | B&W section, health shown; pace marker only (no pace color, no marker color, no battery override) |
 | `'emery'` | emery | Color, Small/Medium/Large overlay selector (Medium checked by default) |
 | `'gabbro'` | gabbro | Color, Small/Medium/Large overlay selector (Medium checked by default) |
 | `'color'` | basalt, chalk | Color, no overlay-size selector |
 
-`applyPlatform()` shows the color section only when the platform is neither `'bw'` nor `'aplite'`. The overlay size radio group is `name="osize"` (ids `os0`–`os2`), saved with `rad("osize")`; platforms without the selector send 0.
+`applyPlatform()` shows the color section only when the platform is neither `'bw'` nor `'aplite'`. The overlay size radio group is `name="osize"` (ids `os0`–`os2`), saved with `rad("osize")`; platforms without the selector send 0. For `'bw'` and `'aplite'`, `PaceMarkerColor` and `BattColorOverride` are deleted from the saved payload.
 
 ---
 
@@ -247,7 +269,7 @@ All health data is polled once per minute from `tick_handler`. No background `he
 #define SOLAR_KEY            9    // solar cache, separate from settings
 #define PACE_KEY             10   // pace options, separate from settings (v2.4)
 #define DEFAULT_STEP_GOAL    10000
-#define RING_GAP             2
+#define RING_GAP             2    // 4 on gabbro (2026-10-14)
 #define RING_THICK           6
 #define ENV_MAX_AGE          (3*3600)   // UV/AQI age-out
 #define PACE_MIN_EXPECTED    300        // below this, pace is hidden
@@ -307,9 +329,9 @@ typedef struct {
 } RadiumSettings;  // persisted at SETTINGS_KEY=8
 ```
 
-### Message keys (37 total in `package.json`)
+### Message keys (39 total in `package.json`)
 
-The original 33 (colors, fields, `StepGoal`, `OverlayMode`, `OverlaySize`, `InvertBW`, `ShowRing`, `WeatherTempF/C`, `WeatherCode`, `RingMode`, `SunriseTime`, `SunsetTime`, `SunriseTomorrow`) plus, appended in v2.4: `UvIndex`, `AqiIndex`, `PaceColor`, `PaceMarker`. New keys were appended so existing key numbering is unchanged.
+The original 33 (colors, fields, `StepGoal`, `OverlayMode`, `OverlaySize`, `InvertBW`, `ShowRing`, `WeatherTempF/C`, `WeatherCode`, `RingMode`, `SunriseTime`, `SunsetTime`, `SunriseTomorrow`) plus, appended in v2.4: `UvIndex`, `AqiIndex`, `PaceColor`, `PaceMarker`, `PaceMarkerColor`, `BattColorOverride`. New keys were appended so existing key numbering is unchanged.
 
 ### Preset system (40 presets, 5 × 8)
 
@@ -346,6 +368,7 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 | Quick View shrank/moved the face on round platforms | v2.4 (unreleased) |
 | Aplite config page showed color pickers and hid invert (`applyPlatform`) — regression present in v2.3.1 | v2.4 (unreleased) |
 | Solar mode with no cached data drew steps with night geometry | v2.4 (unreleased) |
+| Battery override washed out on light themes (now darker lit colors + pale track) | v2.4 (unreleased) |
 
 ### Active traps
 
@@ -356,7 +379,9 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 - **Overlay size values:** `1` means **Medium** (it was called "large" until v2.4). Do not renumber the stored values; new sizes are appended (`2` = Large)
 - **LECO_60 fonts** (`FONT_KEY_LECO_60_NUMBERS_AM_PM` / `_BOLD_`) exist only for emery/gabbro (SDK 4.9.148+); any reference outside `#if defined(HAS_LARGE_OVERLAY)` breaks the other platforms' builds
 - **Platform strings:** `index.js` and `config.js` must agree — a platform handled in one but not the other silently falls back to the default UI (this is how both the gabbro toggle bug and the aplite regression happened)
-- **Settings blob:** do not append fields to `RadiumSettings` casually — it is read/written whole at `SETTINGS_KEY`. Put new options in their own small persist blob (as `PACE_KEY` does)
+- **Settings blob:** do not append fields to `RadiumSettings` casually — it is read/written whole at `SETTINGS_KEY`. Put new options in their own small persist blob (as `PACE_KEY` does; `PaceSettings` has already grown by appending fields)
+- **Battery override scope:** ring only. Do not recolor the info-line battery text — Sterling rejected that
+- **Light-theme colors:** fixed bright hues (red/yellow/green) wash out on light backgrounds; any new level-based color needs a light-theme variant (see `prv_is_light`)
 - `package.json` `version` lags the live release; it is only a manifest value — bump it deliberately at release time
 - Aplite memory: v2.4 added ~14KB of C source; aplite's app-size limit has not been checked against it — watch the CloudPebble build output for aplite
 - Sterling edits files directly too; always fetch the current SHA (and re-read the file if the commit log shows a newer commit) before pushing
@@ -367,13 +392,14 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 
 **LIVE** — Update as work progresses.
 
-1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro overlay size selector; Quick View on gabbro; UV/AQI lines populate; pace color + marker; new info lines; aplite config page and aplite binary size
+1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro overlay size selector; Quick View on gabbro; gabbro ring gap 4; UV/AQI lines populate; pace color + marker + marker color; battery ring override on dark and light themes; new info lines; aplite config page and aplite binary size
 2. **Tune the Large overlay** on emery and gabbro: circle radius (`OVERLAY_LARGE_R`), time box height, and the info-line nudges in the Large block of the overlay section; check the LECO_60 time fits the circle at 24h and with long date strings
 3. Decide whether Large should also get bigger info lines (`GOTHIC_28_BOLD` + a ≈17px icon set) — larger job, not started
 4. Tune `PACE_MIN_EXPECTED` (300) if the early-morning cutoff feels wrong
 5. Sterling is reviewing whether emery should keep its fit-to-Quick-View behavior or ignore Quick View like the round watches (he currently likes the fitted behavior)
-6. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version; create the GitHub release tag via the web UI
-7. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
+6. Possibly make ring thickness and gap configurable (8/4 floated) after Sterling sees the gabbro ring on device
+7. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version (currently the stale `2.3.0`); create the GitHub release tag via the web UI
+8. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
 
 ---
 
@@ -385,10 +411,11 @@ Before shipping any new version:
 2. Overlay size selector appears on emery and gabbro with Medium checked by default; Small/Medium/Large each draw correctly with 0, 1 and 2 info lines above and below; Quick View leaves the gabbro face unmoved
 3. HR shows a live BPM (not `--`) on emery
 4. UV and AQI lines show values after the phone connects, and read `--` after 3 hours without an update
-5. Pace: with *Color steps by pace* on, the steps arc color tracks pace; fill length still matches steps ÷ goal; the marker sits at typical ÷ goal; both disappear cleanly with no history or in solar mode
-6. Solar ring transitions at sunrise/sunset; selecting Sunrise & Sunset before any data arrives shows a normal steps ring
-7. Config page saves and restores all settings across watchface restart; aplite shows the B&W section
-8. BT disconnect indicator appears on phone disconnect
+5. Pace: with *Color steps by pace* on, the steps arc color tracks pace; fill length still matches steps ÷ goal; the marker sits at typical ÷ goal in the chosen marker color; both disappear cleanly with no history or in solar mode
+6. Battery ring override: off by default; when on, ring colors follow ≤20/≤50/else on a dark theme and on a light theme (darker lit color, pale track), and the info-line battery text is unchanged
+7. Solar ring transitions at sunrise/sunset; selecting Sunrise & Sunset before any data arrives shows a normal steps ring
+8. Config page saves and restores all settings across watchface restart; aplite shows the B&W section
+9. BT disconnect indicator appears on phone disconnect
 
 ---
 
@@ -396,7 +423,7 @@ Before shipping any new version:
 
 | Repository | URL | Relationship |
 |------------|-----|-------------|
-| TallBoy | https://github.com/SterlingEly/TallBoy | Sibling watchface; the pace color, UV/AQI/sleep/typical-steps data types and the 3-hour hide-when-stale rule were ported from here |
+| TallBoy | https://github.com/SterlingEly/TallBoy | Sibling watchface; the pace color, UV/AQI/sleep/typical-steps data types and the 3-hour hide-when-stale rule were ported from here. TallBoy's round wide mode later followed Radium's few-short-lines approach |
 | BarGraph2 | https://github.com/SterlingEly/BarGraph2 | Sibling watchface; rebuilds Sterling's original 2013 bar graph design |
 | Monogram | https://github.com/SterlingEly/Monogram | Sibling watchface scaffolded from this repo; custom monogram-style digits, blocked on asset creation |
 | PixelSampler | https://github.com/SterlingEly/PixelSampler | Developer reference tool for Pebble fonts, colors and hardware capabilities (its hardware table is the best-sourced platform reference) |
@@ -422,6 +449,7 @@ Before shipping any new version:
 - Whether the Large overlay fits well on emery's 200px width (circle radius 84 leaves only a thin band of starburst at the sides) — judge on device.
 - Whether gabbro exposes calories/sleep/steps in the SDK as expected (PixelSampler flagged calories as unconfirmed pending hardware).
 - Whether an appended `RadiumSettings` field would have been safe without a `SETTINGS_KEY` bump (never tested; avoided by using `PACE_KEY`).
+- Whether the 4px gabbro ring gap (and a possible thicker ring) looks right on the real watch.
 
 (Resolved 2026-10-13: gabbro has a touchscreen, per Sterling; the earlier "touch: emery only" note was wrong.)
 
@@ -429,6 +457,6 @@ Before shipping any new version:
 
 ## Last Updated
 
-2026-10-13 — v2.3.1 live and stable. v2.4 (unreleased) work on master, uncompiled: three overlay sizes (Large/LECO_60), gabbro/Quick View/aplite/solar fixes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on).
+2026-10-14 — v2.3.1 live and stable. v2.4 (unreleased) work on master, uncompiled: three overlay sizes (Large/LECO_60), gabbro/Quick View/aplite/solar fixes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on) + marker color, optional battery ring color override (default off, ring only, light-theme palette), gabbro ring gap 4, 39 message keys.
 
-Previous: 2026-09-28 — v2.3.1 GitHub release created (tag `v2.3.1` on `91eda9f`, the 2026-05-24 release commit); release-tag TODO closed.
+Previous: 2026-10-13 — three overlay sizes and the first v2.4 batch; 2026-09-28 — v2.3.1 GitHub release created (tag `v2.3.1` on `91eda9f`, the 2026-05-24 release commit); release-tag TODO closed.
