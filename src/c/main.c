@@ -33,7 +33,7 @@
 #define FIELD_DISTANCE   8   // footprint icon + walked distance (mi or km)
 #define FIELD_CALORIES   9   // flame icon + active kcal burned
 #define FIELD_BT         10  // BT rune -- visible when disconnected, blank when connected
-#define FIELD_HEART_RATE 11  // heart icon + BPM (emery, diorite, flint only)
+#define FIELD_HEART_RATE 11  // heart icon + BPM (emery and diorite ONLY -- no HR on flint)
 #define FIELD_SUNRISE    12  // sun icon + sunrise time ("6:23am")
 #define FIELD_SUNSET     13  // sun icon + sunset time  ("7:41pm")
 #define FIELD_DAYLIGHT   14  // sun icon + daylight duration ("13h18m")
@@ -670,7 +670,14 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
 // MAIN DRAW
 // ============================================================
 static void draw_layer(Layer *layer, GContext *ctx) {
+#if defined(PBL_ROUND)
+  // Round: ignore Quick View entirely. Draw against the full screen and let the
+  // Quick View panel simply cover the bottom of the face -- no resize, no reflow.
+  GRect bounds = layer_get_bounds(layer);
+#else
+  // Rect: face is fitted to the area not covered by Quick View.
   GRect bounds = layer_get_unobstructed_bounds(layer);
+#endif
   int w  = bounds.size.w;
   int h  = bounds.size.h;
   int cx = w / 2;
@@ -1316,6 +1323,7 @@ static void update_steps_health(void) {
 // SDK quirk: health_service_metric_accessible always returns false for HR.
 // health_service_metric_aggregate_averaged_accessible with a point-in-time
 // range is the correct availability check for instantaneous metrics.
+// HR hardware exists on emery and diorite only.
 static void update_heart_rate(void) {
   time_t now = time(NULL);
   HealthServiceAccessibilityMask mask =
