@@ -7,7 +7,14 @@
 
 ## v2.4 (unreleased)
 
-Not yet compiled or device-tested as of 2026-10-13.
+Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 test is under way).
+
+### Three overlay sizes (emery and gabbro)
+- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, bigger circle (84px emery, 100px gabbro — tunable)
+- The settings page now has a Small / Medium / Large selector instead of a single "Large overlay" toggle
+- Existing settings are unaffected: the stored value `1` used to mean "Large" and now means **Medium** with exactly the same look; Medium is still the default on emery/gabbro
+- Large geometry (line spacing and nudges) is a first estimate scaled from Medium and will need a look on a real watch
+- On other platforms Large is treated as Medium (the font does not exist there)
 
 ### New info-line fields
 - **UV Index** (`FIELD_UV` 15) — "UV 5", sun icon. From the Open-Meteo forecast request (`current=uv_index`)
@@ -22,14 +29,15 @@ Not yet compiled or device-tested as of 2026-10-13.
 - **Color steps by pace** (option, color platforms): the lit steps arc takes a pace color; fill length is still steps ÷ goal. Brightest hue per step of the spectrum: ≤30% red, ≤60% orange, ≤90% yellow, ≤200% green, ≤400% blue, ≤700% violet, beyond magenta
 - **Pace marker on ring** (option): a notch where a typical day would have put you (typical-so-far ÷ goal)
 - "Typical" = same-weekday average over up to 4 weeks (Pebble Health, weekly scope). Pace is hidden when typical-so-far is under 300 steps (too noisy early in the day)
-- Both options default off; Steps & Battery ring mode only; stored in their own persist key (`PACE_KEY=10`) so `RadiumSettings` and existing saved settings are untouched
+- Both options **default on** (Sterling's decision, 2026-10-13); Steps & Battery ring mode only; stored in their own persist key (`PACE_KEY=10`) so `RadiumSettings` and existing saved settings are untouched
+- The settings page shows both toggles checked by default, matching the watch
 
 ### Data fetch
 - One location lookup, then forecast then air-quality, then a **single** AppMessage to the watch (was: separate fetch + message per data source). A failure in one request no longer blocks the other
 - New message keys appended: `UvIndex`, `AqiIndex`, `PaceColor`, `PaceMarker` (37 total)
 
 ### Bug fixes
-- Large-overlay toggle now actually appears on gabbro (Pebble Round 2): `index.js` never passed `'gabbro'` to the config page. (The v2.3.1 entry below claimed this was fixed; only emery was.) Saves made while the toggle was hidden stored "Small", so it may show unchecked until set again
+- Large-overlay option now actually appears on gabbro (Pebble Round 2): `index.js` never passed `'gabbro'` to the config page. (The v2.3.1 entry below claimed this was fixed; only emery was.) Saves made while the option was hidden stored "Small", so it may show Small until set again
 - Quick View on round platforms (gabbro, chalk) no longer shrinks or moves the face — it just covers it. Rect platforms still fit the visible area
 - Aplite config page showed color pickers and hid the invert toggle (regression since v2.3.1 when `index.js` began passing `'aplite'`)
 - Solar ring: choosing Sunrise & Sunset before any solar data had arrived drew the steps value with solar-night geometry; it now falls back to a normal steps ring
