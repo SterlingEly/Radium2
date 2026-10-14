@@ -6,6 +6,8 @@
 
 > **Technical contributors and AI collaborators:** Read [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) before making any code changes. It contains the authoritative architecture, constants, platform table, build rules, and known traps for this project.
 
+**Status:** v2.3.1 is live on the Rebble and Repebble stores. v2.4 is in development on `master` (see [In development](#in-development-v24)).
+
 ---
 
 ## The idea
@@ -16,7 +18,7 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 ---
 
-## Features
+## Features (v2.3.1, live)
 
 - **Radial time display** — right half: 60 minute ticks in groups of 5. Left half: 12 hour blocks (or 24 in 24h mode, each block split in two)
 - **Overlay modes** — Always On, Shake, 1 min auto-hide, or Always Off (pure art mode)
@@ -33,6 +35,17 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 - **40 presets** in five rows (Dark, Dark+, Light, Color, Special)
 - **B&W support** with optional invert toggle
 - **All 7 platforms** — Aplite, Basalt, Chalk, Diorite, Emery, Flint, Gabbro
+
+## In development (v2.4)
+
+Not yet released; not yet device-tested.
+
+- **New info lines** — UV index, air quality (US AQI), step pace %, typical steps, light left (daylight remaining / time to sunrise), sleep
+- **Pace on the outer ring** — optionally color the steps arc by how you are pacing against a typical day (red → orange → yellow → green → blue → violet → magenta), and optionally show a marker where a typical day would have put you. The ring still fills by your step goal
+- **Round-screen Quick View** — on round watches the face stays put and Quick View simply covers it
+- **Fixes** — large-overlay option on the Pebble Round 2, aplite settings page, solar ring fallback
+
+Air-quality data is CAMS ENSEMBLE data via Open-Meteo.
 
 ---
 
@@ -71,15 +84,15 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 ## Platforms
 
-| Platform | Watch | Screen |
-|---|---|---|
-| Aplite | Pebble Classic, Steel | 144×168 B&W |
-| Basalt | Pebble Time | 144×168 color |
-| Chalk | Pebble Time Round | 180×180 color |
-| Diorite | Pebble 2 SE | 144×168 B&W |
-| Emery | Pebble Time 2 | 200×228 color |
-| Flint | Pebble 2 | 144×168 B&W |
-| Gabbro | Pebble Round 2 | 260×260 color |
+| Platform | Watch | Screen | Notes |
+|---|---|---|---|
+| Aplite | Pebble Classic, Steel | 144×168 B&W | |
+| Basalt | Pebble Time | 144×168 color | |
+| Chalk | Pebble Time Round | 180×180 color | Round |
+| Diorite | Pebble 2 (SE and HR) | 144×168 B&W | Heart rate on the HR model |
+| Emery | Pebble Time 2 | 200×228 color | Heart rate; large overlay default |
+| Flint | Pebble 2 Duo | 144×168 B&W | |
+| Gabbro | Pebble Round 2 | 260×260 color | Round; large overlay default |
 
 ---
 
@@ -101,7 +114,7 @@ Full rebuild for all modern Pebble platforms. Adds color customization, 40 prese
 ## Store
 
 - **Rebble:** https://apps.rebble.io/en_US/application/69a6531826cc4f0009c65926
-- **Repebble:** https://apps.repebble.com/en_US/application/69a6531826cc4f0009c65926
+- **Repebble:** https://apps.repebble.com/radium-2_69a6531826cc4f0009c65926
 
 ---
 
@@ -115,9 +128,9 @@ pebble install --emulator basalt
 ```
 
 Source files:
-- `src/c/main.c` — all drawing, event handling, settings, health, and weather
+- `src/c/main.c` — all drawing, event handling, settings, health, weather and air-quality display
 - `src/pkjs/config.js` — config page (data URL)
-- `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay, weather and solar fetch
+- `src/pkjs/index.js` — PebbleKit JS: platform detection, settings relay, weather / UV / air-quality / solar fetch
 - `package.json` — message keys, target platforms, version
 
 ---
