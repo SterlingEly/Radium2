@@ -10,10 +10,10 @@
 Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 test is under way).
 
 ### Three overlay sizes (emery and gabbro)
-- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, bigger circle (84px emery, 100px gabbro — tunable)
+- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, bigger circle (80px emery, 94px gabbro — tunable via `OVERLAY_LARGE_R`; trimmed from 84/100 after the first device look on 2026-10-14)
 - The settings page now has a Small / Medium / Large selector instead of a single "Large overlay" toggle
 - Existing settings are unaffected: the stored value `1` used to mean "Large" and now means **Medium** with exactly the same look; Medium is still the default on emery/gabbro
-- Large geometry (line spacing and nudges) is a first estimate scaled from Medium and will need a look on a real watch
+- Large geometry (line spacing and nudges) is an estimate scaled from Medium. After the first device look the two lines below the time were moved down 4px (`bot1_nudge` -11 → -7, `bot2_nudge` -10 → -6) because the first line above the time sat farther from it than the first line below; the 4px is a guess, so adjust both nudges together if the gaps still differ. Line spacing (`line_gap`) was deliberately not widened: the outer lines already sit near the circle edge
 - On other platforms Large is treated as Medium (the font does not exist there)
 
 ### New info-line fields
