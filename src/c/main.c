@@ -193,7 +193,7 @@ static void prv_load_settings(void) {
 // v2.4 additions (appended -- an old 2-byte blob loads fine, new fields keep these defaults):
 //   MarkerSet/MarkerColor: custom pace-marker color; until the config page sends one the marker
 //                          follows TimeColor (themes set it to the hour/minute color, usually white)
-//   BattColors:            OPTIONAL battery color override (default OFF): <=20% red, <=50% yellow, else green
+//   BattColors:            OPTIONAL battery RING color override (default OFF): <=20% red, <=50% yellow, else green
 // ------------------------------------------------------------
 typedef struct {
   bool   PaceColor;
@@ -205,12 +205,26 @@ typedef struct {
 
 static PaceSettings s_pace = { true, true, false, false, { 0 } };
 
-// Battery override color: 0-20 red, 21-50 yellow, 51-100 green (color platforms only).
+// Battery ring color override (color platforms only): 0-20 red, 21-50 yellow, 51-100 green.
+// Ring only -- info line text keeps the theme's line colors. On light backgrounds the bright
+// hues wash out, so darker lit colors are used AND the unfilled track is forced to a pale tint
+// of the same hue (on dark backgrounds the track becomes a dark shade of it).
 #if defined(PBL_COLOR)
-static GColor prv_batt_level_color(int pct) {
-  if (pct <= 20) return GColorRed;
-  if (pct <= 50) return GColorYellow;
-  return GColorGreen;
+static bool prv_is_light(GColor c) {
+  return (c.r + c.g + c.b) >= 6;   // each channel 0..3
+}
+
+static void prv_batt_level_colors(int pct, bool light_bg, GColor *lit, GColor *dim) {
+  int lvl = (pct <= 20) ? 0 : (pct <= 50) ? 1 : 2;
+  if (light_bg) {
+    static const uint8_t lit_l[3] = { GColorDarkCandyAppleRedARGB8, GColorWindsorTanARGB8, GColorJaegerGreenARGB8 };
+    static const uint8_t dim_l[3] = { GColorMelonARGB8, GColorPastelYellowARGB8, GColorMintGreenARGB8 };
+    lit->argb = lit_l[lvl];  dim->argb = dim_l[lvl];
+  } else {
+    static const uint8_t lit_d[3] = { GColorRedARGB8, GColorYellowARGB8, GColorGreenARGB8 };
+    static const uint8_t dim_d[3] = { GColorBulgarianRoseARGB8, GColorArmyGreenARGB8, GColorDarkGreenARGB8 };
+    lit->argb = lit_d[lvl];  dim->argb = dim_d[lvl];
+  }
 }
 #endif
 
@@ -853,12 +867,6 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_CALORIES) {
     DRAW_ICON_TEXT(draw_calories_icon(ctx, icon_x, iy, col, large), s_calories_buffer);
   } else if (field == FIELD_BATTERY) {
-#if defined(PBL_COLOR)
-    if (s_pace.BattColors) {
-      col = prv_batt_level_color(s_battery);
-      graphics_context_set_text_color(ctx, col);   // text color was already set from the line color above
-    }
-#endif
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
     // Blank when connected; rune+! when disconnected
@@ -1352,7 +1360,9 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
     // Optional battery color override (Steps & Battery mode only; solar mode's right side is "day").
 #if defined(PBL_COLOR)
-    if (s_pace.BattColors && !solar_active) col_batt = prv_batt_level_color(s_battery);
+    if (s_pace.BattColors && !solar_active) {
+      prv_batt_level_colors(s_battery, prv_is_light(col_bg), &col_batt, &col_dbatt);
+    }
 #endif
 
     // Steps arc color: preset color, or pace color when enabled (fill length is unaffected).
