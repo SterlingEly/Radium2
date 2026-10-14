@@ -34,9 +34,17 @@
 
 // Overlay sizes. The stored value 1 was called "large" through v2.3.1; it is now "medium" and
 // looks exactly the same, so existing saved settings keep working. The new Large is value 2.
-#define OVERLAY_SMALL   0   // LECO_36 time, GOTHIC_18 lines, 11px icons, 58px circle
-#define OVERLAY_MEDIUM  1   // LECO_42 time, GOTHIC_24 lines, 14px icons, 70px circle (default on emery/gabbro)
-#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 time, same lines/icons as medium, bigger circle
+// v2.5: circles standardized to 60 / 70 / 80 on every platform; icons are TallBoy's (12px / 16px);
+// every time font is bold (Medium's LECO_42 has no bold cut, so it is overstruck, see LECO_42_BOLD_PX).
+#define OVERLAY_SMALL   0   // LECO_36 Bold time, GOTHIC_18_BOLD lines, 12px icons, 60px circle
+#define OVERLAY_MEDIUM  1   // LECO_42 (overstruck bold) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 Bold time, same lines/icons as medium, 80px circle
+#define OVERLAY_SMALL_R   60
+#define OVERLAY_MEDIUM_R  70
+#define OVERLAY_LARGE_R   80
+// The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60). Medium draws the regular 42
+// font (2*N+1)^2 times, offset by up to N px each way, to thicken the strokes. 0 = plain regular.
+#define LECO_42_BOLD_PX   1
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
 // on any other platform would not compile. Elsewhere Large is treated as Medium.
@@ -44,13 +52,8 @@
   #define HAS_LARGE_OVERLAY 1
 #endif
 
-// Large overlay circle radius -- tune on device. Bigger leaves less starburst visible around it.
-// v2.4: trimmed 84->80 / 100->94 after the first device look ("a bit smaller").
-#if defined(PBL_PLATFORM_GABBRO)
-  #define OVERLAY_LARGE_R 94
-#else
-  #define OVERLAY_LARGE_R 80
-#endif
+// History: Large circle was 84 (emery) / 100 (gabbro) in v2.3-2.4a, trimmed to 80 / 94 after the first
+// device look, and standardized to 80 on both in v2.5 (Sterling, 2026-10-14). Small was 58 until v2.5.
 
 // Info line field IDs
 #define FIELD_NONE       0
@@ -501,309 +504,251 @@ static int weather_icon_for_code(int code) {
 
 // ============================================================
 // ICON DRAWING
-// Two sizes: small=11px (GOTHIC_18_BOLD cap), large=14px (GOTHIC_24_BOLD cap)
+// v2.5: TallBoy's icon set and spacing. Two tiers, same numbers as TallBoy's per-platform values:
+//   small = 12px icon + 3px gap, Gothic 18 Bold   (TallBoy: UNIT 6 platforms)
+//   large = 16px icon + 4px gap, Gothic 24 Bold   (TallBoy: UNIT 8 platforms)
+// The icon sits at (text box top + ICON_DY): (LINE_H - ICON_W)/2 - ICON_V_ADJUST from TallBoy,
+// i.e. 4 for small and 9 for large. Text boxes are TallBoy's INFO_LINE_H (20 / 28).
 // ============================================================
-#define SMALL_FONT_PAD  8
+#define SMALL_FONT_PAD  8     // line placement only (not the icon)
 #define LARGE_FONT_PAD  10
-#define SMALL_ICON_W    11
-#define LARGE_ICON_W    14
-#define ICON_TEXT_GAP   2
+#define SMALL_ICON_W    12
+#define LARGE_ICON_W    16
+#define SMALL_ICON_GAP  3
+#define LARGE_ICON_GAP  4
+#define SMALL_ICON_DY   4
+#define LARGE_ICON_DY   9
+#define SMALL_BOX_H     20
+#define LARGE_BOX_H     28
 
 static void draw_footprint(GContext *ctx, int fx, int fy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
-  if (!large) {
-    graphics_fill_rect(ctx, GRect(fx,   fy,   4, 5), 2, GCornersAll);
-    graphics_fill_rect(ctx, GRect(fx+1, fy+4, 2, 4), 1, GCornersAll);
+  if (large) {
+    graphics_fill_rect(ctx, GRect(fx,   fy,   5, 8), 2, GCornersAll);
+    graphics_fill_rect(ctx, GRect(fx+1, fy+7, 3, 5), 1, GCornersAll);
   } else {
-    graphics_fill_rect(ctx, GRect(fx,   fy,   5, 7), 2, GCornersAll);
-    graphics_fill_rect(ctx, GRect(fx+1, fy+6, 3, 4), 1, GCornersAll);
+    graphics_fill_rect(ctx, GRect(fx,   fy,   4, 6), 2, GCornersAll);
+    graphics_fill_rect(ctx, GRect(fx+1, fy+5, 2, 4), 1, GCornersAll);
   }
 }
-
 static void draw_steps_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  if (!large) {
-    draw_footprint(ctx, ox+5, oy-1, col, false);
-    draw_footprint(ctx, ox+0, oy+2, col, false);
+  if (large) {
+    draw_footprint(ctx, ox+10, oy+0, col, true);
+    draw_footprint(ctx, ox+0,  oy+3, col, true);
   } else {
-    draw_footprint(ctx, ox+7, oy,   col, true);
-    draw_footprint(ctx, ox+0, oy+3, col, true);
+    draw_footprint(ctx, ox+7, oy+0, col, false);
+    draw_footprint(ctx, ox+0, oy+3, col, false);
   }
 }
-
 static void draw_battery_icon(GContext *ctx, int ox, int oy, GColor col, int pct, bool large) {
   graphics_context_set_fill_color(ctx, col);
   if (s_is_charging) {
-    // Charging: lightning bolt (diagonal Z-shape, upper-right to lower-left)
-    if (!large) {
-      graphics_fill_rect(ctx, GRect(ox+5, oy+0, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+4, oy+1, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+3, oy+2, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+2, oy+3, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+1, oy+4, 7, 2), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+3, oy+6, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+2, oy+7, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+1, oy+8, 4, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+0, oy+9, 4, 1), 0, GCornerNone);
+    if (large) {
+      graphics_fill_rect(ctx, GRect(ox+7,oy+0,5,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+6,oy+1,5,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+5,oy+2,5,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+4,oy+3,5,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+3,oy+4,5,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+1,oy+5,11,2),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+5,oy+7,5,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+4,oy+8,5,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+3,oy+9,5,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+2,oy+10,5,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+1,oy+11,5,1),0,GCornerNone);
     } else {
-      graphics_fill_rect(ctx, GRect(ox+7, oy+0,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+6, oy+1,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+5, oy+2,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+4, oy+3,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+3, oy+4,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+1, oy+5, 11, 2), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+5, oy+7,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+4, oy+8,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+3, oy+9,  5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+2, oy+10, 5, 1), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(ox+1, oy+11, 5, 1), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+5,oy+0,4,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+4,oy+1,4,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+3,oy+2,4,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+1,oy+3,8,2),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+3,oy+5,4,1),0,GCornerNone); graphics_fill_rect(ctx, GRect(ox+2,oy+6,4,1),0,GCornerNone);
+      graphics_fill_rect(ctx, GRect(ox+1,oy+7,4,1),0,GCornerNone);
     }
   } else {
-    // Normal: battery outline with charge-level fill
-    graphics_context_set_stroke_color(ctx, col);
-    graphics_context_set_stroke_width(ctx, 1);
-    if (!large) {
-      graphics_draw_rect(ctx, GRect(ox, oy+2, 9, 7));
-      graphics_fill_rect(ctx, GRect(ox+9, oy+4, 2, 3), 0, GCornerNone);
-      int fill_w = (7 * pct) / 100;
-      if (fill_w < 1 && pct > 0) fill_w = 1;
-      if (fill_w > 0) graphics_fill_rect(ctx, GRect(ox+1, oy+3, fill_w, 5), 0, GCornerNone);
+    graphics_context_set_stroke_color(ctx, col); graphics_context_set_stroke_width(ctx, 1);
+    if (large) {
+      graphics_draw_rect(ctx, GRect(ox+1,oy+3,12,10));
+      graphics_fill_rect(ctx, GRect(ox+13,oy+6,2,4),0,GCornerNone);
+      int fw = (10*pct)/100; if (fw<1&&pct>0) fw=1;
+      if (fw>0) graphics_fill_rect(ctx, GRect(ox+2,oy+4,fw,8),0,GCornerNone);
     } else {
-      graphics_draw_rect(ctx, GRect(ox, oy+1, 12, 10));
-      graphics_fill_rect(ctx, GRect(ox+12, oy+4, 2, 4), 0, GCornerNone);
-      int fill_w = (10 * pct) / 100;
-      if (fill_w < 1 && pct > 0) fill_w = 1;
-      if (fill_w > 0) graphics_fill_rect(ctx, GRect(ox+1, oy+2, fill_w, 8), 0, GCornerNone);
+      graphics_draw_rect(ctx, GRect(ox+1,oy+2,9,7));
+      graphics_fill_rect(ctx, GRect(ox+10,oy+4,2,3),0,GCornerNone);
+      int fw = (7*pct)/100; if (fw<1&&pct>0) fw=1;
+      if (fw>0) graphics_fill_rect(ctx, GRect(ox+2,oy+3,fw,5),0,GCornerNone);
     }
   }
 }
-
-// BT rune + "!" -- visible when phone is disconnected, blank when connected.
-// Exclamation dot uses explicit draw_pixel (not fill_rect) to avoid e-paper diagonal artifact.
 static void draw_bt_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (!large) {
-    // 11px: spine col=3, chevron peak col=6
-    graphics_draw_line(ctx, GPoint(ox+3, oy+0),  GPoint(ox+3, oy+10)); // spine
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+4));  // upper-left diagonal
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+7));  // lower-left diagonal
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+8));
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+1));  // upper chevron
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+3));  // peak
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+4));
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+5));
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+6));  // lower chevron
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+8));  // peak
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+9));
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+10));
-    graphics_draw_line(ctx, GPoint(ox+9,  oy+1), GPoint(ox+9,  oy+6));  // "!" stem
-    graphics_draw_line(ctx, GPoint(ox+10, oy+1), GPoint(ox+10, oy+6));
-    graphics_draw_pixel(ctx, GPoint(ox+9,  oy+8));  // "!" dot (explicit pixels, not fill_rect)
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy+8));
-    graphics_draw_pixel(ctx, GPoint(ox+9,  oy+9));
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy+9));
+  graphics_context_set_stroke_color(ctx, col); graphics_context_set_stroke_width(ctx, 1);
+  if (large) {
+    graphics_draw_line(ctx, GPoint(ox+5,oy+1),  GPoint(ox+5,oy+14));
+    graphics_draw_pixel(ctx, GPoint(ox+4,oy+5)); graphics_draw_pixel(ctx, GPoint(ox+3,oy+4)); graphics_draw_pixel(ctx, GPoint(ox+2,oy+3));
+    graphics_draw_pixel(ctx, GPoint(ox+4,oy+10)); graphics_draw_pixel(ctx, GPoint(ox+3,oy+11)); graphics_draw_pixel(ctx, GPoint(ox+2,oy+12));
+    graphics_draw_pixel(ctx, GPoint(ox+6,oy+2)); graphics_draw_pixel(ctx, GPoint(ox+7,oy+3)); graphics_draw_pixel(ctx, GPoint(ox+8,oy+4));
+    graphics_draw_pixel(ctx, GPoint(ox+9,oy+5)); graphics_draw_pixel(ctx, GPoint(ox+8,oy+6)); graphics_draw_pixel(ctx, GPoint(ox+7,oy+7)); graphics_draw_pixel(ctx, GPoint(ox+6,oy+8));
+    graphics_draw_pixel(ctx, GPoint(ox+6,oy+9)); graphics_draw_pixel(ctx, GPoint(ox+7,oy+10)); graphics_draw_pixel(ctx, GPoint(ox+8,oy+11));
+    graphics_draw_pixel(ctx, GPoint(ox+9,oy+12)); graphics_draw_pixel(ctx, GPoint(ox+8,oy+13)); graphics_draw_pixel(ctx, GPoint(ox+7,oy+14));
   } else {
-    // 14px: spine col=4, chevron peak col=8
-    graphics_draw_line(ctx, GPoint(ox+4, oy+0),  GPoint(ox+4, oy+13)); // spine
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+4));  // upper-left diagonal
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+3, oy+9));  // lower-left diagonal
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+1, oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+1));  // upper chevron
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+2));
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+4));  // peak
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+5));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+6));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));  // lower chevron
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+9));
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+11)); // peak
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+12));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+13));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+14));
-    graphics_draw_line(ctx, GPoint(ox+11, oy+1),  GPoint(ox+11, oy+9));  // "!" stem
-    graphics_draw_line(ctx, GPoint(ox+12, oy+1),  GPoint(ox+12, oy+9));
-    graphics_draw_line(ctx, GPoint(ox+11, oy+11), GPoint(ox+12, oy+11)); // "!" dot
+    graphics_draw_line(ctx, GPoint(ox+3,oy+0),  GPoint(ox+3,oy+10));
+    graphics_draw_pixel(ctx, GPoint(ox+2,oy+3)); graphics_draw_pixel(ctx, GPoint(ox+1,oy+2));
+    graphics_draw_pixel(ctx, GPoint(ox+2,oy+7)); graphics_draw_pixel(ctx, GPoint(ox+1,oy+8));
+    graphics_draw_pixel(ctx, GPoint(ox+4,oy+1)); graphics_draw_pixel(ctx, GPoint(ox+5,oy+2)); graphics_draw_pixel(ctx, GPoint(ox+6,oy+3));
+    graphics_draw_pixel(ctx, GPoint(ox+7,oy+4)); graphics_draw_pixel(ctx, GPoint(ox+6,oy+5)); graphics_draw_pixel(ctx, GPoint(ox+5,oy+6)); graphics_draw_pixel(ctx, GPoint(ox+4,oy+7));
+    graphics_draw_pixel(ctx, GPoint(ox+5,oy+8)); graphics_draw_pixel(ctx, GPoint(ox+6,oy+9));
+    graphics_draw_pixel(ctx, GPoint(ox+7,oy+10)); graphics_draw_pixel(ctx, GPoint(ox+6,oy+11));
   }
 }
-
 static void draw_heart_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
-  if (!large) {
-    int y = oy + 1;
-    graphics_fill_rect(ctx, GRect(ox+1, y+0, 3, 2), 1, GCornersTop);
-    graphics_fill_rect(ctx, GRect(ox+7, y+0, 3, 2), 1, GCornersTop);
-    graphics_fill_rect(ctx, GRect(ox+0, y+1,  4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+7, y+1,  3, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+0, y+2, 10, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, y+3,  8, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+2, y+4,  6, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+3, y+5,  4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+4, y+6,  2, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, y+7,  1, 1), 0, GCornerNone);
+  if (large) {
+    int y = oy + 3;
+    graphics_fill_rect(ctx,GRect(ox+1,y+0,4,2),1,GCornersTop); graphics_fill_rect(ctx,GRect(ox+9,y+0,4,2),1,GCornersTop);
+    graphics_fill_rect(ctx,GRect(ox+0,y+1,5,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+9,y+1,4,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+0,y+2,6,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+8,y+2,5,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+0,y+3,13,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+1,y+4,11,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+2,y+5,9,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+3,y+6,7,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+4,y+7,5,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+5,y+8,3,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+6,y+9,1,1),0,GCornerNone);
   } else {
-    int y = oy + 1;
-    graphics_fill_rect(ctx, GRect(ox+1, y+0,  4, 2), 1, GCornersTop);
-    graphics_fill_rect(ctx, GRect(ox+9, y+0,  4, 2), 1, GCornersTop);
-    graphics_fill_rect(ctx, GRect(ox+0, y+1,  5, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+9, y+1,  4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+0, y+2,  6, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+8, y+2,  5, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+0, y+3, 13, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, y+4, 11, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+2, y+5,  9, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+3, y+6,  7, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+4, y+7,  5, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, y+8,  3, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+6, y+9,  1, 1), 0, GCornerNone);
+    int y = oy + 2;
+    graphics_fill_rect(ctx,GRect(ox+1,y+0,3,2),1,GCornersTop); graphics_fill_rect(ctx,GRect(ox+7,y+0,3,2),1,GCornersTop);
+    graphics_fill_rect(ctx,GRect(ox+0,y+1,4,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+7,y+1,3,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+0,y+2,10,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+1,y+3,8,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+2,y+4,6,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+3,y+5,4,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+4,y+6,2,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+5,y+7,1,1),0,GCornerNone);
   }
 }
-
 static void draw_calories_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
-  if (!large) {
-    graphics_fill_rect(ctx, GRect(ox+2, oy+7, 7, 3), 2, GCornersBottom);
-    graphics_fill_rect(ctx, GRect(ox+3, oy+4, 5, 4), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+4, oy+1, 3, 4), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, oy+0, 1, 2), 0, GCornerNone);
+  if (large) {
+    graphics_fill_rect(ctx,GRect(ox+3,oy+10,10,5),2,GCornersBottom);
+    graphics_fill_rect(ctx,GRect(ox+4,oy+6,8,5),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+5,oy+3,4,4),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+6,oy+1,2,3),0,GCornerNone);
   } else {
-    graphics_fill_rect(ctx, GRect(ox+2, oy+9,  10, 5), 2, GCornersBottom);
-    graphics_fill_rect(ctx, GRect(ox+3, oy+5,  8,  5), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, oy+2,  4,  4), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+6, oy+0,  2,  3), 0, GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+2,oy+7,8,4),2,GCornersBottom);
+    graphics_fill_rect(ctx,GRect(ox+3,oy+4,6,4),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+4,oy+2,3,3),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+5,oy+1,1,2),0,GCornerNone);
   }
 }
-
 static void draw_sun_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  int sz  = large ? 14 : 11;
-  int icx = ox + sz/2;
-  int icy = oy + sz/2;
-  graphics_draw_circle(ctx, GPoint(icx, icy), 3);
-  graphics_draw_pixel(ctx, GPoint(icx,      oy));       graphics_draw_pixel(ctx, GPoint(icx,      oy+1));
-  graphics_draw_pixel(ctx, GPoint(icx,      oy+sz-1));  graphics_draw_pixel(ctx, GPoint(icx,      oy+sz-2));
-  graphics_draw_pixel(ctx, GPoint(ox,       icy));       graphics_draw_pixel(ctx, GPoint(ox+1,     icy));
-  graphics_draw_pixel(ctx, GPoint(ox+sz-1,  icy));       graphics_draw_pixel(ctx, GPoint(ox+sz-2,  icy));
-}
-
-// Haze: three wavy lines (air quality). Ported from TallBoy at Radium's 11/14px icon sizes.
-static void draw_haze_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (!large) {
-    graphics_draw_line(ctx, GPoint(ox+0, oy+2), GPoint(ox+3,  oy+2));
-    graphics_draw_line(ctx, GPoint(ox+4, oy+3), GPoint(ox+6,  oy+3));
-    graphics_draw_line(ctx, GPoint(ox+7, oy+2), GPoint(ox+10, oy+2));
-    graphics_draw_line(ctx, GPoint(ox+0, oy+5), GPoint(ox+3,  oy+5));
-    graphics_draw_line(ctx, GPoint(ox+4, oy+6), GPoint(ox+6,  oy+6));
-    graphics_draw_line(ctx, GPoint(ox+7, oy+5), GPoint(ox+10, oy+5));
-    graphics_draw_line(ctx, GPoint(ox+0, oy+8), GPoint(ox+3,  oy+8));
-    graphics_draw_line(ctx, GPoint(ox+4, oy+7), GPoint(ox+6,  oy+7));
-    graphics_draw_line(ctx, GPoint(ox+7, oy+8), GPoint(ox+10, oy+8));
+  int sz  = large ? 16 : 12;
+  int icx = ox + sz/2, icy = oy + sz/2;
+  int cr  = large ? 3 : 2;
+  // Filled disc
+  graphics_context_set_fill_color(ctx, col);
+  graphics_fill_radial(ctx, GRect(icx-cr, icy-cr, cr*2, cr*2),
+                        GOvalScaleModeFitCircle, (uint16_t)cr, 0, DEG_TO_TRIGANGLE(360));
+  // Thin rays: stroke_width 1, all pointing directly away from center.
+  // Diagonal rays: start near circle edge and extend outward along the true 45 degree diagonal.
+  // top-right and bottom-left were previously mirrored -- now corrected.
+  graphics_context_set_stroke_color(ctx, col); graphics_context_set_stroke_width(ctx, 1);
+  if (large) {
+    // Cardinal rays (3px)
+    graphics_draw_line(ctx, GPoint(icx, oy+0),   GPoint(icx, oy+2));    // top
+    graphics_draw_line(ctx, GPoint(icx, oy+13),  GPoint(icx, oy+15));   // bottom
+    graphics_draw_line(ctx, GPoint(ox+0,  icy),  GPoint(ox+2,  icy));   // left
+    graphics_draw_line(ctx, GPoint(ox+13, icy),  GPoint(ox+15, icy));   // right
+    // Diagonal rays (3px): from near edge outward along each 45 degree axis
+    graphics_draw_line(ctx, GPoint(ox+5, oy+5),  GPoint(ox+3, oy+3));   // top-left
+    graphics_draw_line(ctx, GPoint(ox+11,oy+5),  GPoint(ox+13,oy+3));   // top-right
+    graphics_draw_line(ctx, GPoint(ox+5, oy+11), GPoint(ox+3, oy+13));  // bottom-left
+    graphics_draw_line(ctx, GPoint(ox+11,oy+11), GPoint(ox+13,oy+13));  // bottom-right
   } else {
-    graphics_draw_line(ctx, GPoint(ox+0, oy+3),  GPoint(ox+4,  oy+3));
-    graphics_draw_line(ctx, GPoint(ox+5, oy+4),  GPoint(ox+8,  oy+4));
-    graphics_draw_line(ctx, GPoint(ox+9, oy+3),  GPoint(ox+13, oy+3));
-    graphics_draw_line(ctx, GPoint(ox+0, oy+7),  GPoint(ox+4,  oy+7));
-    graphics_draw_line(ctx, GPoint(ox+5, oy+8),  GPoint(ox+8,  oy+8));
-    graphics_draw_line(ctx, GPoint(ox+9, oy+7),  GPoint(ox+13, oy+7));
-    graphics_draw_line(ctx, GPoint(ox+0, oy+11), GPoint(ox+4,  oy+11));
-    graphics_draw_line(ctx, GPoint(ox+5, oy+10), GPoint(ox+8,  oy+10));
-    graphics_draw_line(ctx, GPoint(ox+9, oy+11), GPoint(ox+13, oy+11));
+    // Cardinal rays (2px)
+    graphics_draw_line(ctx, GPoint(icx, oy+0),  GPoint(icx, oy+1));    // top
+    graphics_draw_line(ctx, GPoint(icx, oy+10), GPoint(icx, oy+11));   // bottom
+    graphics_draw_line(ctx, GPoint(ox+0, icy),  GPoint(ox+1, icy));    // left
+    graphics_draw_line(ctx, GPoint(ox+10,icy),  GPoint(ox+11,icy));    // right
+    // Diagonal rays (2px)
+    graphics_draw_line(ctx, GPoint(ox+4, oy+4),  GPoint(ox+2, oy+2));  // top-left
+    graphics_draw_line(ctx, GPoint(ox+8, oy+4),  GPoint(ox+10,oy+2));  // top-right
+    graphics_draw_line(ctx, GPoint(ox+4, oy+8),  GPoint(ox+2, oy+10)); // bottom-left
+    graphics_draw_line(ctx, GPoint(ox+8, oy+8),  GPoint(ox+10,oy+10)); // bottom-right
   }
 }
-
 static void draw_cloud_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
-  if (!large) {
-    graphics_fill_rect(ctx, GRect(ox+2, oy+2, 4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+3, oy+1, 3, 2), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+6, oy+2, 3, 2), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, oy+3, 9, 4), 0, GCornerNone);
+  if (large) {
+    graphics_fill_rect(ctx,GRect(ox+3,oy+4,5,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+4,oy+2,4,3),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+8,oy+3,5,2),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+1,oy+5,14,7),0,GCornerNone);
   } else {
-    graphics_fill_rect(ctx, GRect(ox+3, oy+2,  5,  1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+4, oy+0,  4,  3), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+8, oy+1,  4,  3), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, oy+3, 13,  6), 0, GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+2,oy+3,4,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+3,oy+2,3,2),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+6,oy+2,4,2),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+1,oy+4,10,5),0,GCornerNone);
   }
 }
-
 static void draw_partly_cloudy_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (!large) {
-    graphics_draw_circle(ctx, GPoint(ox+7, oy+3), 2);
-    graphics_draw_pixel(ctx, GPoint(ox+7,  oy));
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+7,  oy+6));
+  graphics_context_set_stroke_color(ctx, col); graphics_context_set_stroke_width(ctx, 1);
+  if (large) {
+    graphics_draw_circle(ctx, GPoint(ox+11,oy+4), 3);
+    graphics_draw_pixel(ctx,GPoint(ox+11,oy+0)); graphics_draw_pixel(ctx,GPoint(ox+15,oy+4)); graphics_draw_pixel(ctx,GPoint(ox+11,oy+8));
     graphics_context_set_fill_color(ctx, col);
-    graphics_fill_rect(ctx, GRect(ox+2, oy+4, 3, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+5, oy+4, 2, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, oy+5, 7, 4), 0, GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+2,oy+6,4,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+6,oy+6,3,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+1,oy+7,10,6),0,GCornerNone);
   } else {
-    graphics_draw_circle(ctx, GPoint(ox+10, oy+3), 3);
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy));
-    graphics_draw_pixel(ctx, GPoint(ox+14, oy+3));
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy+7));
+    graphics_draw_circle(ctx, GPoint(ox+8,oy+3), 2);
+    graphics_draw_pixel(ctx,GPoint(ox+8,oy+0)); graphics_draw_pixel(ctx,GPoint(ox+11,oy+3)); graphics_draw_pixel(ctx,GPoint(ox+8,oy+6));
     graphics_context_set_fill_color(ctx, col);
-    graphics_fill_rect(ctx, GRect(ox+2, oy+5,  4, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+6, oy+5,  3, 1), 0, GCornerNone);
-    graphics_fill_rect(ctx, GRect(ox+1, oy+6, 10, 6), 0, GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+1,oy+5,3,1),0,GCornerNone); graphics_fill_rect(ctx,GRect(ox+4,oy+5,2,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(ox+0,oy+6,7,4),0,GCornerNone);
   }
 }
-
 static void draw_rain_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  draw_cloud_icon(ctx, ox, oy, col, large);
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (!large) {
-    graphics_draw_pixel(ctx, GPoint(ox+2, oy+8));  graphics_draw_pixel(ctx, GPoint(ox+2, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+9));  graphics_draw_pixel(ctx, GPoint(ox+5, oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+8));  graphics_draw_pixel(ctx, GPoint(ox+8, oy+10));
+  draw_cloud_icon(ctx,ox,oy,col,large);
+  graphics_context_set_stroke_color(ctx,col); graphics_context_set_stroke_width(ctx,1);
+  if (large) {
+    graphics_draw_pixel(ctx,GPoint(ox+3,oy+13)); graphics_draw_pixel(ctx,GPoint(ox+3,oy+15));
+    graphics_draw_pixel(ctx,GPoint(ox+8,oy+13)); graphics_draw_pixel(ctx,GPoint(ox+8,oy+15));
+    graphics_draw_pixel(ctx,GPoint(ox+13,oy+13)); graphics_draw_pixel(ctx,GPoint(ox+13,oy+15));
   } else {
-    graphics_draw_pixel(ctx, GPoint(ox+2,  oy+9));  graphics_draw_pixel(ctx, GPoint(ox+2,  oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+6,  oy+10)); graphics_draw_pixel(ctx, GPoint(ox+6,  oy+12));
-    graphics_draw_pixel(ctx, GPoint(ox+10, oy+9));  graphics_draw_pixel(ctx, GPoint(ox+10, oy+11));
+    graphics_draw_pixel(ctx,GPoint(ox+2,oy+10)); graphics_draw_pixel(ctx,GPoint(ox+2,oy+12));
+    graphics_draw_pixel(ctx,GPoint(ox+6,oy+10)); graphics_draw_pixel(ctx,GPoint(ox+6,oy+12));
+    graphics_draw_pixel(ctx,GPoint(ox+10,oy+10)); graphics_draw_pixel(ctx,GPoint(ox+10,oy+12));
   }
 }
-
 static void draw_snow_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  int sz  = large ? 14 : 11;
-  int icx = ox + sz/2;
-  int icy = oy + sz/2;
-  graphics_draw_line(ctx, GPoint(ox+1,    icy),      GPoint(ox+sz-2, icy));
-  graphics_draw_line(ctx, GPoint(icx,     oy+1),     GPoint(icx,     oy+sz-2));
-  graphics_draw_line(ctx, GPoint(ox+2,    oy+2),     GPoint(ox+sz-3, oy+sz-3));
-  graphics_draw_line(ctx, GPoint(ox+sz-3, oy+2),     GPoint(ox+2,    oy+sz-3));
+  graphics_context_set_stroke_color(ctx,col); graphics_context_set_stroke_width(ctx,1);
+  int sz = large ? 16 : 12, c = sz/2;
+  graphics_draw_line(ctx,GPoint(ox+1,oy+c),GPoint(ox+sz-2,oy+c));
+  graphics_draw_line(ctx,GPoint(ox+c,oy+1),GPoint(ox+c,oy+sz-2));
+  graphics_draw_line(ctx,GPoint(ox+2,oy+2),GPoint(ox+sz-3,oy+sz-3));
+  graphics_draw_line(ctx,GPoint(ox+sz-3,oy+2),GPoint(ox+2,oy+sz-3));
 }
-
 static void draw_storm_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
-  draw_cloud_icon(ctx, ox, oy, col, large);
-  graphics_context_set_stroke_color(ctx, col);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (!large) {
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+7));  graphics_draw_pixel(ctx, GPoint(ox+5, oy+8));
-    graphics_draw_pixel(ctx, GPoint(ox+4, oy+8));  graphics_draw_pixel(ctx, GPoint(ox+4, oy+9));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+9));  graphics_draw_pixel(ctx, GPoint(ox+6, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+5, oy+10)); graphics_draw_pixel(ctx, GPoint(ox+5, oy+11));
+  draw_cloud_icon(ctx,ox,oy,col,large);
+  graphics_context_set_stroke_color(ctx,col); graphics_context_set_stroke_width(ctx,1);
+  if (large) {
+    graphics_draw_pixel(ctx,GPoint(ox+8,oy+12)); graphics_draw_pixel(ctx,GPoint(ox+8,oy+13));
+    graphics_draw_pixel(ctx,GPoint(ox+7,oy+13)); graphics_draw_pixel(ctx,GPoint(ox+7,oy+14));
+    graphics_draw_pixel(ctx,GPoint(ox+9,oy+14)); graphics_draw_pixel(ctx,GPoint(ox+9,oy+15));
+    graphics_draw_pixel(ctx,GPoint(ox+8,oy+15));
   } else {
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+9));  graphics_draw_pixel(ctx, GPoint(ox+7, oy+10));
-    graphics_draw_pixel(ctx, GPoint(ox+6, oy+10)); graphics_draw_pixel(ctx, GPoint(ox+6, oy+11));
-    graphics_draw_pixel(ctx, GPoint(ox+8, oy+11)); graphics_draw_pixel(ctx, GPoint(ox+8, oy+12));
-    graphics_draw_pixel(ctx, GPoint(ox+7, oy+12)); graphics_draw_pixel(ctx, GPoint(ox+7, oy+13));
+    graphics_draw_pixel(ctx,GPoint(ox+6,oy+9));  graphics_draw_pixel(ctx,GPoint(ox+6,oy+10));
+    graphics_draw_pixel(ctx,GPoint(ox+5,oy+10)); graphics_draw_pixel(ctx,GPoint(ox+5,oy+11));
+    graphics_draw_pixel(ctx,GPoint(ox+7,oy+11));
   }
 }
-
+static void draw_haze_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
+  // Three horizontal wavy lines representing hazy/polluted air
+  graphics_context_set_stroke_color(ctx, col); graphics_context_set_stroke_width(ctx, 1);
+  if (large) {
+    graphics_draw_line(ctx, GPoint(ox+1, oy+4),  GPoint(ox+6, oy+4));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+5),  GPoint(ox+8, oy+5));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+4),  GPoint(ox+14,oy+4));
+    graphics_draw_line(ctx, GPoint(ox+1, oy+8),  GPoint(ox+6, oy+8));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+9),  GPoint(ox+8, oy+9));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+8),  GPoint(ox+14,oy+8));
+    graphics_draw_line(ctx, GPoint(ox+1, oy+12), GPoint(ox+6, oy+12));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+11), GPoint(ox+8, oy+11));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+12), GPoint(ox+14,oy+12));
+  } else {
+    graphics_draw_line(ctx, GPoint(ox+1, oy+3),  GPoint(ox+4, oy+3));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+4),  GPoint(ox+6, oy+4));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+3),  GPoint(ox+10,oy+3));
+    graphics_draw_line(ctx, GPoint(ox+1, oy+6),  GPoint(ox+4, oy+6));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+7),  GPoint(ox+6, oy+7));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+6),  GPoint(ox+10,oy+6));
+    graphics_draw_line(ctx, GPoint(ox+1, oy+9),  GPoint(ox+4, oy+9));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+8),  GPoint(ox+6, oy+8));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+9),  GPoint(ox+10,oy+9));
+  }
+}
 static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int type, bool large) {
   switch (type) {
     case 0: draw_sun_icon(ctx, ox, oy, col, large);           break;
@@ -825,41 +770,41 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
 
   GFont font   = large ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
                        : fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  int font_h   = large ? 14 : 11;
-  int font_pad = large ? LARGE_FONT_PAD : SMALL_FONT_PAD;
+  int box_h    = large ? LARGE_BOX_H   : SMALL_BOX_H;
   int icon_w   = large ? LARGE_ICON_W  : SMALL_ICON_W;
-  int iy       = y + font_pad;
+  int icon_gap = large ? LARGE_ICON_GAP : SMALL_ICON_GAP;
+  int iy       = y + (large ? LARGE_ICON_DY : SMALL_ICON_DY);   // TallBoy's icon/text relation
 
   // Macro: measure text, center icon+text unit, draw both.
   #define DRAW_ICON_TEXT(draw_icon_call, text_buf) do { \
     GSize sz = graphics_text_layout_get_content_size( \
       (text_buf), font, GRect(0, 0, 200, 20), \
       GTextOverflowModeFill, GTextAlignmentLeft); \
-    int unit_w = icon_w + ICON_TEXT_GAP + sz.w; \
+    int unit_w = icon_w + icon_gap + sz.w; \
     int icon_x = cx - unit_w / 2; \
-    int text_x = icon_x + icon_w + ICON_TEXT_GAP; \
+    int text_x = icon_x + icon_w + icon_gap; \
     draw_icon_call; \
     graphics_draw_text(ctx, (text_buf), font, \
-      GRect(text_x, y, w - text_x, font_h + 2), \
+      GRect(text_x, y, w - text_x, box_h), \
       GTextOverflowModeFill, GTextAlignmentLeft, NULL); \
   } while(0)
 
   // Macro: centered "--" for a field whose data is missing or stale.
   #define DRAW_NODATA() \
     graphics_draw_text(ctx, "--", font, \
-      GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL)
+      GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL)
 
   graphics_context_set_text_color(ctx, col);
 
   if (field == FIELD_DAY_LONG) {
     graphics_draw_text(ctx, s_day_buffer, font,
-      GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_DATE) {
     graphics_draw_text(ctx, s_date_buffer, font,
-      GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_DAY_DATE) {
     graphics_draw_text(ctx, s_day_date_buffer, font,
-      GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_STEPS) {
     DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_steps_buffer);
   } else if (field == FIELD_DISTANCE) {
@@ -871,19 +816,19 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_BT) {
     // Blank when connected; rune+! when disconnected
     if (!s_bt_connected) {
-      int bx = cx - (large ? 6 : 5);
+      int bx = cx - (large ? 5 : 4);   // centre the rune itself, not its box
       draw_bt_icon(ctx, bx, iy, col, large);
     }
   } else if (field == FIELD_HEART_RATE) {
     DRAW_ICON_TEXT(draw_heart_icon(ctx, icon_x, iy, col, large), s_heart_rate_buffer);
   } else if (field == FIELD_SUNRISE) {
-    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_sunrise_buffer);
+    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_sunrise_buffer);
   } else if (field == FIELD_SUNSET) {
-    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_sunset_buffer);
+    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_sunset_buffer);
   } else if (field == FIELD_DAYLIGHT) {
-    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_daylight_buffer);
+    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_daylight_buffer);
   } else if (field == FIELD_UV) {
-    if (s_uv_ok) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_uv_buffer); }
+    if (s_uv_ok) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_uv_buffer); }
     else         { DRAW_NODATA(); }
   } else if (field == FIELD_AQI) {
     if (s_aqi_ok) { DRAW_ICON_TEXT(draw_haze_icon(ctx, icon_x, iy, col, large), s_aqi_buffer); }
@@ -895,12 +840,12 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
     if (s_steps_expected >= PACE_MIN_EXPECTED) { DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_typical_buffer); }
     else                                       { DRAW_NODATA(); }
   } else if (field == FIELD_LIGHT_LEFT) {
-    if (prv_solar_present()) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_light_buffer); }
+    if (prv_solar_present()) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_light_buffer); }
     else                     { DRAW_NODATA(); }
   } else if (field == FIELD_SLEEP) {
     if (s_sleep_seconds > 0) {
       graphics_draw_text(ctx, s_sleep_buffer, font,
-        GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+        GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else {
       DRAW_NODATA();
     }
@@ -912,7 +857,7 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
     } else {
       const char *str = is_f ? s_temp_f_buffer : s_temp_c_buffer;
       DRAW_ICON_TEXT(
-        draw_weather_icon(ctx, icon_x, iy + (large ? 0 : -1), col,
+        draw_weather_icon(ctx, icon_x, iy, col,
                           weather_icon_for_code(s_weather_code), large),
         str);
     }
@@ -1301,7 +1246,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     }
   }
 
-  int overlay_r = xl ? OVERLAY_LARGE_R : (large ? 70 : 58);
+  int overlay_r = xl ? OVERLAY_LARGE_R : (large ? OVERLAY_MEDIUM_R : OVERLAY_SMALL_R);
   if (prv_overlay_visible()) {
     graphics_context_set_fill_color(ctx, col_obg);
     graphics_fill_circle(ctx, GPoint(cx, cy), overlay_r);
@@ -1528,6 +1473,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int time_h, cap_h, line_gap, single_offset;
     int time_dy, top2_nudge, bot1_nudge, bot2_nudge;
     GFont time_font;
+    int time_bold = 0;   // overstrike radius in px (0 = the font is drawn once)
 
     if (!large) {
       // Small
@@ -1543,6 +1489,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     } else {
       // Medium (the old "large")
       time_font     = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+      time_bold     = LECO_42_BOLD_PX;
       time_h        = 52;
       cap_h         = 14;
       line_gap      = 7;
@@ -1554,7 +1501,8 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #if defined(HAS_LARGE_OVERLAY)
       if (xl) {
         // Large: same lines and icons as Medium, much bigger time
-        time_font     = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
+        time_font     = fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
+        time_bold     = 0;
         time_h        = 70;
         cap_h         = 14;
         line_gap      = 9;
@@ -1581,9 +1529,13 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int bot_count = (f3 ? 1 : 0) + (f4 ? 1 : 0);
 
     graphics_context_set_text_color(ctx, col_time);
-    graphics_draw_text(ctx, s_time_buffer, time_font,
-      GRect(0, time_y, w, time_h + 4),
-      GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    for (int oy = -time_bold; oy <= time_bold; oy++) {
+      for (int ox = -time_bold; ox <= time_bold; ox++) {
+        graphics_draw_text(ctx, s_time_buffer, time_font,
+          GRect(ox, time_y + oy, w, time_h + 4),
+          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      }
+    }
 
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
