@@ -264,6 +264,7 @@ module.exports = {
     // Field options for the 4 info line dropdowns.
     // Inner lines (2 & 3): full list including day-only and day+date.
     // Outer lines (1 & 4): compact list (day/day+date too wide for outer slots).
+    // Values must match the FIELD_* IDs in main.c.
     var fieldOptionsInner = [
       { value: 0,  label: 'None' },
       { value: 1,  label: 'Day' },
@@ -280,6 +281,12 @@ module.exports = {
       { value: 12, label: 'Sunrise' },
       { value: 13, label: 'Sunset' },
       { value: 14, label: 'Daylight' },
+      { value: 15, label: 'UV Index' },
+      { value: 16, label: 'Air Quality (AQI)' },
+      { value: 17, label: 'Step Pace %' },
+      { value: 18, label: 'Typical Steps' },
+      { value: 19, label: 'Light Left' },
+      { value: 20, label: 'Sleep' },
     ];
     var fieldOptionsOuter = [
       { value: 0,  label: 'None' },
@@ -295,6 +302,12 @@ module.exports = {
       { value: 12, label: 'Sunrise' },
       { value: 13, label: 'Sunset' },
       { value: 14, label: 'Daylight' },
+      { value: 15, label: 'UV Index' },
+      { value: 16, label: 'Air Quality (AQI)' },
+      { value: 17, label: 'Step Pace %' },
+      { value: 18, label: 'Typical Steps' },
+      { value: 19, label: 'Light Left' },
+      { value: 20, label: 'Sleep' },
     ];
 
     function makeSelect(id, defaultVal, options) {
@@ -313,6 +326,19 @@ module.exports = {
       ? '<div class="row"><label>Large overlay</label>' +
         '<label class="toggle"><input type="checkbox" id="OverlaySize" checked><span class="knob"></span></label></div>'
       : '';
+
+    // Pace options (steps vs. a typical day). Aplite has no health data so gets neither;
+    // B&W platforms (diorite, flint) get the marker only -- pace color needs a color screen.
+    var hasPaceColor = !(isAplite || platform === 'bw');
+    var paceRows = isAplite ? '' :
+        (hasPaceColor
+          ? '<div class="row"><label>Color steps by pace</label>' +
+            '<label class="toggle"><input type="checkbox" id="PaceColor"><span class="knob"></span></label></div>'
+          : '')
+      + '<div class="row"><label>Pace marker on ring</label>' +
+        '<label class="toggle"><input type="checkbox" id="PaceMarker"><span class="knob"></span></label></div>'
+      + '<span class="note">Pace compares your steps so far today with a typical day (same weekday, last 4 weeks). ' +
+        'Steps &amp; Battery ring only. The marker shows where a typical day would put you.</span>';
 
     var platformData = 'var PLATFORM=' + JSON.stringify(platform || 'color') + ';'
       + 'var CURRENT=' + JSON.stringify(currentSettings || null) + ';';
@@ -505,6 +531,7 @@ module.exports = {
       + '<input type="radio" name="ringmode" id="rm0" value="0" checked><label for="rm0">Steps &amp; Battery</label>'
       + '<input type="radio" name="ringmode" id="rm1" value="1"><label for="rm1">Sunrise &amp; Sunset</label>'
       + '</div>'
+      + paceRows
       + '</div>'
 
       + (isAplite ? '' :
@@ -587,6 +614,7 @@ module.exports = {
       + 'if(k==="OverlayMode"){var el=document.getElementById("ov"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="RingMode"){var el=document.getElementById("rm"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="OverlaySize"){var el=document.getElementById("OverlaySize");if(el)el.checked=(CURRENT[k]===1);}'
+      + 'else if(k==="PaceColor"||k==="PaceMarker"){var el=document.getElementById(k);if(el)el.checked=!!CURRENT[k];}'
       + 'else if(k==="InvertBW"){document.getElementById("InvertBW").checked=!!CURRENT[k];}'
       + 'else if(k==="ShowRing"){document.getElementById("ShowRing").checked=!!CURRENT[k];}'
       + 'else if(k==="StepGoal"){var el=document.getElementById("StepGoal");if(el){el.value=CURRENT[k];document.getElementById("goalVal").textContent=parseInt(CURRENT[k]).toLocaleString();}}'
@@ -595,7 +623,8 @@ module.exports = {
       + '});'
       + '}catch(e){}}'
 
-      + 'function applyPlatform(){var c=(PLATFORM!=="bw");document.getElementById("color-section").style.display=c?"":"none";document.getElementById("bw-section").style.display=c?"none":""; }'
+      // Color section for color platforms only; B&W section (invert) for aplite and bw.
+      + 'function applyPlatform(){var c=(PLATFORM!=="bw"&&PLATFORM!=="aplite");document.getElementById("color-section").style.display=c?"":"none";document.getElementById("bw-section").style.display=c?"none":""; }'
       + 'function toggle(id){var s=document.getElementById("sub-"+id);var b=document.getElementById("btn-"+id);var o=s.classList.toggle("open");b.classList.toggle("open",o);}'
       + 'function toggle2(id){var s=document.getElementById("sub2-"+id);var b=document.getElementById("btn2-"+id);var o=s.classList.toggle("open");b.classList.toggle("open",o);}'
       + 'function toggle3(id){var s=document.getElementById("sub3-"+id);var b=document.getElementById("btn3-"+id);var o=s.classList.toggle("open");b.classList.toggle("open",o);}'
@@ -629,6 +658,7 @@ module.exports = {
       + 'Line1Color:h(colors.Line1Color),Line2Color:h(colors.Line2Color),'
       + 'Line3Color:h(colors.Line3Color),Line4Color:h(colors.Line4Color),'
       + 'InvertBW:tog("InvertBW"),ShowRing:tog("ShowRing"),OverlaySize:tog("OverlaySize"),'
+      + 'PaceColor:tog("PaceColor"),PaceMarker:tog("PaceMarker"),'
       + 'StepGoal:parseInt((document.getElementById("StepGoal")||{value:"10000"}).value),'
       + 'Line1Field:sel("Line1Field"),Line2Field:sel("Line2Field"),'
       + 'Line3Field:sel("Line3Field"),Line4Field:sel("Line4Field")'
