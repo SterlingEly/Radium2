@@ -43,7 +43,11 @@
             "RingMode",
             "SunriseTime",
             "SunsetTime",
-            "SunriseTomorrow"
+            "SunriseTomorrow",
+            "UvIndex",
+            "AqiIndex",
+            "PaceColor",
+            "PaceMarker"
         ],
         "projectType": "native",
         "resources": {
