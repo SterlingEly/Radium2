@@ -8,7 +8,13 @@
 #define SOLAR_KEY         9          // separate persist key for solar timestamps
 #define PACE_KEY          10         // separate persist key for pace options (keeps RadiumSettings layout untouched)
 #define DEFAULT_STEP_GOAL 10000
-#define RING_GAP          2          // px gap between outer ring and tick radials
+// Gap between the outer ring and the tick radials (bg-colored). Gabbro doubled to 4 (Sterling, 2026-10-14);
+// other platforms stay at 2. Round ring: radius 124..130 on gabbro, ticks end at 130-6-4 = 120.
+#if defined(PBL_PLATFORM_GABBRO)
+#define RING_GAP          4
+#else
+#define RING_GAP          2
+#endif
 #define RING_THICK        6          // outer ring thickness (px)
 
 // UV / AQI age out after this long without a phone update ("hide > mislead").
@@ -184,13 +190,29 @@ static void prv_load_settings(void) {
 //   PaceColor:  color the lit steps arc by pace (fill length still = steps / goal)
 //   PaceMarker: draw a notch where a typical day would put you on the steps arc
 // Both default ON (Sterling, 2026-10-13). They only take effect with usable health history.
+// v2.4 additions (appended -- an old 2-byte blob loads fine, new fields keep these defaults):
+//   MarkerSet/MarkerColor: custom pace-marker color; until the config page sends one the marker
+//                          follows TimeColor (themes set it to the hour/minute color, usually white)
+//   BattColors:            OPTIONAL battery color override (default OFF): <=20% red, <=50% yellow, else green
 // ------------------------------------------------------------
 typedef struct {
-  bool PaceColor;
-  bool PaceMarker;
+  bool   PaceColor;
+  bool   PaceMarker;
+  bool   BattColors;
+  bool   MarkerSet;
+  GColor MarkerColor;
 } PaceSettings;
 
-static PaceSettings s_pace = { true, true };
+static PaceSettings s_pace = { true, true, false, false, { 0 } };
+
+// Battery override color: 0-20 red, 21-50 yellow, 51-100 green (color platforms only).
+#if defined(PBL_COLOR)
+static GColor prv_batt_level_color(int pct) {
+  if (pct <= 20) return GColorRed;
+  if (pct <= 50) return GColorYellow;
+  return GColorGreen;
+}
+#endif
 
 static void prv_save_pace(void) {
   persist_write_data(PACE_KEY, &s_pace, sizeof(s_pace));
@@ -831,6 +853,12 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_CALORIES) {
     DRAW_ICON_TEXT(draw_calories_icon(ctx, icon_x, iy, col, large), s_calories_buffer);
   } else if (field == FIELD_BATTERY) {
+#if defined(PBL_COLOR)
+    if (s_pace.BattColors) {
+      col = prv_batt_level_color(s_battery);
+      graphics_context_set_text_color(ctx, col);   // text color was already set from the line color above
+    }
+#endif
     DRAW_ICON_TEXT(draw_battery_icon(ctx, icon_x, iy, col, s_battery, large), s_battery_buffer);
   } else if (field == FIELD_BT) {
     // Blank when connected; rune+! when disconnected
@@ -1322,6 +1350,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (left_pct > 100) left_pct = 100;
     }
 
+    // Optional battery color override (Steps & Battery mode only; solar mode's right side is "day").
+#if defined(PBL_COLOR)
+    if (s_pace.BattColors && !solar_active) col_batt = prv_batt_level_color(s_battery);
+#endif
+
     // Steps arc color: preset color, or pace color when enabled (fill length is unaffected).
     GColor col_step_draw = col_step;
 #if defined(PBL_COLOR)
@@ -1332,6 +1365,10 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
     // Pace marker: where a typical day would have put you on the steps arc (0..100% of goal).
+    GColor col_marker = col_time;
+#if defined(PBL_COLOR)
+    if (s_pace.MarkerSet) col_marker = s_pace.MarkerColor;
+#endif
     int marker_pct = -1;
     if (s_pace.PaceMarker && !solar_active && s_settings.StepGoal > 0
         && s_steps_expected >= PACE_MIN_EXPECTED) {
@@ -1369,7 +1406,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         int a  = 183 + (174 * marker_pct) / 100;
         int a0 = a - 1; if (a0 < 181) a0 = 181;
         int a1 = a + 2; if (a1 > 359) a1 = 359;
-        graphics_context_set_fill_color(ctx, col_time);
+        graphics_context_set_fill_color(ctx, col_marker);
         graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK + 2,
                              DEG_TO_TRIGANGLE(a0), DEG_TO_TRIGANGLE(a1));
       }
@@ -1459,7 +1496,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (marker_pct >= 0) {
         // Pace notch along the steps path (bottom -> left -> top), 3px wide, protruding 2px inward.
         int pos = (total * marker_pct) / 100;
-        graphics_context_set_fill_color(ctx, col_time);
+        graphics_context_set_fill_color(ctx, col_marker);
         if (pos <= half_w) {
           int x = cx - gap - pos;
           graphics_fill_rect(ctx, GRect(x - 1, h - t - 2, 3, t + 2), 0, GCornerNone);
@@ -1754,6 +1791,10 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) { s_pace.PaceColor  = (t->value->int32 == 1); pace_changed = true; }
   t = dict_find(iter, MESSAGE_KEY_PaceMarker);
   if (t) { s_pace.PaceMarker = (t->value->int32 == 1); pace_changed = true; }
+  t = dict_find(iter, MESSAGE_KEY_PaceMarkerColor);
+  if (t) { s_pace.MarkerColor = GColorFromHEX(t->value->int32); s_pace.MarkerSet = true; pace_changed = true; }
+  t = dict_find(iter, MESSAGE_KEY_BattColorOverride);
+  if (t) { s_pace.BattColors = (t->value->int32 == 1); pace_changed = true; }
   if (pace_changed) prv_save_pace();
 
   t = dict_find(iter, MESSAGE_KEY_SunriseTime);
