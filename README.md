@@ -40,8 +40,11 @@ The face works on two levels. With the overlay on, it reads like a normal watchf
 
 Not yet released; not yet device-tested.
 
+- **Three overlay sizes** (Pebble Time 2 and Pebble Round 2) — Small, Medium (the old "large") and a new Large with the biggest system time font
 - **New info lines** — UV index, air quality (US AQI), step pace %, typical steps, light left (daylight remaining / time to sunrise), sleep
-- **Pace on the outer ring** — optionally color the steps arc by how you are pacing against a typical day (red → orange → yellow → green → blue → violet → magenta), and optionally show a marker where a typical day would have put you. The ring still fills by your step goal
+- **Pace on the outer ring** — optionally color the steps arc by how you are pacing against a typical day (red → orange → yellow → green → blue → violet → magenta), and optionally show a marker where a typical day would have put you, in a color you choose. The ring still fills by your step goal
+- **Battery ring colors** (color watches, off by default) — optionally color the battery ring red / yellow / green by charge level (≤20% / ≤50% / above), with darker colors and a pale track on light themes. Affects the ring only
+- **Wider ring gap on the Pebble Round 2**
 - **Round-screen Quick View** — on round watches the face stays put and Quick View simply covers it
 - **Fixes** — large-overlay option on the Pebble Round 2, aplite settings page, solar ring fallback
 
@@ -90,9 +93,9 @@ Air-quality data is CAMS ENSEMBLE data via Open-Meteo.
 | Basalt | Pebble Time | 144×168 color | |
 | Chalk | Pebble Time Round | 180×180 color | Round |
 | Diorite | Pebble 2 (SE and HR) | 144×168 B&W | Heart rate on the HR model |
-| Emery | Pebble Time 2 | 200×228 color | Heart rate; large overlay default |
+| Emery | Pebble Time 2 | 200×228 color | Heart rate; Medium overlay default, Large in v2.4 |
 | Flint | Pebble 2 Duo | 144×168 B&W | |
-| Gabbro | Pebble Round 2 | 260×260 color | Round; large overlay default |
+| Gabbro | Pebble Round 2 | 260×260 color | Round; Medium overlay default, Large in v2.4 |
 
 ---
 
