@@ -352,11 +352,11 @@ module.exports = {
         'Steps &amp; Battery ring only. The marker shows where a typical day would put you. Presets set the marker to the time text color.</span>';
 
     // Optional battery color override (color platforms only): <=20% red, 21-50% yellow, 51-100% green.
-    // Applies to the battery ring (Steps & Battery mode) and the Battery info line. Default OFF.
+    // Applies to the battery ring only (Steps & Battery mode); info line colors are untouched. Default OFF.
     var battRows = (isAplite || platform === 'bw') ? '' :
         '<div class="row"><label>Battery level colors</label>' +
         '<label class="toggle"><input type="checkbox" id="BattColorOverride"><span class="knob"></span></label></div>' +
-        '<span class="note">Red up to 20%, yellow up to 50%, green above. Overrides the battery ring and Battery info line colors.</span>';
+        '<span class="note">Red up to 20%, yellow up to 50%, green above. Applies to the battery ring only. On light themes it uses darker colors and a pale unfilled track.</span>';
 
     var platformData = 'var PLATFORM=' + JSON.stringify(platform || 'color') + ';'
       + 'var CURRENT=' + JSON.stringify(currentSettings || null) + ';';
