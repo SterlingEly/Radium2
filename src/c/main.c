@@ -6,9 +6,18 @@
 // ============================================================
 #define SETTINGS_KEY      8          // bumped v2.3: added RingMode
 #define SOLAR_KEY         9          // separate persist key for solar timestamps
+#define PACE_KEY          10         // separate persist key for pace options (keeps RadiumSettings layout untouched)
 #define DEFAULT_STEP_GOAL 10000
 #define RING_GAP          2          // px gap between outer ring and tick radials
 #define RING_THICK        6          // outer ring thickness (px)
+
+// UV / AQI age out after this long without a phone update ("hide > mislead").
+// Sunrise/sunset are astronomical and never age out; temperature keeps its old behavior.
+#define ENV_MAX_AGE       (3 * 3600)
+
+// Pace needs a meaningful "typical steps so far" to compare against. Early in the day
+// that number is tiny and the percentage swings wildly, so below this floor pace is hidden.
+#define PACE_MIN_EXPECTED 300
 
 // Overlay visibility modes
 #define OVERLAY_ALWAYS_ON   0
@@ -33,10 +42,16 @@
 #define FIELD_DISTANCE   8   // footprint icon + walked distance (mi or km)
 #define FIELD_CALORIES   9   // flame icon + active kcal burned
 #define FIELD_BT         10  // BT rune -- visible when disconnected, blank when connected
-#define FIELD_HEART_RATE 11  // heart icon + BPM (emery and diorite ONLY -- no HR on flint)
+#define FIELD_HEART_RATE 11  // heart icon + BPM (emery and diorite HR model ONLY -- no HR on flint/gabbro)
 #define FIELD_SUNRISE    12  // sun icon + sunrise time ("6:23am")
 #define FIELD_SUNSET     13  // sun icon + sunset time  ("7:41pm")
 #define FIELD_DAYLIGHT   14  // sun icon + daylight duration ("13h18m")
+#define FIELD_UV         15  // sun icon + "UV 5"
+#define FIELD_AQI        16  // haze icon + "AQI 42" (US AQI)
+#define FIELD_PACE       17  // footprint icon + steps vs typical-so-far ("112%")
+#define FIELD_TYPICAL    18  // footprint icon + typical steps by now ("typ 4,200")
+#define FIELD_LIGHT_LEFT 19  // sun icon + daylight left (day) or time until sunrise (night)
+#define FIELD_SLEEP      20  // "Zz 7h05m" -- sleep since 6pm yesterday
 
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
@@ -147,6 +162,28 @@ static void prv_load_settings(void) {
   persist_read_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
 }
 
+// ------------------------------------------------------------
+// Pace options -- deliberately a separate tiny blob (PACE_KEY) so that adding them
+// never changes the RadiumSettings layout and never resets anyone's saved settings.
+//   PaceColor:  color the lit steps arc by pace (fill length still = steps / goal)
+//   PaceMarker: draw a notch where a typical day would put you on the steps arc
+// Both default off.
+// ------------------------------------------------------------
+typedef struct {
+  bool PaceColor;
+  bool PaceMarker;
+} PaceSettings;
+
+static PaceSettings s_pace = { false, false };
+
+static void prv_save_pace(void) {
+  persist_write_data(PACE_KEY, &s_pace, sizeof(s_pace));
+}
+
+static void prv_load_pace(void) {
+  persist_read_data(PACE_KEY, &s_pace, sizeof(s_pace));
+}
+
 // ============================================================
 // STATE
 // ============================================================
@@ -164,6 +201,11 @@ static bool s_bt_connected = true;
 static int  s_heart_rate   = 0;
 static bool s_show_overlay = true;
 
+// Typical steps by now (same-weekday average, up to 4 weeks) and last night's sleep.
+// -1 = unavailable. Only populated on health platforms.
+static int  s_steps_expected = -1;
+static int  s_sleep_seconds  = -1;
+
 static time_t s_sunrise          = 0;
 static time_t s_sunset           = 0;
 static time_t s_sunrise_tomorrow = 0;
@@ -171,6 +213,14 @@ static time_t s_sunrise_tomorrow = 0;
 static int  s_weather_temp_f = INT_MIN;  // INT_MIN = not yet received
 static int  s_weather_temp_c = INT_MIN;
 static int  s_weather_code   = 0;
+
+// UV and AQI: -1 = never received (0 is a real reading). Timestamps drive the 3h age-out.
+static int    s_uv_index = -1;
+static time_t s_uv_ts    = 0;
+static int    s_aqi      = -1;
+static time_t s_aqi_ts   = 0;
+static bool   s_uv_ok    = false;   // received AND fresh -- refreshed by update_env_buffers()
+static bool   s_aqi_ok   = false;
 
 static char s_time_buffer[8];
 static char s_day_buffer[12];
@@ -186,6 +236,12 @@ static char s_heart_rate_buffer[8];
 static char s_sunrise_buffer[8];
 static char s_sunset_buffer[8];
 static char s_daylight_buffer[8];
+static char s_light_buffer[10];
+static char s_uv_buffer[8];
+static char s_aqi_buffer[10];
+static char s_pace_buffer[8];
+static char s_typical_buffer[16];
+static char s_sleep_buffer[12];
 
 static AppTimer *s_overlay_timer = NULL;
 
@@ -224,6 +280,17 @@ static bool prv_solar_present(void) {
   return s_sunrise_tomorrow > 0;
 }
 
+// Roll a cached sunrise/sunset window forward one day at a time until "tomorrow's sunrise"
+// is in the future. Handles any number of days of stale data; drift is ~1min/day.
+static void prv_solar_roll(time_t now_t, time_t *sunrise, time_t *sunset, time_t *sunrise_tomorrow) {
+  while (now_t > *sunrise_tomorrow) {
+    time_t day_dur    = *sunset - *sunrise;
+    *sunrise          = *sunrise_tomorrow;
+    *sunset           = *sunrise_tomorrow + day_dur;
+    *sunrise_tomorrow = *sunrise_tomorrow + 86400;
+  }
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -246,11 +313,21 @@ static bool prv_overlay_visible(void) {
   return (s_settings.OverlayMode != OVERLAY_OFF) && s_show_overlay;
 }
 
+// "1234" -> "1,234"
+static void prv_fmt_steps(char *buf, size_t len, int n) {
+  if (n >= 1000) {
+    snprintf(buf, len, "%d,%03d", n / 1000, n % 1000);
+  } else {
+    snprintf(buf, len, "%d", n);
+  }
+}
+
 static void update_solar_buffers(void) {
   if (s_sunrise == 0) {
     snprintf(s_sunrise_buffer,  sizeof(s_sunrise_buffer),  "--");
     snprintf(s_sunset_buffer,   sizeof(s_sunset_buffer),   "--");
     snprintf(s_daylight_buffer, sizeof(s_daylight_buffer), "--");
+    snprintf(s_light_buffer,    sizeof(s_light_buffer),    "--");
     return;
   }
   struct tm *sr = localtime(&s_sunrise);
@@ -269,6 +346,78 @@ static void update_solar_buffers(void) {
              "%dh%02dm", secs / 3600, (secs % 3600) / 60);
   } else {
     snprintf(s_daylight_buffer, sizeof(s_daylight_buffer), "--");
+  }
+
+  // Light left: daylight remaining by day, time until sunrise by night.
+  if (prv_solar_present()) {
+    time_t now_t = time(NULL);
+    time_t a = s_sunrise, b = s_sunset, c = s_sunrise_tomorrow;
+    prv_solar_roll(now_t, &a, &b, &c);
+    int rem;
+    if (now_t >= a && now_t < b) rem = (int)(b - now_t);   // daytime
+    else if (now_t < a)          rem = (int)(a - now_t);   // before sunrise
+    else                         rem = (int)(c - now_t);   // after sunset
+    if (rem < 0) rem = 0;
+    snprintf(s_light_buffer, sizeof(s_light_buffer),
+             "%dh%02dm", rem / 3600, (rem % 3600) / 60);
+  } else {
+    snprintf(s_light_buffer, sizeof(s_light_buffer), "--");
+  }
+}
+
+// UV / AQI freshness and text. Called every minute and whenever new data arrives.
+static bool prv_env_fresh(time_t ts) {
+  return ts > 0 && (time(NULL) - ts) <= ENV_MAX_AGE;
+}
+
+static void update_env_buffers(void) {
+  s_uv_ok  = (s_uv_index >= 0) && prv_env_fresh(s_uv_ts);
+  s_aqi_ok = (s_aqi      >= 0) && prv_env_fresh(s_aqi_ts);
+  if (s_uv_ok)  snprintf(s_uv_buffer,  sizeof(s_uv_buffer),  "UV %d",  s_uv_index);
+  if (s_aqi_ok) snprintf(s_aqi_buffer, sizeof(s_aqi_buffer), "AQI %d", s_aqi);
+}
+
+// Steps today as a percentage of typical-by-now. -1 when there is nothing trustworthy to compare.
+static int prv_pace_pct(void) {
+  if (s_steps_expected < PACE_MIN_EXPECTED) return -1;
+  int pct = (s_steps * 100) / s_steps_expected;
+  return (pct > 999) ? 999 : pct;
+}
+
+#if defined(PBL_COLOR)
+// Pace -> ring color. Brightest, boldest hue of each step of the spectrum:
+//   <=30% red, <=60% orange, <=90% yellow, <=200% green (on pace / ahead),
+//   <=400% blue, <=700% violet, beyond that magenta.
+// Same thresholds as TallBoy's pace background.
+static GColor prv_pace_color(int pct) {
+  if (pct <= 30)  return GColorRed;          // #FF0000
+  if (pct <= 60)  return GColorOrange;       // #FF5500
+  if (pct <= 90)  return GColorYellow;       // #FFFF00
+  if (pct <= 200) return GColorGreen;        // #00FF00
+  if (pct <= 400) return GColorBlueMoon;     // #0055FF
+  if (pct <= 700) return GColorVividViolet;  // #AA00FF
+  return GColorMagenta;                      // #FF00FF
+}
+#endif
+
+static void update_pace_buffers(void) {
+  int pct = prv_pace_pct();
+  if (pct >= 0) snprintf(s_pace_buffer, sizeof(s_pace_buffer), "%d%%", pct);
+  else          snprintf(s_pace_buffer, sizeof(s_pace_buffer), "--");
+
+  if (s_steps_expected >= PACE_MIN_EXPECTED) {
+    char nb[12];
+    prv_fmt_steps(nb, sizeof(nb), s_steps_expected);
+    snprintf(s_typical_buffer, sizeof(s_typical_buffer), "typ %s", nb);
+  } else {
+    snprintf(s_typical_buffer, sizeof(s_typical_buffer), "--");
+  }
+
+  if (s_sleep_seconds > 0) {
+    snprintf(s_sleep_buffer, sizeof(s_sleep_buffer), "Zz %dh%02dm",
+             s_sleep_seconds / 3600, (s_sleep_seconds % 3600) / 60);
+  } else {
+    snprintf(s_sleep_buffer, sizeof(s_sleep_buffer), "--");
   }
 }
 
@@ -493,6 +642,33 @@ static void draw_sun_icon(GContext *ctx, int ox, int oy, GColor col, bool large)
   graphics_draw_pixel(ctx, GPoint(ox+sz-1,  icy));       graphics_draw_pixel(ctx, GPoint(ox+sz-2,  icy));
 }
 
+// Haze: three wavy lines (air quality). Ported from TallBoy at Radium's 11/14px icon sizes.
+static void draw_haze_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
+  graphics_context_set_stroke_color(ctx, col);
+  graphics_context_set_stroke_width(ctx, 1);
+  if (!large) {
+    graphics_draw_line(ctx, GPoint(ox+0, oy+2), GPoint(ox+3,  oy+2));
+    graphics_draw_line(ctx, GPoint(ox+4, oy+3), GPoint(ox+6,  oy+3));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+2), GPoint(ox+10, oy+2));
+    graphics_draw_line(ctx, GPoint(ox+0, oy+5), GPoint(ox+3,  oy+5));
+    graphics_draw_line(ctx, GPoint(ox+4, oy+6), GPoint(ox+6,  oy+6));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+5), GPoint(ox+10, oy+5));
+    graphics_draw_line(ctx, GPoint(ox+0, oy+8), GPoint(ox+3,  oy+8));
+    graphics_draw_line(ctx, GPoint(ox+4, oy+7), GPoint(ox+6,  oy+7));
+    graphics_draw_line(ctx, GPoint(ox+7, oy+8), GPoint(ox+10, oy+8));
+  } else {
+    graphics_draw_line(ctx, GPoint(ox+0, oy+3),  GPoint(ox+4,  oy+3));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+4),  GPoint(ox+8,  oy+4));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+3),  GPoint(ox+13, oy+3));
+    graphics_draw_line(ctx, GPoint(ox+0, oy+7),  GPoint(ox+4,  oy+7));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+8),  GPoint(ox+8,  oy+8));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+7),  GPoint(ox+13, oy+7));
+    graphics_draw_line(ctx, GPoint(ox+0, oy+11), GPoint(ox+4,  oy+11));
+    graphics_draw_line(ctx, GPoint(ox+5, oy+10), GPoint(ox+8,  oy+10));
+    graphics_draw_line(ctx, GPoint(ox+9, oy+11), GPoint(ox+13, oy+11));
+  }
+}
+
 static void draw_cloud_icon(GContext *ctx, int ox, int oy, GColor col, bool large) {
   graphics_context_set_fill_color(ctx, col);
   if (!large) {
@@ -616,6 +792,11 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
       GTextOverflowModeFill, GTextAlignmentLeft, NULL); \
   } while(0)
 
+  // Macro: centered "--" for a field whose data is missing or stale.
+  #define DRAW_NODATA() \
+    graphics_draw_text(ctx, "--", font, \
+      GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL)
+
   graphics_context_set_text_color(ctx, col);
 
   if (field == FIELD_DAY_LONG) {
@@ -649,12 +830,33 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
     DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_sunset_buffer);
   } else if (field == FIELD_DAYLIGHT) {
     DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_daylight_buffer);
+  } else if (field == FIELD_UV) {
+    if (s_uv_ok) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_uv_buffer); }
+    else         { DRAW_NODATA(); }
+  } else if (field == FIELD_AQI) {
+    if (s_aqi_ok) { DRAW_ICON_TEXT(draw_haze_icon(ctx, icon_x, iy, col, large), s_aqi_buffer); }
+    else          { DRAW_NODATA(); }
+  } else if (field == FIELD_PACE) {
+    if (prv_pace_pct() >= 0) { DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_pace_buffer); }
+    else                     { DRAW_NODATA(); }
+  } else if (field == FIELD_TYPICAL) {
+    if (s_steps_expected >= PACE_MIN_EXPECTED) { DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_typical_buffer); }
+    else                                       { DRAW_NODATA(); }
+  } else if (field == FIELD_LIGHT_LEFT) {
+    if (prv_solar_present()) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy - 1, col, large), s_light_buffer); }
+    else                     { DRAW_NODATA(); }
+  } else if (field == FIELD_SLEEP) {
+    if (s_sleep_seconds > 0) {
+      graphics_draw_text(ctx, s_sleep_buffer, font,
+        GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    } else {
+      DRAW_NODATA();
+    }
   } else if (field == FIELD_TEMP_F || field == FIELD_TEMP_C) {
     bool is_f  = (field == FIELD_TEMP_F);
     bool ready = is_f ? (s_weather_temp_f != INT_MIN) : (s_weather_temp_c != INT_MIN);
     if (!ready) {
-      graphics_draw_text(ctx, "--", font,
-        GRect(0, y, w, font_h + 2), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      DRAW_NODATA();
     } else {
       const char *str = is_f ? s_temp_f_buffer : s_temp_c_buffer;
       DRAW_ICON_TEXT(
@@ -663,6 +865,7 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
         str);
     }
   }
+  #undef DRAW_NODATA
   #undef DRAW_ICON_TEXT
 }
 
@@ -1058,22 +1261,18 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #endif
 
   if (show_ring) {
+    // Solar mode only counts as active when solar data exists; otherwise the ring falls back to
+    // Steps & Battery (values AND geometry -- previously the steps value was drawn with solar-night geometry).
+    bool solar_active = (s_settings.RingMode == RING_SOLAR && prv_solar_present());
     int right_pct, left_pct;
 
-    if (s_settings.RingMode == RING_SOLAR && prv_solar_present()) {
+    if (solar_active) {
       time_t now_t = time(NULL);
 
-      // Roll timestamps forward one day at a time until the window is current.
-      // Handles any number of days of stale data; drift is ~1min/day, negligible.
       time_t eff_sunrise          = s_sunrise;
       time_t eff_sunset           = s_sunset;
       time_t eff_sunrise_tomorrow = s_sunrise_tomorrow;
-      while (now_t > eff_sunrise_tomorrow) {
-        time_t day_dur       = eff_sunset - eff_sunrise;
-        eff_sunrise          = eff_sunrise_tomorrow;
-        eff_sunset           = eff_sunrise_tomorrow + day_dur;
-        eff_sunrise_tomorrow = eff_sunrise_tomorrow + 86400;
-      }
+      prv_solar_roll(now_t, &eff_sunrise, &eff_sunset, &eff_sunrise_tomorrow);
 
       if (now_t >= eff_sunrise && now_t < eff_sunset) {
         // Daytime: day arc drains, night arc empty
@@ -1093,15 +1292,29 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (right_pct < 0)   right_pct = 0;
       if (right_pct > 100) right_pct = 100;
     } else {
-      // Steps & Battery mode (default), or solar with no data yet
+      // Steps & Battery mode (default), or solar selected but no data yet
       right_pct = s_battery;
       left_pct  = (s_settings.StepGoal > 0)
         ? (s_steps * 100) / s_settings.StepGoal : 0;
       if (left_pct > 100) left_pct = 100;
     }
 
-    // Left arc fill direction differs between steps (CW from 6) and solar night (CCW from 12)
-    bool solar_night_active = (s_settings.RingMode == RING_SOLAR);
+    // Steps arc color: preset color, or pace color when enabled (fill length is unaffected).
+    GColor col_step_draw = col_step;
+#if defined(PBL_COLOR)
+    if (s_pace.PaceColor && !solar_active) {
+      int pace = prv_pace_pct();
+      if (pace >= 0) col_step_draw = prv_pace_color(pace);
+    }
+#endif
+
+    // Pace marker: where a typical day would have put you on the steps arc (0..100% of goal).
+    int marker_pct = -1;
+    if (s_pace.PaceMarker && !solar_active && s_settings.StepGoal > 0
+        && s_steps_expected >= PACE_MIN_EXPECTED) {
+      marker_pct = (s_steps_expected * 100) / s_settings.StepGoal;
+      if (marker_pct > 100) marker_pct = 100;
+    }
 
     if (is_round) {
       graphics_context_set_fill_color(ctx, col_dbatt);
@@ -1117,8 +1330,8 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                              DEG_TO_TRIGANGLE(177));
       }
       if (left_pct > 0) {
-        graphics_context_set_fill_color(ctx, col_step);
-        if (solar_night_active) {
+        graphics_context_set_fill_color(ctx, col_step_draw);
+        if (solar_active) {
           graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK,
                                DEG_TO_TRIGANGLE(357 - 174 * left_pct / 100),
                                DEG_TO_TRIGANGLE(357));
@@ -1127,6 +1340,15 @@ static void draw_layer(Layer *layer, GContext *ctx) {
                                DEG_TO_TRIGANGLE(183),
                                DEG_TO_TRIGANGLE(183 + 174 * left_pct / 100));
         }
+      }
+      if (marker_pct >= 0) {
+        // ~3 degree notch, protruding 2px inward past the ring
+        int a  = 183 + (174 * marker_pct) / 100;
+        int a0 = a - 1; if (a0 < 181) a0 = 181;
+        int a1 = a + 2; if (a1 > 359) a1 = 359;
+        graphics_context_set_fill_color(ctx, col_time);
+        graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK + 2,
+                             DEG_TO_TRIGANGLE(a0), DEG_TO_TRIGANGLE(a1));
       }
     } else {
       int t      = RING_THICK;
@@ -1175,8 +1397,8 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 
       if (left_pct > 0) {
         int filled = total * left_pct / 100;
-        graphics_context_set_fill_color(ctx, col_step);
-        if (solar_night_active) {
+        graphics_context_set_fill_color(ctx, col_step_draw);
+        if (solar_active) {
           // Solar night: fill top->left->bottom (anchored at 12, drains toward 6)
           if (filled > 0) {
             int seg = (filled < half_w) ? filled : half_w;
@@ -1208,6 +1430,22 @@ static void draw_layer(Layer *layer, GContext *ctx) {
             int seg = (filled < half_w) ? filled : half_w;
             graphics_fill_rect(ctx, GRect(0, 0, seg, t), 0, GCornerNone);
           }
+        }
+      }
+
+      if (marker_pct >= 0) {
+        // Pace notch along the steps path (bottom -> left -> top), 3px wide, protruding 2px inward.
+        int pos = (total * marker_pct) / 100;
+        graphics_context_set_fill_color(ctx, col_time);
+        if (pos <= half_w) {
+          int x = cx - gap - pos;
+          graphics_fill_rect(ctx, GRect(x - 1, h - t - 2, 3, t + 2), 0, GCornerNone);
+        } else if (pos <= half_w + h) {
+          int y = h - (pos - half_w);
+          graphics_fill_rect(ctx, GRect(0, y - 1, t + 2, 3), 0, GCornerNone);
+        } else {
+          int x = pos - half_w - h;
+          graphics_fill_rect(ctx, GRect(x - 1, 0, 3, t + 2), 0, GCornerNone);
         }
       }
     }
@@ -1277,16 +1515,11 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 // EVENT HANDLERS
 // ============================================================
 static void update_steps_buffer(void) {
-  if (s_steps >= 1000) {
-    snprintf(s_steps_buffer, sizeof(s_steps_buffer), "%d,%03d",
-             s_steps / 1000, s_steps % 1000);
-  } else {
-    snprintf(s_steps_buffer, sizeof(s_steps_buffer), "%d", s_steps);
-  }
+  prv_fmt_steps(s_steps_buffer, sizeof(s_steps_buffer), s_steps);
 }
 
 #if defined(PBL_HEALTH)
-// Read steps, distance, and calories from the health service.
+// Read steps, distance, calories, typical-steps and sleep from the health service.
 // Called once per minute from tick_handler.
 static void update_steps_health(void) {
   time_t start = time_start_of_today();
@@ -1315,6 +1548,24 @@ static void update_steps_health(void) {
   s_calories = (mask & HealthServiceAccessibilityMaskAvailable)
     ? (int)health_service_sum_today(HealthMetricActiveKCalories) : 0;
   snprintf(s_calories_buffer, sizeof(s_calories_buffer), "%dcal", s_calories);
+
+  // Typical steps by now: same-weekday average over up to 4 past weeks (SDK handles the
+  // averaging). Feeds pace %, the pace color, the pace marker and the "typical" line.
+  mask = health_service_metric_averaged_accessible(HealthMetricStepCount, start, now,
+                                                   HealthServiceTimeScopeWeekly);
+  s_steps_expected = (mask & HealthServiceAccessibilityMaskAvailable)
+    ? (int)health_service_sum_averaged(HealthMetricStepCount, start, now,
+                                       HealthServiceTimeScopeWeekly)
+    : -1;
+
+  // Sleep since 6pm yesterday (wide window catches late sleepers).
+  time_t sleep_start = start - (6 * SECONDS_PER_HOUR);
+  mask = health_service_metric_accessible(HealthMetricSleepSeconds, sleep_start, now);
+  s_sleep_seconds = (mask & HealthServiceAccessibilityMaskAvailable)
+    ? (int)health_service_sum(HealthMetricSleepSeconds, sleep_start, now)
+    : -1;
+
+  update_pace_buffers();
 }
 
 // Read the latest buffered heart rate value.
@@ -1323,7 +1574,7 @@ static void update_steps_health(void) {
 // SDK quirk: health_service_metric_accessible always returns false for HR.
 // health_service_metric_aggregate_averaged_accessible with a point-in-time
 // range is the correct availability check for instantaneous metrics.
-// HR hardware exists on emery and diorite only.
+// HR hardware exists on emery and diorite (HR model) only -- not flint, gabbro, basalt, chalk or aplite.
 static void update_heart_rate(void) {
   time_t now = time(NULL);
   HealthServiceAccessibilityMask mask =
@@ -1354,6 +1605,7 @@ static void tick_handler(struct tm *t, TimeUnits units_changed) {
   snprintf(s_day_date_buffer, sizeof(s_day_date_buffer), "%s %s %02d",
            s_short_days[t->tm_wday], get_month_abbr(t->tm_mon), t->tm_mday);
   update_solar_buffers();
+  update_env_buffers();
 #if defined(PBL_HEALTH)
   // Poll all health data once per minute alongside the time update.
   // update_steps_health() also calls update_steps_buffer() internally.
@@ -1444,6 +1696,15 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (t) s_settings.ShowRing    = (t->value->int32 == 1);
   t = dict_find(iter, MESSAGE_KEY_RingMode);
   if (t) s_settings.RingMode    = (int)t->value->int32;
+
+  // Pace options live in their own persist blob
+  bool pace_changed = false;
+  t = dict_find(iter, MESSAGE_KEY_PaceColor);
+  if (t) { s_pace.PaceColor  = (t->value->int32 == 1); pace_changed = true; }
+  t = dict_find(iter, MESSAGE_KEY_PaceMarker);
+  if (t) { s_pace.PaceMarker = (t->value->int32 == 1); pace_changed = true; }
+  if (pace_changed) prv_save_pace();
+
   t = dict_find(iter, MESSAGE_KEY_SunriseTime);
   if (t) s_sunrise          = (time_t)t->value->int32;
   t = dict_find(iter, MESSAGE_KEY_SunsetTime);
@@ -1463,6 +1724,11 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   }
   t = dict_find(iter, MESSAGE_KEY_WeatherCode);
   if (t) s_weather_code = (int)t->value->int32;
+  t = dict_find(iter, MESSAGE_KEY_UvIndex);
+  if (t) { s_uv_index = (int)t->value->int32; s_uv_ts = time(NULL); }
+  t = dict_find(iter, MESSAGE_KEY_AqiIndex);
+  if (t) { s_aqi = (int)t->value->int32; s_aqi_ts = time(NULL); }
+  update_env_buffers();
   prv_save_settings();
   layer_mark_dirty(s_canvas_layer);
 }
@@ -1502,6 +1768,7 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   prv_load_settings();
+  prv_load_pace();
   prv_load_solar();
 
   s_weather_temp_f = INT_MIN;
@@ -1518,6 +1785,12 @@ static void init(void) {
   snprintf(s_sunrise_buffer,    sizeof(s_sunrise_buffer),    "--");
   snprintf(s_sunset_buffer,     sizeof(s_sunset_buffer),     "--");
   snprintf(s_daylight_buffer,   sizeof(s_daylight_buffer),   "--");
+  snprintf(s_light_buffer,      sizeof(s_light_buffer),      "--");
+  snprintf(s_uv_buffer,         sizeof(s_uv_buffer),         "--");
+  snprintf(s_aqi_buffer,        sizeof(s_aqi_buffer),        "--");
+  snprintf(s_pace_buffer,       sizeof(s_pace_buffer),       "--");
+  snprintf(s_typical_buffer,    sizeof(s_typical_buffer),    "--");
+  snprintf(s_sleep_buffer,      sizeof(s_sleep_buffer),      "--");
   update_solar_buffers();
 
   if (s_settings.OverlayMode == OVERLAY_AUTO) {
