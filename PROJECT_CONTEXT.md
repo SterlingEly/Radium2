@@ -30,21 +30,23 @@ The design originated around 2015 (Sterling Ely). First implemented by MathewRei
 Sterling increments the version number **only on official store releases.** Everything on `master` after v2.3.1 is "v2.4 (unreleased)" regardless of how many internal iterations it took. `package.json` still says `2.3.0` (it lags the live v2.3.1) — set it to the real number when v2.4 ships.
 
 ### v2.4 (unreleased) — on master, NOT yet compiled or device-tested
-All of the following was written in one pass on 2026-10-13 without a build; treat each item as unverified until Sterling has run it on a watch.
+All of the following was written on 2026-10-13 without a build; treat each item as unverified until Sterling has run it on a watch. (Sterling began testing the Round 2 / Time 2 builds that evening; results not yet recorded here.)
 
 **Fixes**
-- Large-overlay toggle now appears on gabbro: `index.js` was passing `'chalk'` through and never `'gabbro'` (the v2.3.1 fix only changed `config.js`, so only emery was actually fixed). chalk now correctly gets the plain `'color'` UI. Saves made while the toggle was hidden stored "Small", so on first opening settings it may show unchecked — flip it on and save.
-- Round platforms (gabbro, chalk) ignore Quick View: `draw_layer` uses `layer_get_bounds` instead of `layer_get_unobstructed_bounds`, so Quick View just covers the face instead of shrinking/moving it. Rect platforms (emery) still fit to the unobstructed area.
+- Large-overlay option now appears on gabbro: `index.js` was passing `'chalk'` through and never `'gabbro'` (the v2.3.1 fix only changed `config.js`, so only emery was actually fixed). chalk now correctly gets the plain `'color'` UI. Saves made while the option was hidden stored "Small", so on first opening settings it may show Small — pick the size you want and save.
+- Round platforms (gabbro, chalk) ignore Quick View: `draw_layer` uses `layer_get_bounds` instead of `layer_get_unobstructed_bounds`, so Quick View just covers the face instead of shrinking/moving it. Rect platforms (emery) still fit to the unobstructed area (Sterling is reviewing whether he likes that — see TODO).
 - Aplite config page: `applyPlatform()` treated `'aplite'` as a color platform (shown color pickers, hid the invert toggle) ever since `index.js` started passing `'aplite'` in v2.3.1. Fixed.
 - Solar-mode ring fallback: with Sunrise & Sunset selected but no solar data cached yet, the ring drew the steps value with solar-night geometry. It now falls back to Steps & Battery completely (`solar_active = RING_SOLAR && prv_solar_present()`).
 - Stale `FIELD_HEART_RATE` comment corrected (HR is emery and diorite HR model only).
+
+**Three overlay sizes** (emery and gabbro): Small / Medium / **Large**. Stored `OverlaySize` value 1 used to be "large" and is now **Medium** with an identical look, so no saved setting changes meaning; Medium remains the default on emery/gabbro. The new **Large** (value 2) uses `FONT_KEY_LECO_60_NUMBERS_AM_PM` (biggest system LECO; emery/gabbro only, SDK 4.9.148+), the same GOTHIC_24_BOLD lines and 14px icons as Medium, and a bigger circle (`OVERLAY_LARGE_R`: 84px emery, 100px gabbro). The Large line spacing and nudges are a first estimate scaled from Medium — expect to tune them on device. Elsewhere Large is clamped to Medium. The settings page has a three-way selector in place of the old checkbox.
 
 **New info-line fields** (IDs 15–20): UV index, Air quality (US AQI), Step pace %, Typical steps, Light left, Sleep. See Constants.
 
 **Pace** (steps vs. a typical day: same-weekday average, last 4 weeks, via the SDK):
 - *Color steps by pace* (color platforms): the lit steps arc takes the pace color; fill length is still steps ÷ goal. Medium palette, brightest/boldest hue per step (≤30% red, ≤60% orange, ≤90% yellow, ≤200% green, ≤400% blue, ≤700% violet, beyond magenta — same thresholds as TallBoy).
 - *Pace marker on ring*: a notch on the steps arc where a typical day would have put you (typical-so-far ÷ goal).
-- Both default **off**, apply only in Steps & Battery ring mode, and fall back silently (preset color / no marker) when there is no usable typical-steps history.
+- Both **default on** (Sterling's decision, 2026-10-13, committed by him in `main.c`; the settings page shows them checked to match). Apply only in Steps & Battery ring mode, and fall back silently (preset color / no marker) when there is no usable typical-steps history. A freshly set-up watch has no history, so pace shows nothing for about a week.
 
 **Data fetch**: `index.js` does one location lookup, then forecast (now with `uv_index`) then air-quality (`us_aqi`), and sends everything in a **single** AppMessage. If one request fails the other's data is still sent.
 
@@ -52,7 +54,7 @@ All of the following was written in one pass on 2026-10-13 without a build; trea
 
 | Version | SETTINGS_KEY | Summary |
 |---------|-------------|---------|
-| v2.4 (unreleased) | 8 | UV/AQI/pace/typical/light-left/sleep lines, pace color + marker, Quick View on round, gabbro toggle, aplite/solar fixes |
+| v2.4 (unreleased) | 8 | Three overlay sizes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on), Quick View on round, gabbro option, aplite/solar fixes |
 | v2.3.1 | 8 | HR API fix, large overlay config fix (emery), health polling consolidation |
 | v2.3 | 8 | Solar ring, BT disconnect indicator, HR field, solar info lines |
 | v2.2 | 7 | Four configurable info lines, live weather, distance, calories, preset overhaul |
@@ -62,7 +64,7 @@ All of the following was written in one pass on 2026-10-13 without a build; trea
 
 ## Human / AI Role Split
 
-**Sterling Ely** — Design direction, visual aesthetic, preset colors, device testing, store submissions, final approval on all changes.
+**Sterling Ely** — Design direction, visual aesthetic, preset colors, device testing, store submissions, final approval on all changes. (Sterling also edits the repo directly at times — e.g. he flipped the pace defaults himself on 2026-10-13 — so fetch the current file and SHA before every push.)
 
 **Claude (AI collaborator)** — C code, JavaScript config page, GitHub commits, documentation. Proposes and executes; Sterling approves. Does not invent design decisions.
 
@@ -79,7 +81,7 @@ SterlingEly/Radium2 (branch: master)
 ├── package.json         ← manifest: message keys, platforms, version (lags live release)
 └── src/
     ├── c/
-    │   └── main.c       ← ~78KB, entire watchface C implementation
+    │   └── main.c       ← ~81KB, entire watchface C implementation
     └── pkjs/
         ├── config.js    ← config page (data URL, ~46KB HTML/JS)
         └── index.js     ← PebbleKit JS: weather/UV/AQI/solar fetch, settings relay
@@ -102,11 +104,11 @@ SterlingEly/Radium2 (branch: master)
 
 ### GitHub MCP rules
 
-- Use `create_or_update_file` only — fetch the current SHA first before every push
+- Use `create_or_update_file` only — fetch the current SHA first before every push (a stale SHA fails with a generic "error or invalid response")
 - Never use `push_files` — it sends empty content silently
 - Cannot create release tags via MCP — use GitHub web UI
 - Cannot truly delete files via MCP — use GitHub web UI trash icon
-- `get_file_contents` / pushes of `main.c` (~78KB) have timed out in some sessions and worked in others — retry before falling back to the GitHub web UI
+- `get_file_contents` / pushes of `main.c` (~81KB) have timed out in some sessions and worked in others — retry before falling back to the GitHub web UI. Fetching a directory path (e.g. `src/c`) returns file SHAs cheaply without the content.
 
 ### Dev environment
 
@@ -129,10 +131,11 @@ SterlingEly/Radium2 (branch: master)
 | diorite | Pebble 2 (SE and HR models) | 144×168 rect | B&W | HR model only | No |
 | emery | Pebble Time 2 | 200×228 rect | 64-color | Yes | Yes |
 | flint | Pebble 2 Duo | 144×168 rect | B&W | No | No |
-| gabbro | Pebble Round 2 (Core Devices 2026) | **260×260 round** | 64-color | **No** | see Unresolved |
+| gabbro | Pebble Round 2 (Core Devices 2026) | **260×260 round** | 64-color | **No** | Yes (Sterling, 2026-10-13) |
 
 **HR sensors: emery and diorite (HR model) only.** flint, gabbro, basalt, chalk, aplite have none.
-**Large overlay default: emery and gabbro.** chalk (small round) does not get the large overlay or its toggle.
+**Overlay sizes:** emery and gabbro get Small / Medium / Large (Medium default); chalk and the rest only have the small overlay (no size selector).
+**Large LECO_60 font:** emery and gabbro only (SDK 4.9.148+) — guarded with `HAS_LARGE_OVERLAY`.
 **Store copy for HR:** always say "on supported models" — never list specific platforms.
 (Naming note: an earlier version of this table called diorite "Pebble 2 SE" and flint "Pebble 2". Per the store listing and Pixel Sampler's hardware reference, flint is the Pebble 2 Duo, and diorite covers the Pebble 2 SE and HR models with the HR sensor only on the HR model.)
 
@@ -174,12 +177,13 @@ SterlingEly/Radium2 (branch: master)
 
 ### Overlay sizes and fonts
 
-| Size | Radius | Time font | Info line font |
-|------|--------|-----------|----------------|
-| Small | 58px | `LECO_36_BOLD_NUMBERS` | `GOTHIC_18_BOLD` |
-| Large | 70px | `LECO_42_NUMBERS` | `GOTHIC_24_BOLD` |
+| Size | `OverlaySize` | Radius | Time font | Info line font / icons |
+|------|---------------|--------|-----------|------------------------|
+| Small | 0 | 58px | `LECO_36_BOLD_NUMBERS` | `GOTHIC_18_BOLD`, 11px icons |
+| Medium | 1 (was "Large" through v2.3.1) | 70px | `LECO_42_NUMBERS` | `GOTHIC_24_BOLD`, 14px icons |
+| Large | 2 (emery/gabbro only) | 84px emery / 100px gabbro (`OVERLAY_LARGE_R`) | `LECO_60_NUMBERS_AM_PM` | `GOTHIC_24_BOLD`, 14px icons (same as Medium) |
 
-Large is the default on emery and gabbro.
+Medium is the default on emery and gabbro. In `draw_layer`, the local `large` means "Medium or Large" (the 14px icon tier) and `xl` means Large. Per-size layout metrics (`time_h`, `cap_h`, `line_gap`, `single_offset`, `time_dy`, and the three info-line nudges) are set in one block in the overlay section; the Large values are estimates (Medium's scaled by font size) and are the first thing to tune. A future bigger Large could use `GOTHIC_28_BOLD` lines but would need a third (≈17px) icon set.
 
 ### Health data polling
 
@@ -201,7 +205,7 @@ All health data is polled once per minute from `tick_handler`. No background `he
 - `s_steps_expected` = `health_service_sum_averaged(StepCount, start_of_today, now, HealthServiceTimeScopeWeekly)` — same-weekday average up to now; `-1` when unavailable.
 - `prv_pace_pct()` = steps ÷ typical ×100 (capped 999); `-1` when typical < `PACE_MIN_EXPECTED` (300) — early in the day the typical number is tiny and the percentage meaningless.
 - Pace color applies only when `s_pace.PaceColor && !solar_active && pace >= 0`; marker only when `s_pace.PaceMarker && !solar_active && StepGoal > 0 && typical >= PACE_MIN_EXPECTED`.
-- Pace options live in their own persist blob (`PACE_KEY=10`, `PaceSettings {bool PaceColor; bool PaceMarker;}`), **not** in `RadiumSettings`, so adding them never changed the settings layout or reset anyone's saved settings.
+- Pace options live in their own persist blob (`PACE_KEY=10`, `PaceSettings {bool PaceColor; bool PaceMarker;}`, default `{ true, true }`), **not** in `RadiumSettings`, so adding them never changed the settings layout or reset anyone's saved settings. The defaults apply only when nothing is stored yet; once the config page has saved, its values win.
 
 ### UV / AQI (v2.4)
 
@@ -226,11 +230,11 @@ All health data is polled once per minute from `tick_handler`. No background `he
 |--------|-----------|--------|
 | `'aplite'` | aplite | B&W section, no health (no step goal, no pace) |
 | `'bw'` | diorite, flint | B&W section, health shown; pace marker only (no pace color) |
-| `'emery'` | emery | Color, large overlay toggle shown and checked by default |
-| `'gabbro'` | gabbro | Color, large overlay toggle shown and checked by default |
-| `'color'` | basalt, chalk | Color, no large overlay toggle |
+| `'emery'` | emery | Color, Small/Medium/Large overlay selector (Medium checked by default) |
+| `'gabbro'` | gabbro | Color, Small/Medium/Large overlay selector (Medium checked by default) |
+| `'color'` | basalt, chalk | Color, no overlay-size selector |
 
-`applyPlatform()` shows the color section only when the platform is neither `'bw'` nor `'aplite'`.
+`applyPlatform()` shows the color section only when the platform is neither `'bw'` nor `'aplite'`. The overlay size radio group is `name="osize"` (ids `os0`–`os2`), saved with `rad("osize")`; platforms without the selector send 0.
 
 ---
 
@@ -254,7 +258,10 @@ All health data is polled once per minute from `tick_handler`. No background `he
 #define OVERLAY_AUTO         3    // shake to show, auto-hides after 60 seconds
 #define OVERLAY_AUTO_HIDE_MS 60000
 #define OVERLAY_SMALL        0
-#define OVERLAY_LARGE        1    // default on emery and gabbro
+#define OVERLAY_MEDIUM       1    // the old "large" (value unchanged); default on emery/gabbro
+#define OVERLAY_LARGE        2    // v2.4: emery/gabbro only, LECO_60
+// HAS_LARGE_OVERLAY is defined for emery/gabbro (SDK 4.9.148+ has the LECO_60 fonts)
+// OVERLAY_LARGE_R = 100 on gabbro, 84 elsewhere (emery) -- tunable
 
 #define FIELD_NONE           0
 #define FIELD_DAY_LONG       1    // "SATURDAY"
@@ -282,7 +289,7 @@ All health data is polled once per minute from `tick_handler`. No background `he
 #define RING_SOLAR           1
 ```
 
-`config.js` dropdown values must match the `FIELD_*` IDs above.
+`config.js` dropdown values must match the `FIELD_*` IDs above, and the overlay size radio values must match `OVERLAY_*`.
 
 ### Settings struct (v2.3+, unchanged in v2.4)
 
@@ -294,7 +301,7 @@ typedef struct {
   GColor HourTipColor, MinuteTipColor;
   GColor Line1Color, Line2Color, Line3Color, Line4Color;
   int Line1Field, Line2Field, Line3Field, Line4Field;
-  int StepGoal, OverlayMode, OverlaySize;
+  int StepGoal, OverlayMode, OverlaySize;   // OverlaySize: 0 small, 1 medium, 2 large
   bool InvertBW, ShowRing;
   int RingMode;
 } RadiumSettings;  // persisted at SETTINGS_KEY=8
@@ -346,10 +353,13 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 - `push_files` MCP tool sends empty content — never use it
 - **HR:** `health_service_metric_accessible` is useless for heart rate; only emery and diorite (HR model) have the sensor — flint, gabbro, basalt, chalk and aplite do not
 - **Gabbro is a 260×260 round color screen with no HR** — never group it with the B&W rect platforms or with chalk (180×180)
+- **Overlay size values:** `1` means **Medium** (it was called "large" until v2.4). Do not renumber the stored values; new sizes are appended (`2` = Large)
+- **LECO_60 fonts** (`FONT_KEY_LECO_60_NUMBERS_AM_PM` / `_BOLD_`) exist only for emery/gabbro (SDK 4.9.148+); any reference outside `#if defined(HAS_LARGE_OVERLAY)` breaks the other platforms' builds
 - **Platform strings:** `index.js` and `config.js` must agree — a platform handled in one but not the other silently falls back to the default UI (this is how both the gabbro toggle bug and the aplite regression happened)
 - **Settings blob:** do not append fields to `RadiumSettings` casually — it is read/written whole at `SETTINGS_KEY`. Put new options in their own small persist blob (as `PACE_KEY` does)
 - `package.json` `version` lags the live release; it is only a manifest value — bump it deliberately at release time
-- Aplite memory: v2.4 added ~12KB of C source; aplite's app-size limit has not been checked against it — watch the CloudPebble build output for aplite
+- Aplite memory: v2.4 added ~14KB of C source; aplite's app-size limit has not been checked against it — watch the CloudPebble build output for aplite
+- Sterling edits files directly too; always fetch the current SHA (and re-read the file if the commit log shows a newer commit) before pushing
 
 ---
 
@@ -357,12 +367,13 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 
 **LIVE** — Update as work progresses.
 
-1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro large-overlay toggle; Quick View on gabbro; UV/AQI lines populate; pace color + marker; new info lines; aplite config page and aplite binary size
-2. Decide the default for *Color steps by pace* and *Pace marker* (currently both off)
-3. Tune `PACE_MIN_EXPECTED` (300) if the early-morning cutoff feels wrong
-4. Decide whether rect platforms (emery) should also ignore Quick View, for consistency with round
-5. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version; create the GitHub release tag via the web UI
-6. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
+1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro overlay size selector; Quick View on gabbro; UV/AQI lines populate; pace color + marker; new info lines; aplite config page and aplite binary size
+2. **Tune the Large overlay** on emery and gabbro: circle radius (`OVERLAY_LARGE_R`), time box height, and the info-line nudges in the Large block of the overlay section; check the LECO_60 time fits the circle at 24h and with long date strings
+3. Decide whether Large should also get bigger info lines (`GOTHIC_28_BOLD` + a ≈17px icon set) — larger job, not started
+4. Tune `PACE_MIN_EXPECTED` (300) if the early-morning cutoff feels wrong
+5. Sterling is reviewing whether emery should keep its fit-to-Quick-View behavior or ignore Quick View like the round watches (he currently likes the fitted behavior)
+6. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version; create the GitHub release tag via the web UI
+7. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
 
 ---
 
@@ -370,8 +381,8 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 
 Before shipping any new version:
 
-1. Build for all seven platforms in CloudPebble (watch aplite size) and install on at least one physical device (currently emery; gabbro now available)
-2. Large-overlay toggle appears and defaults correctly on emery and gabbro; Quick View leaves the gabbro face unmoved
+1. Build for all seven platforms in CloudPebble (watch aplite size) and install on at least one physical device (emery and gabbro both available)
+2. Overlay size selector appears on emery and gabbro with Medium checked by default; Small/Medium/Large each draw correctly with 0, 1 and 2 info lines above and below; Quick View leaves the gabbro face unmoved
 3. HR shows a live BPM (not `--`) on emery
 4. UV and AQI lines show values after the phone connects, and read `--` after 3 hours without an update
 5. Pace: with *Color steps by pace* on, the steps arc color tracks pace; fill length still matches steps ÷ goal; the marker sits at typical ÷ goal; both disappear cleanly with no history or in solar mode
@@ -402,19 +413,22 @@ Before shipping any new version:
 | Repebble store | https://apps.repebble.com/radium-2_69a6531826cc4f0009c65926 |
 | Open-Meteo forecast API | https://open-meteo.com/en/docs |
 | Open-Meteo air-quality API | https://open-meteo.com/en/docs/air-quality-api |
+| Pebble system fonts (LECO_60 availability) | https://developer.repebble.com/guides/app-resources/system-fonts/ |
 
 ---
 
 ## Unresolved Questions
 
-- **Gabbro touchscreen:** this file has said "touch: emery only"; PixelSampler's context says gabbro has a secondary touchscreen. Unverified — Sterling has the device and can confirm.
+- Whether the Large overlay fits well on emery's 200px width (circle radius 84 leaves only a thin band of starburst at the sides) — judge on device.
 - Whether gabbro exposes calories/sleep/steps in the SDK as expected (PixelSampler flagged calories as unconfirmed pending hardware).
 - Whether an appended `RadiumSettings` field would have been safe without a `SETTINGS_KEY` bump (never tested; avoided by using `PACE_KEY`).
+
+(Resolved 2026-10-13: gabbro has a touchscreen, per Sterling; the earlier "touch: emery only" note was wrong.)
 
 ---
 
 ## Last Updated
 
-2026-10-13 — v2.3.1 live and stable. v2.4 (unreleased) work on master, uncompiled: gabbro/Quick View/aplite/solar fixes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker.
+2026-10-13 — v2.3.1 live and stable. v2.4 (unreleased) work on master, uncompiled: three overlay sizes (Large/LECO_60), gabbro/Quick View/aplite/solar fixes, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on).
 
 Previous: 2026-09-28 — v2.3.1 GitHub release created (tag `v2.3.1` on `91eda9f`, the 2026-05-24 release commit); release-tag TODO closed.
