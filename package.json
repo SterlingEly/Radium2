@@ -47,7 +47,9 @@
             "UvIndex",
             "AqiIndex",
             "PaceColor",
-            "PaceMarker"
+            "PaceMarker",
+            "PaceMarkerColor",
+            "BattColorOverride"
         ],
         "projectType": "native",
         "resources": {
