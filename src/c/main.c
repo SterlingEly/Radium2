@@ -167,14 +167,14 @@ static void prv_load_settings(void) {
 // never changes the RadiumSettings layout and never resets anyone's saved settings.
 //   PaceColor:  color the lit steps arc by pace (fill length still = steps / goal)
 //   PaceMarker: draw a notch where a typical day would put you on the steps arc
-// Both default off.
+// Both default ON (Sterling, 2026-10-13). They only take effect with usable health history.
 // ------------------------------------------------------------
 typedef struct {
   bool PaceColor;
   bool PaceMarker;
 } PaceSettings;
 
-static PaceSettings s_pace = { false, false };
+static PaceSettings s_pace = { true, true };
 
 static void prv_save_pace(void) {
   persist_write_data(PACE_KEY, &s_pace, sizeof(s_pace));
