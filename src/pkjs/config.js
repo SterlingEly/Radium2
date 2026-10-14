@@ -344,8 +344,19 @@ module.exports = {
           : '')
       + '<div class="row"><label>Pace marker on ring</label>' +
         '<label class="toggle"><input type="checkbox" id="PaceMarker" checked><span class="knob"></span></label></div>'
+      + (hasPaceColor
+          ? '<div class="row"><label>Pace marker color</label>' +
+            '<div class="swatch" id="sw-PaceMarkerColor" onclick="openPicker(\'PaceMarkerColor\')"></div></div>'
+          : '')
       + '<span class="note">Pace compares your steps so far today with a typical day (same weekday, last 4 weeks). ' +
-        'Steps &amp; Battery ring only. The marker shows where a typical day would put you.</span>';
+        'Steps &amp; Battery ring only. The marker shows where a typical day would put you. Presets set the marker to the time text color.</span>';
+
+    // Optional battery color override (color platforms only): <=20% red, 21-50% yellow, 51-100% green.
+    // Applies to the battery ring (Steps & Battery mode) and the Battery info line. Default OFF.
+    var battRows = (isAplite || platform === 'bw') ? '' :
+        '<div class="row"><label>Battery level colors</label>' +
+        '<label class="toggle"><input type="checkbox" id="BattColorOverride"><span class="knob"></span></label></div>' +
+        '<span class="note">Red up to 20%, yellow up to 50%, green above. Overrides the battery ring and Battery info line colors.</span>';
 
     var platformData = 'var PLATFORM=' + JSON.stringify(platform || 'color') + ';'
       + 'var CURRENT=' + JSON.stringify(currentSettings || null) + ';';
@@ -539,6 +550,7 @@ module.exports = {
       + '<input type="radio" name="ringmode" id="rm1" value="1"><label for="rm1">Sunrise &amp; Sunset</label>'
       + '</div>'
       + paceRows
+      + battRows
       + '</div>'
 
       + (isAplite ? '' :
@@ -564,7 +576,7 @@ module.exports = {
       + 'LitHourColor:"#00ff00",LitMinuteColor:"#00ff00",LitBatteryColor:"#00ff00",LitStepsColor:"#00ff00",'
       + 'DimHourColor:"#005500",DimMinuteColor:"#005500",DimBatteryColor:"#005500",DimStepsColor:"#005500",'
       + 'HourTipColor:"#aaffaa",MinuteTipColor:"#aaffaa",'
-      + 'Line1Color:"#00ff00",Line2Color:"#aaffaa",Line3Color:"#aaffaa",Line4Color:"#00ff00"'
+      + 'Line1Color:"#00ff00",Line2Color:"#aaffaa",Line3Color:"#aaffaa",Line4Color:"#00ff00",PaceMarkerColor:"#ffffff"'
       + '};'
 
       + 'function updateSwatches(key,hex){'
@@ -621,13 +633,15 @@ module.exports = {
       + 'if(k==="OverlayMode"){var el=document.getElementById("ov"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="RingMode"){var el=document.getElementById("rm"+CURRENT[k]);if(el)el.checked=true;}'
       + 'else if(k==="OverlaySize"){var el=document.getElementById("os"+CURRENT[k]);if(el)el.checked=true;}'
-      + 'else if(k==="PaceColor"||k==="PaceMarker"){var el=document.getElementById(k);if(el)el.checked=!!CURRENT[k];}'
+      + 'else if(k==="PaceColor"||k==="PaceMarker"||k==="BattColorOverride"){var el=document.getElementById(k);if(el)el.checked=!!CURRENT[k];}'
       + 'else if(k==="InvertBW"){document.getElementById("InvertBW").checked=!!CURRENT[k];}'
       + 'else if(k==="ShowRing"){document.getElementById("ShowRing").checked=!!CURRENT[k];}'
       + 'else if(k==="StepGoal"){var el=document.getElementById("StepGoal");if(el){el.value=CURRENT[k];document.getElementById("goalVal").textContent=parseInt(CURRENT[k]).toLocaleString();}}'
       + 'else if(k==="Line1Field"||k==="Line2Field"||k==="Line3Field"||k==="Line4Field"){var el=document.getElementById(k);if(el)el.value=CURRENT[k];}'
       + 'else if(colors[k]!==undefined){var hex="#"+(CURRENT[k]>>>0).toString(16).padStart(6,"0");updateSwatches(k,hex);}'
       + '});'
+      // Older saves have no marker color: start it from the time color (the intended default).
+      + 'if(CURRENT.PaceMarkerColor===undefined&&CURRENT.TimeColor!==undefined){updateSwatches("PaceMarkerColor","#"+(CURRENT.TimeColor>>>0).toString(16).padStart(6,"0"));}'
       + '}catch(e){}}'
 
       // Color section for color platforms only; B&W section (invert) for aplite and bw.
@@ -638,7 +652,7 @@ module.exports = {
 
       + 'function applyPreset(i){var p=PRESETS[i];'
       + 'updateSwatches("BackgroundColor",p.bg);updateSwatches("OverlayColor",p.obg);'
-      + 'updateSwatches("TimeColor",p.tt);'
+      + 'updateSwatches("TimeColor",p.tt);updateSwatches("PaceMarkerColor",p.tt);'
       + 'updateSwatches("Line1Color",p.l1);updateSwatches("Line2Color",p.l2);'
       + 'updateSwatches("Line3Color",p.l3);updateSwatches("Line4Color",p.l4);'
       + 'updateSwatches("LitHourColor",p.lH);updateSwatches("LitMinuteColor",p.lM);'
@@ -665,11 +679,12 @@ module.exports = {
       + 'Line1Color:h(colors.Line1Color),Line2Color:h(colors.Line2Color),'
       + 'Line3Color:h(colors.Line3Color),Line4Color:h(colors.Line4Color),'
       + 'InvertBW:tog("InvertBW"),ShowRing:tog("ShowRing"),OverlaySize:rad("osize"),'
-      + 'PaceColor:tog("PaceColor"),PaceMarker:tog("PaceMarker"),'
+      + 'PaceColor:tog("PaceColor"),PaceMarker:tog("PaceMarker"),PaceMarkerColor:h(colors.PaceMarkerColor),BattColorOverride:tog("BattColorOverride"),'
       + 'StepGoal:parseInt((document.getElementById("StepGoal")||{value:"10000"}).value),'
       + 'Line1Field:sel("Line1Field"),Line2Field:sel("Line2Field"),'
       + 'Line3Field:sel("Line3Field"),Line4Field:sel("Line4Field")'
       + '};'
+      + 'if(PLATFORM==="bw"||PLATFORM==="aplite"){delete s.PaceMarkerColor;delete s.BattColorOverride;}'
       + 'window.location="pebblejs://close#"+encodeURIComponent(JSON.stringify(s));}'
 
       + 'loadSettings();initSwatches();applyPlatform();'
