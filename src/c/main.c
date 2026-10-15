@@ -34,17 +34,17 @@
 
 // Overlay sizes. The stored value 1 was called "large" through v2.3.1; it is now "medium" and
 // looks exactly the same, so existing saved settings keep working. The new Large is value 2.
-// v2.5: circles standardized to 60 / 70 / 80 on every platform; icons are TallBoy's (12px / 16px);
-// every time font is bold (Medium's LECO_42 has no bold cut, so it is overstruck, see LECO_42_BOLD_PX).
+// v2.5: circles standardized to 60 / 70 / 80 on every platform; icons are TallBoy's (12px / 16px).
+// Small uses LECO_36 Bold and Large LECO_60 Bold; Medium stays on regular LECO_42 (no bold cut exists;
+// the overstrike hack was tried and removed, Sterling decides after using it).
 #define OVERLAY_SMALL   0   // LECO_36 Bold time, GOTHIC_18_BOLD lines, 12px icons, 60px circle
-#define OVERLAY_MEDIUM  1   // LECO_42 (overstruck bold) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
+#define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
 #define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 Bold time, same lines/icons as medium, 80px circle
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   80
-// The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60). Medium draws the regular 42
-// font (2*N+1)^2 times, offset by up to N px each way, to thicken the strokes. 0 = plain regular.
-#define LECO_42_BOLD_PX   1
+// The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60), so Medium uses regular 42.
+// Bold alternative if wanted: LECO_38_BOLD_NUMBERS (close to Small's 36).
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
 // on any other platform would not compile. Elsewhere Large is treated as Medium.
@@ -1473,7 +1473,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int time_h, cap_h, line_gap, single_offset;
     int time_dy, top2_nudge, bot1_nudge, bot2_nudge;
     GFont time_font;
-    int time_bold = 0;   // overstrike radius in px (0 = the font is drawn once)
 
     if (!large) {
       // Small
@@ -1489,7 +1488,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     } else {
       // Medium (the old "large")
       time_font     = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
-      time_bold     = LECO_42_BOLD_PX;
       time_h        = 52;
       cap_h         = 14;
       line_gap      = 7;
@@ -1502,7 +1500,6 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       if (xl) {
         // Large: same lines and icons as Medium, much bigger time
         time_font     = fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
-        time_bold     = 0;
         time_h        = 70;
         cap_h         = 14;
         line_gap      = 9;
@@ -1529,13 +1526,9 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int bot_count = (f3 ? 1 : 0) + (f4 ? 1 : 0);
 
     graphics_context_set_text_color(ctx, col_time);
-    for (int oy = -time_bold; oy <= time_bold; oy++) {
-      for (int ox = -time_bold; ox <= time_bold; ox++) {
-        graphics_draw_text(ctx, s_time_buffer, time_font,
-          GRect(ox, time_y + oy, w, time_h + 4),
-          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-      }
-    }
+    graphics_draw_text(ctx, s_time_buffer, time_font,
+      GRect(0, time_y, w, time_h + 4),
+      GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
