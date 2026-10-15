@@ -10,7 +10,7 @@
 Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 test is under way).
 
 ### Three overlay sizes (emery and gabbro)
-- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, bigger circle (80px emery, 94px gabbro — tunable via `OVERLAY_LARGE_R`; trimmed from 84/100 after the first device look on 2026-10-14)
+- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, 80px circle on every platform (`OVERLAY_LARGE_R`; it started at 84 emery / 100 gabbro, was trimmed to 80 / 94 after the first device look, then standardized — see the 2026-10-14 overlay alignment pass below)
 - The settings page now has a Small / Medium / Large selector instead of a single "Large overlay" toggle
 - Existing settings are unaffected: the stored value `1` used to mean "Large" and now means **Medium** with exactly the same look; Medium is still the default on emery/gabbro
 - Large geometry (line spacing and nudges) is an estimate scaled from Medium. After the first device look the two lines below the time were moved down 4px (`bot1_nudge` -11 → -7, `bot2_nudge` -10 → -6) because the first line above the time sat farther from it than the first line below; the 4px is a guess, so adjust both nudges together if the gaps still differ. Line spacing (`line_gap`) was deliberately not widened: the outer lines already sit near the circle edge
@@ -31,6 +31,12 @@ Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 tes
 - "Typical" = same-weekday average over up to 4 weeks (Pebble Health, weekly scope). Pace is hidden when typical-so-far is under 300 steps (too noisy early in the day)
 - Both options **default on** (Sterling's decision, 2026-10-13); Steps & Battery ring mode only; stored in their own persist key (`PACE_KEY=10`) so `RadiumSettings` and existing saved settings are untouched
 - The settings page shows both toggles checked by default, matching the watch
+
+### Overlay alignment pass (2026-10-14; labeled "v2.5" in `main.c`, still unreleased)
+- **Icons match TallBoy's**: same pixel art and the same icon-to-text relation — small tier 12px icon / 3px gap / Gothic 18 Bold / 20px box / icon top +4; large tier 16px icon / 4px gap / Gothic 24 Bold / 28px box / icon top +9. Replaces the 11px/14px icons. The BT disconnected rune is centered and the "!" dot is gone
+- **Circles standardized** to 60 / 70 / 80 on every platform (Small was 58; gabbro Large was 94 → now 80)
+- **Bold Lecos**: Small `LECO_36_BOLD`, Large `LECO_60_BOLD_NUMBERS_AM_PM` (was regular). Medium stays regular `LECO_42` — no Leco 42 bold exists in the system fonts; an overstrike workaround was tried and removed. Sterling decides after use whether Large stays bold / Medium moves to `LECO_38_BOLD_NUMBERS`
+- Next Gothic Bold above 24 is `GOTHIC_28_BOLD` (not used)
 
 ### Ring gap, marker color, battery colors (2026-10-14)
 - **Gabbro ring gap doubled**: the bg-colored gap between the outer ring and the tick radials is now 4px on gabbro (`RING_GAP`), was 2px. Ring is still 6px thick (radius 124–130); ticks now end at radius 120. Other platforms stay at 2px; emery can follow if wanted
