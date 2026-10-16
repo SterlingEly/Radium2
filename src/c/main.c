@@ -39,10 +39,10 @@
 // regular LECO_36 (Sterling found the bold LECO_60 too heavy on device and had it reverted 2026-10-16).
 #define OVERLAY_SMALL   0   // LECO_36 Bold time (only cut at that size), GOTHIC_18_BOLD lines, 12px icons, 60px circle
 #define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
-#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 80px circle
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 86px circle
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
-#define OVERLAY_LARGE_R   80
+#define OVERLAY_LARGE_R   86   // 2026-10-16: +6 (was 80)
 // The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60_BOLD_NUMBERS_AM_PM), so Medium uses regular 42.
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
@@ -53,6 +53,7 @@
 
 // History: Large circle was 84 (emery) / 100 (gabbro) in v2.3-2.4a, trimmed to 80 / 94 after the first
 // device look, and standardized to 80 on both in v2.5 (Sterling, 2026-10-14). Small was 58 until v2.5.
+// 2026-10-16: Large raised 80 -> 86 on every platform (Sterling asked for +6px).
 
 // Info line field IDs
 #define FIELD_NONE       0
@@ -1470,7 +1471,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     // font sits in its text box. Small and Medium are tuned on device; Large is a first estimate
     // (Medium's values scaled by the font size) and the first thing to adjust if it looks off.
     int time_h, cap_h, line_gap, single_offset;
-    int time_dy, top2_nudge, bot1_nudge, bot2_nudge;
+    int time_dy, top1_nudge, top2_nudge, bot1_nudge, bot2_nudge;
     GFont time_font;
 
     if (!large) {
@@ -1481,6 +1482,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       line_gap      = 6;
       single_offset = 12;
       time_dy       = -3;
+      top1_nudge    = 0;
       top2_nudge    = 0;
       bot1_nudge    = -1;
       bot2_nudge    = 0;
@@ -1492,6 +1494,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       line_gap      = 7;
       single_offset = 16;
       time_dy       = -1;
+      top1_nudge    = 0;
       top2_nudge    = -2;
       bot1_nudge    = -8;
       bot2_nudge    = -7;
@@ -1504,7 +1507,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         line_gap      = 9;
         single_offset = 18;
         time_dy       = -2;
-        top2_nudge    = -3;
+        // Top lines +4 (down, toward the time) on 2026-10-16: they sat further from the digits than
+        // the bottom lines did. Box-relative offsets already matched Medium, so the difference is
+        // where LECO_60's digits sit inside its text box; this is a measured-by-eye estimate.
+        // If it is still off by n px, change top1_nudge and top2_nudge together by n.
+        top1_nudge    = 4;
+        top2_nudge    = 1;
         // Bottom lines +4 (down) after device review: the first line below the time sat closer
         // to it than the first line above did. If the gaps still differ, adjust these two by
         // the difference (keep them moving together).
@@ -1532,7 +1540,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      draw_info_line(ctx, field, time_y - single_offset - cap_h + 5, w, cx, col, large);
+      draw_info_line(ctx, field, time_y - single_offset - cap_h + 5 + top1_nudge, w, cx, col, large);
     } else if (top_count == 2) {
       int inner_y = time_y - font_pad - line_gap + 1 + top2_nudge;
       int outer_y = inner_y - stride;
