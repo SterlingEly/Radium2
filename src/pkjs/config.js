@@ -344,12 +344,8 @@ module.exports = {
           : '')
       + '<div class="row"><label>Pace marker on ring</label>' +
         '<label class="toggle"><input type="checkbox" id="PaceMarker" checked><span class="knob"></span></label></div>'
-      + (hasPaceColor
-          ? '<div class="row"><label>Pace marker color</label>' +
-            '<div class="swatch" id="sw-PaceMarkerColor" onclick="openPicker(\'PaceMarkerColor\')"></div></div>'
-          : '')
       + '<span class="note">Pace compares your steps so far today with a typical day (same weekday, last 4 weeks). ' +
-        'Steps &amp; Battery ring only. The marker shows where a typical day would put you. Presets set the marker to the time text color.</span>';
+        'Steps &amp; Battery ring only. The marker shows where a typical day would put you. Its color is under Colors &rarr; Lit &rarr; Outer Ring; presets set it to the time text color.</span>';
 
     // Optional battery color override (color platforms only): <=20% red, 21-50% yellow, 51-100% green.
     // Applies to the battery ring only (Steps & Battery mode); info line colors are untouched. Default OFF.
@@ -516,6 +512,7 @@ module.exports = {
       + '<div class="sub-sub-rows" id="sub2-litring">'
       + '<div class="sub-sub-row"><label>Battery / Day</label><div class="swatch" id="sw-LitBatteryColor" onclick="openPicker(\'LitBatteryColor\')"></div></div>'
       + '<div class="sub-sub-row"><label>Steps / Night</label><div class="swatch" id="sw-LitStepsColor" onclick="openPicker(\'LitStepsColor\')"></div></div>'
+      + (platform === 'bw' || platform === 'aplite' ? '' : '<div class="sub-sub-row"><label>Pace marker</label><div class="swatch" id="sw-PaceMarkerColor" onclick="openPicker(\'PaceMarkerColor\')"></div></div>')
       + '</div></div>'
 
       + '<div class="expand-row" onclick="toggle(\'dim\')"><label>Unlit</label><div class="right"><div class="swatch" id="sw-DimAll" onclick="openPicker(\'DimAll\');event.stopPropagation()"></div><span class="expand-btn" id="btn-dim">+</span></div></div>'
