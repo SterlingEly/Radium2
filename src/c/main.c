@@ -35,16 +35,15 @@
 // Overlay sizes. The stored value 1 was called "large" through v2.3.1; it is now "medium" and
 // looks exactly the same, so existing saved settings keep working. The new Large is value 2.
 // v2.5: circles standardized to 60 / 70 / 80 on every platform; icons are TallBoy's (12px / 16px).
-// Small uses LECO_36 Bold and Large LECO_60 Bold; Medium stays on regular LECO_42 (no bold cut exists;
-// the overstrike hack was tried and removed, Sterling decides after using it).
-#define OVERLAY_SMALL   0   // LECO_36 Bold time, GOTHIC_18_BOLD lines, 12px icons, 60px circle
+// Medium and Large use the regular LECO_42 / LECO_60 cuts; Small keeps LECO_36 Bold because there is no
+// regular LECO_36 (Sterling found the bold LECO_60 too heavy on device and had it reverted 2026-10-16).
+#define OVERLAY_SMALL   0   // LECO_36 Bold time (only cut at that size), GOTHIC_18_BOLD lines, 12px icons, 60px circle
 #define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
-#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 Bold time, same lines/icons as medium, 80px circle
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 80px circle
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   80
-// The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60), so Medium uses regular 42.
-// Bold alternative if wanted: LECO_38_BOLD_NUMBERS (close to Small's 36).
+// The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60_BOLD_NUMBERS_AM_PM), so Medium uses regular 42.
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
 // on any other platform would not compile. Elsewhere Large is treated as Medium.
@@ -1499,7 +1498,7 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #if defined(HAS_LARGE_OVERLAY)
       if (xl) {
         // Large: same lines and icons as Medium, much bigger time
-        time_font     = fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
+        time_font     = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
         time_h        = 70;
         cap_h         = 14;
         line_gap      = 9;
