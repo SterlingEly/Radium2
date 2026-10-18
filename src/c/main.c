@@ -8,14 +8,16 @@
 #define SOLAR_KEY         9          // separate persist key for solar timestamps
 #define PACE_KEY          10         // separate persist key for pace options (keeps RadiumSettings layout untouched)
 #define DEFAULT_STEP_GOAL 10000
-// Gap between the outer ring and the tick radials (bg-colored). Gabbro doubled to 4 (Sterling, 2026-10-14);
-// other platforms stay at 2. Round ring: radius 124..130 on gabbro, ticks end at 130-6-4 = 120.
+// Outer ring thickness and the gap between it and the tick radials (bg-colored).
+// Gabbro: gap doubled to 4 on 2026-10-14, then ring 6 -> 8 and gap 4 -> 6 on 2026-10-17 (Sterling).
+// Round ring on gabbro: radius 122..130, ticks end at 130-8-6 = 116. Other platforms: ring 6, gap 2.
 #if defined(PBL_PLATFORM_GABBRO)
-#define RING_GAP          4
+#define RING_GAP          6
+#define RING_THICK        8          // outer ring thickness (px)
 #else
 #define RING_GAP          2
-#endif
 #define RING_THICK        6          // outer ring thickness (px)
+#endif
 
 // UV / AQI age out after this long without a phone update ("hide > mislead").
 // Sunrise/sunset are astronomical and never age out; temperature keeps its old behavior.
@@ -38,11 +40,11 @@
 // Medium and Large use the regular LECO_42 / LECO_60 cuts; Small keeps LECO_36 Bold because there is no
 // regular LECO_36 (Sterling found the bold LECO_60 too heavy on device and had it reverted 2026-10-16).
 #define OVERLAY_SMALL   0   // LECO_36 Bold time (only cut at that size), GOTHIC_18_BOLD lines, 12px icons, 60px circle
-#define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
-#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 85px circle
+#define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery)
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 90px circle (default on gabbro)
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
-#define OVERLAY_LARGE_R   85   // 2026-10-17: circle 10px wider than the original 80 (diameter 160 -> 170); briefly 86 and 91 on 2026-10-16
+#define OVERLAY_LARGE_R   90   // 2026-10-17: 80 -> 85 looked unchanged on device, so 90 (diameter 180); briefly 86 and 91 on 2026-10-16
 // The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60_BOLD_NUMBERS_AM_PM), so Medium uses regular 42.
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
@@ -53,7 +55,7 @@
 
 // History: Large circle was 84 (emery) / 100 (gabbro) in v2.3-2.4a, trimmed to 80 / 94 after the first
 // device look, and standardized to 80 on both in v2.5 (Sterling, 2026-10-14). Small was 58 until v2.5.
-// 2026-10-16/17: Large was tried at 86 (+6) and 91, then set to 85 = original 80 + 10px diameter (Sterling, 2026-10-17).
+// 2026-10-16/17: Large was tried at 86 (+6), 91 and 85 (85 looked the same as 80 on device), then set to 90 (Sterling, 2026-10-17).
 
 // Info line field IDs
 #define FIELD_NONE       0
@@ -171,8 +173,10 @@ static void prv_default_settings(void) {
   s_settings.Line2Field  = FIELD_DAY_LONG;
   s_settings.Line3Field  = FIELD_DATE;
   s_settings.Line4Field  = FIELD_NONE;
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-  s_settings.OverlaySize = OVERLAY_MEDIUM;  // high-res screens default to the 70px overlay (same look as the old "large")
+#if defined(PBL_PLATFORM_GABBRO)
+  s_settings.OverlaySize = OVERLAY_LARGE;   // gabbro defaults to Large (Sterling, 2026-10-17); saved settings still win
+#elif defined(PBL_PLATFORM_EMERY)
+  s_settings.OverlaySize = OVERLAY_MEDIUM;  // emery keeps the 70px overlay (same look as the old "large")
 #else
   s_settings.OverlaySize = OVERLAY_SMALL;
 #endif
