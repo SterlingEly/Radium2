@@ -39,10 +39,10 @@
 // regular LECO_36 (Sterling found the bold LECO_60 too heavy on device and had it reverted 2026-10-16).
 #define OVERLAY_SMALL   0   // LECO_36 Bold time (only cut at that size), GOTHIC_18_BOLD lines, 12px icons, 60px circle
 #define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery/gabbro)
-#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 91px circle
+#define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 85px circle
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
-#define OVERLAY_LARGE_R   91   // 2026-10-16: 80 -> 86 (+6), then 86 -> 91 (circle 10px wider = +5 radius)
+#define OVERLAY_LARGE_R   85   // 2026-10-17: circle 10px wider than the original 80 (diameter 160 -> 170); briefly 86 and 91 on 2026-10-16
 // The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60_BOLD_NUMBERS_AM_PM), so Medium uses regular 42.
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
@@ -53,7 +53,7 @@
 
 // History: Large circle was 84 (emery) / 100 (gabbro) in v2.3-2.4a, trimmed to 80 / 94 after the first
 // device look, and standardized to 80 on both in v2.5 (Sterling, 2026-10-14). Small was 58 until v2.5.
-// 2026-10-16: Large raised 80 -> 86 on every platform (Sterling asked for +6px), then 86 -> 91 (circle 10px wider).
+// 2026-10-16/17: Large was tried at 86 (+6) and 91, then set to 85 = original 80 + 10px diameter (Sterling, 2026-10-17).
 
 // Info line field IDs
 #define FIELD_NONE       0
