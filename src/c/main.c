@@ -14,9 +14,11 @@
 #if defined(PBL_PLATFORM_GABBRO)
 #define RING_GAP          6
 #define RING_THICK        8          // outer ring thickness (px)
+#define MARKER_EXTRA      3          // pace notch reaches ring + 3 = halfway across the 6px gap (Sterling, 2026-10-17)
 #else
 #define RING_GAP          2
 #define RING_THICK        6          // outer ring thickness (px)
+#define MARKER_EXTRA      2          // pace notch protrudes 2px past the ring
 #endif
 
 // UV / AQI age out after this long without a phone update ("hide > mislead").
@@ -1361,12 +1363,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
         }
       }
       if (marker_pct >= 0) {
-        // ~3 degree notch, protruding 2px inward past the ring
+        // ~3 degree notch, protruding MARKER_EXTRA px inward past the ring
         int a  = 183 + (174 * marker_pct) / 100;
         int a0 = a - 1; if (a0 < 181) a0 = 181;
         int a1 = a + 2; if (a1 > 359) a1 = 359;
         graphics_context_set_fill_color(ctx, col_marker);
-        graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK + 2,
+        graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, RING_THICK + MARKER_EXTRA,
                              DEG_TO_TRIGANGLE(a0), DEG_TO_TRIGANGLE(a1));
       }
     } else {
@@ -1453,18 +1455,18 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       }
 
       if (marker_pct >= 0) {
-        // Pace notch along the steps path (bottom -> left -> top), 3px wide, protruding 2px inward.
+        // Pace notch along the steps path (bottom -> left -> top), 3px wide, protruding MARKER_EXTRA px inward.
         int pos = (total * marker_pct) / 100;
         graphics_context_set_fill_color(ctx, col_marker);
         if (pos <= half_w) {
           int x = cx - gap - pos;
-          graphics_fill_rect(ctx, GRect(x - 1, h - t - 2, 3, t + 2), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(x - 1, h - t - MARKER_EXTRA, 3, t + MARKER_EXTRA), 0, GCornerNone);
         } else if (pos <= half_w + h) {
           int y = h - (pos - half_w);
-          graphics_fill_rect(ctx, GRect(0, y - 1, t + 2, 3), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(0, y - 1, t + MARKER_EXTRA, 3), 0, GCornerNone);
         } else {
           int x = pos - half_w - h;
-          graphics_fill_rect(ctx, GRect(x - 1, 0, 3, t + 2), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(x - 1, 0, 3, t + MARKER_EXTRA), 0, GCornerNone);
         }
       }
     }
