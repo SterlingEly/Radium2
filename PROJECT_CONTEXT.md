@@ -417,7 +417,7 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 4. Tune `PACE_MIN_EXPECTED` (300) if the early-morning cutoff feels wrong
 5. Sterling is reviewing whether emery should keep its fit-to-Quick-View behavior or ignore Quick View like the round watches (he currently likes the fitted behavior)
 6. Possibly make ring thickness and gap user-configurable (gabbro is now 8 / 6, chosen by Sterling on device 2026-10-17)
-7. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version (currently the stale `2.3.0`); create the GitHub release tag via the web UI
+7. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; fold the "NEXT RELEASE (DRAFT)" block in `STORE_LISTING.md` into the live copy and add the final v2.4 release notes; set `package.json` version (currently the stale `2.3.0`); create the GitHub release tag via the web UI
 8. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
 9. **Pebble plugins (preview, announced 2026-10-23):** evaluate whether weather, UV/AQI and similar data should come from plugins instead of `index.js` fetching them directly (the guide is linked below; not yet read in detail). Do not start without Sterling's go-ahead
 
@@ -445,7 +445,7 @@ Before shipping any new version:
 |------------|-----|-------------|
 | TallBoy | https://github.com/SterlingEly/TallBoy | Sibling watchface; the pace color, UV/AQI/sleep/typical-steps data types and the 3-hour hide-when-stale rule were ported from here. TallBoy's round wide mode later followed Radium's few-short-lines approach |
 | BarGraph2 | https://github.com/SterlingEly/BarGraph2 | Sibling watchface; rebuilds Sterling's original 2013 bar graph design |
-| Monogram | https://github.com/SterlingEly/Monogram | Sibling watchface scaffolded from this repo; custom monogram-style digits, blocked on asset creation |
+| Monogram | https://github.com/SterlingEly/Monogram | Sibling watchface scaffolded from this repo; custom monogram-style digits. **Shelved 2026-10-24** (TallBoy on round covers about 90% of the intent; repo kept) |
 | PixelSampler | https://github.com/SterlingEly/PixelSampler | Developer reference tool for Pebble fonts, colors and hardware capabilities (its hardware table is the best-sourced platform reference) |
 | radium (v1) | https://github.com/MathewReiss/radium | Original Radium v1 implementation (2016) |
 
@@ -477,6 +477,8 @@ Before shipping any new version:
 ---
 
 ## Last Updated
+
+2026-10-24 (later) — Store listing: a labeled "NEXT RELEASE (DRAFT)" v2.4 block was added to `STORE_LISTING.md` (live v2.3.1 copy untouched); Monogram marked shelved in Related Projects. No code change.
 
 2026-10-24 — Final overlay/ring state documented: Large radius 90 (regular LECO_60), gabbro ring 8 / gap 6, notch ring + 3 (`MARKER_EXTRA`), gabbro defaults to Large, marker color under Colors → Lit → Outer Ring; stale 80px / bold-Large / gap-4 statements corrected. `main.c` on `master` at `d3ae670`; the `config.js` default fix is `eb63576` (now pre-checks Large on gabbro; TODO 2c done). Added a TODO for evaluating Pebble plugins.
 
