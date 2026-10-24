@@ -1,5 +1,7 @@
 # Radium 2 — Store Listing
 
+> The sections down to "Release Notes" are the **live v2.3.1 listing**. The "NEXT RELEASE (DRAFT)" block at the end is unreleased v2.4 material and is not live.
+
 ## Name
 Radium 2
 
@@ -84,3 +86,34 @@ Solar Ring, new Info Fields, and a Bluetooth Disconnect Indicator, oh my!
 - Overlay with day / time / date; shake-to-toggle
 - 24 color presets (Dark, Light, Color), 9 color slots
 - Supports all Pebble platforms including Pebble Round 2
+
+---
+
+## NEXT RELEASE (DRAFT) — v2.4, public number TBD. NOT LIVE.
+
+Drafted 2026-10-24 from `CHANGELOG.md` ("v2.4 unreleased"). Not compiled against the real SDK; only the overlay and ring on a Pebble Round 2 have been looked at on a device. Do not publish until it has been built and tested.
+
+### Changes to the live copy when v2.4 ships
+- FEATURES: replace "Two info overlay sizes for new Pebbles: Small and Large (Large default on Pebble Time 2 and Round 2)" with "Three info overlay sizes on Pebble Time 2 and Round 2: Small, Medium and Large (Large is the default on Round 2, Medium on Time 2)"
+- FEATURES: add the new info fields and pace features listed below
+- Add the attribution line below
+
+### Draft release notes
+
+#### v2.4
+Bigger overlay, more info, and a pace-aware ring.
+- New Large overlay size on Pebble Time 2 and Round 2: a big 60-point time with the same info lines. Pick Small, Medium or Large in settings. (The old "Large" setting is now Medium, with exactly the same look.) Large is the default on Round 2
+- New info line fields: UV Index, Air Quality (US AQI), Step Pace %, Typical Steps, Light Left (daylight remaining, or time to sunrise at night), and Sleep
+- Pace on the outer ring: the steps arc can take a color that shows how today compares with your typical day, and an optional notch marks where a typical day would have put you
+- Optional battery level colors (red / yellow / green) on the battery ring, on color watches
+- Thicker outer ring on Pebble Round 2
+- Info icons redrawn to match the TallBoy watchface
+- Weather, UV and air quality now arrive in a single update, so one failed request no longer blocks the others
+
+### Attribution (required before release)
+Air quality data is CAMS ENSEMBLE (Copernicus Atmosphere Monitoring Service), served by Open-Meteo. Add an acknowledgement of both to the store listing and README. Tracked as a release TODO in `PROJECT_CONTEXT.md`.
+
+### Other pre-release items
+- `package.json` still says 2.3.0; set it to the release number
+- Create the release tag (not possible through the GitHub bridge; web UI step)
+- Check whether the Pebble Plugins preview (announced 2026-10-23) changes anything about location or URL permissions for existing faces before shipping
