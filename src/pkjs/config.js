@@ -320,16 +320,17 @@ module.exports = {
     // Overlay size selector: Small / Medium / Large, on emery (Pebble Time 2) and gabbro (Pebble Round 2).
     // chalk = Pebble Time Round (original, small) and the other platforms only have the small overlay.
     // Values match OVERLAY_* in main.c: 0 = Small, 1 = Medium (was "Large" through v2.3.1 -- same look),
-    // 2 = Large (LECO_60 time, emery/gabbro only). Medium is checked by default because the C code
-    // defaults to OVERLAY_MEDIUM on these platforms.
+    // 2 = Large (regular LECO_60 time, emery/gabbro only). The pre-checked option mirrors the C defaults:
+    // gabbro defaults to Large, emery to Medium. A saved CURRENT setting overrides this either way.
     var hasSizeChoice = (platform === 'emery' || platform === 'gabbro');
     var isAplite = (platform === 'aplite');
+    var defaultOsize = (platform === 'gabbro') ? 2 : 1;
     var overlaySizeRow = hasSizeChoice
       ? '<span class="note" style="padding-top:2px;padding-bottom:0">Overlay size</span>' +
         '<div class="radio-group" style="padding:6px 14px 12px">' +
         '<input type="radio" name="osize" id="os0" value="0"><label for="os0">Small</label>' +
-        '<input type="radio" name="osize" id="os1" value="1" checked><label for="os1">Medium</label>' +
-        '<input type="radio" name="osize" id="os2" value="2"><label for="os2">Large</label>' +
+        '<input type="radio" name="osize" id="os1" value="1"' + (defaultOsize === 1 ? ' checked' : '') + '><label for="os1">Medium</label>' +
+        '<input type="radio" name="osize" id="os2" value="2"' + (defaultOsize === 2 ? ' checked' : '') + '><label for="os2">Large</label>' +
         '</div>'
       : '';
 
