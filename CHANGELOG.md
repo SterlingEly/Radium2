@@ -7,10 +7,10 @@
 
 ## v2.4 (unreleased)
 
-Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 test is under way).
+Not yet released. Sterling has looked at the overlay and ring on a Pebble Round 2 (2026-10-16 / 17); nothing else is device-tested yet.
 
 ### Three overlay sizes (emery and gabbro)
-- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, 80px circle on every platform (`OVERLAY_LARGE_R`; it started at 84 emery / 100 gabbro, was trimmed to 80 / 94 after the first device look, then standardized — see the 2026-10-14 overlay alignment pass below)
+- New **Large** overlay: LECO_60 time (the biggest system font, SDK 4.9.148+, emery/gabbro only), same info lines and icons as Medium, circle radius `OVERLAY_LARGE_R` (one value on every platform; history: 84 emery / 100 gabbro, trimmed to 80 / 94, standardized to 80 on 2026-10-14, then 86, 91, 85 and finally **90** on 2026-10-16/17 — see the final state below)
 - The settings page now has a Small / Medium / Large selector instead of a single "Large overlay" toggle
 - Existing settings are unaffected: the stored value `1` used to mean "Large" and now means **Medium** with exactly the same look; Medium is still the default on emery/gabbro
 - Large geometry (line spacing and nudges) is an estimate scaled from Medium. After the first device look the two lines below the time were moved down 4px (`bot1_nudge` -11 → -7, `bot2_nudge` -10 → -6) because the first line above the time sat farther from it than the first line below; the 4px is a guess, so adjust both nudges together if the gaps still differ. Line spacing (`line_gap`) was deliberately not widened: the outer lines already sit near the circle edge
@@ -35,14 +35,24 @@ Not yet compiled or device-tested as of 2026-10-13 (a first Round 2 / Time 2 tes
 ### Overlay alignment pass (2026-10-14; labeled "v2.5" in `main.c`, still unreleased)
 - **Icons match TallBoy's**: same pixel art and the same icon-to-text relation — small tier 12px icon / 3px gap / Gothic 18 Bold / 20px box / icon top +4; large tier 16px icon / 4px gap / Gothic 24 Bold / 28px box / icon top +9. Replaces the 11px/14px icons. The BT disconnected rune is centered and the "!" dot is gone
 - **Circles standardized** to 60 / 70 / 80 on every platform (Small was 58; gabbro Large was 94 → now 80)
-- **Bold Lecos**: Small `LECO_36_BOLD`, Large `LECO_60_BOLD_NUMBERS_AM_PM` (was regular). Medium stays regular `LECO_42` — no Leco 42 bold exists in the system fonts; an overstrike workaround was tried and removed. Sterling decides after use whether Large stays bold / Medium moves to `LECO_38_BOLD_NUMBERS`
+- **Bold Lecos** (superseded 2026-10-16): Small `LECO_36_BOLD`, Large `LECO_60_BOLD_NUMBERS_AM_PM`. Sterling found the bold Large too heavy on device and it went back to the regular cut; see the final state below. No Leco 42 bold exists in the system fonts; an overstrike workaround was tried and removed
 - Next Gothic Bold above 24 is `GOTHIC_28_BOLD` (not used)
 
 ### Ring gap, marker color, battery colors (2026-10-14)
-- **Gabbro ring gap doubled**: the bg-colored gap between the outer ring and the tick radials is now 4px on gabbro (`RING_GAP`), was 2px. Ring is still 6px thick (radius 124–130); ticks now end at radius 120. Other platforms stay at 2px; emery can follow if wanted
+- **Gabbro ring gap doubled** (superseded 2026-10-17, see below): the bg-colored gap between the outer ring and the tick radials went 2px → 4px on gabbro (`RING_GAP`) with a 6px ring (radius 124–130, ticks ending at 120). Other platforms stay at 2px; emery can follow if wanted
 - **Pace marker color** (color platforms): its own color row on the settings page, shown next to the marker toggle. Every preset sets it to its time text color (`tt`, usually white). Until the settings page sends one, the marker simply follows the time color, so existing users see no change
 - **Battery level colors** (option, color platforms, default **off**): ≤20% red, ≤50% yellow, above that green. Colors the **battery ring only** (Steps & Battery mode; solar mode's right side stays "day"); info line colors are untouched. On light backgrounds it switches to darker lit colors (dark red / amber / jade) and forces the unfilled track to a pale tint of the same hue; on dark backgrounds the track becomes a dark shade. Hidden on B&W platforms
 - Both stored by extending the `PACE_KEY` blob (appended fields; an old 2-byte blob loads with defaults). New message keys `PaceMarkerColor`, `BattColorOverride`
+
+### Final state after device review (2026-10-16 / 2026-10-17, Sterling)
+- **Fonts**: Medium `LECO_42` regular, Large `LECO_60_NUMBERS_AM_PM` **regular** (the bold Large was too heavy and was reverted 2026-10-16), Small keeps `LECO_36_BOLD` because no regular 36 exists. TODO 2b is resolved for Large
+- **Large circle radius 90** (diameter 180). Path: 80 → 86 ("+6px", which I read as +6 radius) → 91 → 85 (+10 diameter from 80, which looked identical on device) → **90**. `OVERLAY_*_R` are radii; the three circles are now 60 / 70 / 90 (diameters 120 / 140 / 180). It is one constant for all platforms, so emery's Large is also 90 and reaches the tick zone there (emery still defaults to Medium)
+- **Large top info lines** moved 4px toward the time (both nudges +4; they are now `top1_nudge` 4, `top2_nudge` 1) because they sat farther from the digits than the bottom lines did
+- **Gabbro ring 8px, gap 6px** (was 6 / 4): ring radius 122–130, ticks end at 116. Other platforms stay at ring 6 / gap 2. Constants `RING_THICK` and `RING_GAP` are per-platform
+- **Pace marker notch** reaches ring + 3 on gabbro (11px in from the edge, halfway across the 6px gap) via `MARKER_EXTRA`; other platforms keep 2px because their gap is only 2px
+- **Gabbro defaults to the Large overlay** (emery stays on Medium). A saved `OverlaySize` still wins, so an existing install keeps its choice until Large is picked once in the settings page
+- **Pace marker color** now lives under Colors → Lit → Outer Ring in the settings page (it was a separate row beside the marker toggle)
+- Commits: `783ce91`, `23ab04e`, `82dbb7d`, `615b57d`, `2005812`, `b677182`, `d3ae670`. Still uncompiled and not device-tested beyond the visual checks above
 
 ### Data fetch
 - One location lookup, then forecast then air-quality, then a **single** AppMessage to the watch (was: separate fetch + message per data source). A failure in one request no longer blocks the other
