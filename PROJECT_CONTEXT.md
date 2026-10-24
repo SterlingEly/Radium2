@@ -419,7 +419,7 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 6. Possibly make ring thickness and gap user-configurable (gabbro is now 8 / 6, chosen by Sterling on device 2026-10-17)
 7. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; fold the "NEXT RELEASE (DRAFT)" block in `STORE_LISTING.md` into the live copy and add the final v2.4 release notes; set `package.json` version (currently the stale `2.3.0`); create the GitHub release tag via the web UI
 8. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
-9. **Pebble plugins (preview, announced 2026-10-23):** evaluate whether weather, UV/AQI and similar data should come from plugins instead of `index.js` fetching them directly (the guide is linked below; not yet read in detail). Do not start without Sterling's go-ahead
+9. **Pebble plugins (preview, announced 2026-10-23) — future-only, decided by Sterling 2026-10-24:** do **not** move existing weather/UV/AQI fetching from `index.js` to plugins. Replicating current capabilities adds little, and backward compatibility with already-installed faces must be maintained. Consider plugins only for future faces or upgrades that truly gain new opportunities. Never publish a plugin-using build while the API is in preview (guide linked below). Open, low priority: how plugin permissions would show to users who already have the face installed.
 
 ---
 
@@ -445,7 +445,7 @@ Before shipping any new version:
 |------------|-----|-------------|
 | TallBoy | https://github.com/SterlingEly/TallBoy | Sibling watchface; the pace color, UV/AQI/sleep/typical-steps data types and the 3-hour hide-when-stale rule were ported from here. TallBoy's round wide mode later followed Radium's few-short-lines approach |
 | BarGraph2 | https://github.com/SterlingEly/BarGraph2 | Sibling watchface; rebuilds Sterling's original 2013 bar graph design |
-| Monogram | https://github.com/SterlingEly/Monogram | Sibling watchface scaffolded from this repo; custom monogram-style digits. **Shelved 2026-10-24** (TallBoy on round covers about 90% of the intent; repo kept) |
+| Monogram | https://github.com/SterlingEly/Monogram | Sibling watchface scaffolded from this repo; custom monogram-style digits. **Deferred 2026-10-24** (TallBoy on round covers about 90% of the intent; repo kept; revival only by branching off TallBoy) |
 | PixelSampler | https://github.com/SterlingEly/PixelSampler | Developer reference tool for Pebble fonts, colors and hardware capabilities (its hardware table is the best-sourced platform reference) |
 | radium (v1) | https://github.com/MathewReiss/radium | Original Radium v1 implementation (2016) |
 
@@ -478,7 +478,9 @@ Before shipping any new version:
 
 ## Last Updated
 
-2026-10-24 (later) — Store listing: a labeled "NEXT RELEASE (DRAFT)" v2.4 block was added to `STORE_LISTING.md` (live v2.3.1 copy untouched); Monogram marked shelved in Related Projects. No code change.
+2026-10-24 (latest) — Monogram status term standardized to **deferred**; plugins decision recorded (TODO 9: future-only, backward compatibility); store-listing convention: while a face is unpublished its repo listing is the listing, once published the repo copy holds update drafts, and new listings/updates start from the live Radium 2 repebble listing (https://apps.repebble.com/radium-2_69a6531826cc4f0009c65926). The `NEXT RELEASE (DRAFT)` v2.4 block in `STORE_LISTING.md` stays because Radium 2 is published.
+
+2026-10-24 (later) — Store listing: a labeled "NEXT RELEASE (DRAFT)" v2.4 block was added to `STORE_LISTING.md` (live v2.3.1 copy untouched); Monogram marked shelved (term later standardized to deferred) in Related Projects. No code change.
 
 2026-10-24 — Final overlay/ring state documented: Large radius 90 (regular LECO_60), gabbro ring 8 / gap 6, notch ring + 3 (`MARKER_EXTRA`), gabbro defaults to Large, marker color under Colors → Lit → Outer Ring; stale 80px / bold-Large / gap-4 statements corrected. `main.c` on `master` at `d3ae670`; the `config.js` default fix is `eb63576` (now pre-checks Large on gabbro; TODO 2c done). Added a TODO for evaluating Pebble plugins.
 
