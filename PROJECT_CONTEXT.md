@@ -39,7 +39,7 @@ Written 2026-10-13 and 2026-10-14 without a build; treat each item as unverified
 - Solar-mode ring fallback: with Sunrise & Sunset selected but no solar data cached yet, the ring drew the steps value with solar-night geometry. It now falls back to Steps & Battery completely (`solar_active = RING_SOLAR && prv_solar_present()`).
 - Stale `FIELD_HEART_RATE` comment corrected (HR is emery and diorite HR model only).
 
-**Three overlay sizes** (emery and gabbro): Small / Medium / **Large**. Stored `OverlaySize` value 1 used to be "large" and is now **Medium** with an identical look, so no saved setting changes meaning; Medium remains the default on emery/gabbro. The new **Large** (value 2) uses `FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM` (biggest system LECO, real bold cut; emery/gabbro only, SDK 4.9.148+), the same GOTHIC_24_BOLD lines and 16px icons as Medium, and an 80px circle (`OVERLAY_LARGE_R`; it was 84 emery / 100 gabbro, trimmed to 80 / 94, then standardized to 80 — see the 2026-10-14 pass below). The Large line spacing and nudges are a first estimate scaled from Medium — expect to tune them on device. Elsewhere Large is clamped to Medium. The settings page has a three-way selector in place of the old checkbox.
+**Three overlay sizes** (emery and gabbro): Small / Medium / **Large**. Stored `OverlaySize` value 1 used to be "large" and is now **Medium** with an identical look, so no saved setting changes meaning; Medium remains the default on emery. The new **Large** (value 2) uses `FONT_KEY_LECO_60_NUMBERS_AM_PM` (biggest system LECO, regular cut; emery/gabbro only, SDK 4.9.148+), the same GOTHIC_24_BOLD lines and 16px icons as Medium, and a **90px-radius** circle (`OVERLAY_LARGE_R`; history 84 emery / 100 gabbro → 80 / 94 → 80 → 86 → 91 → 85 → 90 — see the final-state section below). The Large line spacing and nudges were a first estimate scaled from Medium and have been tuned on device since (top lines +4 on 2026-10-16); expect further tweaks. **Gabbro now defaults to Large** (emery stays on Medium). Elsewhere Large is clamped to Medium. The settings page has a three-way selector in place of the old checkbox.
 
 **New info-line fields** (IDs 15–20): UV index, Air quality (US AQI), Step pace %, Typical steps, Light left, Sleep. See Constants.
 
@@ -51,21 +51,29 @@ Written 2026-10-13 and 2026-10-14 without a build; treat each item as unverified
 
 **Battery ring color override** (color platforms, added 2026-10-14; `BattColorOverride`, **default off**): an optional setting that colors the battery **ring** by level — ≤20% red, ≤50% yellow, otherwise green. It applies to the ring only and only in Steps & Battery mode; the info-line battery text keeps the theme's line colors (an earlier version that also recolored the info line was rejected by Sterling). On light backgrounds (`prv_is_light`: R+G+B ≥ 6 of 9) the bright hues wash out, so `prv_batt_level_colors` uses darker lit colors (DarkCandyAppleRed / WindsorTan / JaegerGreen) and forces the unfilled track to a pale tint of the same hue (Melon / PastelYellow / MintGreen); on dark backgrounds the lit colors are Red / Yellow / Green and the track is a dark shade (BulgarianRose / ArmyGreen / DarkGreen). B&W platforms have no such option.
 
-**Ring gap (gabbro):** `RING_GAP` is **4** on gabbro (Sterling, 2026-10-14) and 2 everywhere else. On gabbro the ring spans radius 124..130 and the ticks end at 130 − 6 − 4 = 120. Ring thickness (`RING_THICK` 6) is unchanged; making thickness/gap configurable (8/4 was floated) is a candidate after Sterling sees it on device.
+**Ring and gap (gabbro):** `RING_THICK` is **8** and `RING_GAP` is **6** on gabbro (Sterling, 2026-10-17; it was 6 / 4 after 2026-10-14, and 6 / 2 before). Everywhere else they stay 6 / 2. On gabbro the ring spans radius 122..130 and the ticks end at 130 − 8 − 6 = 116. Both are per-platform `#define`s; making thickness/gap user-configurable is still only a candidate. `MARKER_EXTRA` (gabbro 3, others 2) sets how far the pace notch reaches past the ring: ring + 3 = halfway across gabbro's 6px gap (Sterling, 2026-10-17).
 
 **Data fetch**: `index.js` does one location lookup, then forecast (now with `uv_index`) then air-quality (`us_aqi`), and sends everything in a **single** AppMessage. If one request fails the other's data is still sent.
 
 **Overlay alignment pass (2026-10-14, labeled "v2.5" in the `main.c` comments; unreleased, uncompiled — fold into whichever public number Sterling picks, per the versioning rule):**
 - **Icons are now TallBoy's** — same pixel art, and the same icon-to-text relation: small tier = 12px icon, 3px gap, Gothic 18 Bold, 20px text box, icon top 4px below the box top; large tier = 16px icon, 4px gap, Gothic 24 Bold, 28px text box, icon top 9px below the box top (`SMALL_/LARGE_ICON_W`, `_ICON_GAP`, `_ICON_DY`, `_BOX_H`). Replaces the old 11px/14px set. The BT disconnected rune is centered and no longer has the "!" dot. `draw_weather_icon` (type 0–5) is kept as the dispatcher.
-- **Circles standardized** to **60 / 70 / 80** (`OVERLAY_SMALL_R / MEDIUM_R / LARGE_R`) on every platform; the per-platform `#if` for Large is gone. Small was 58. Side effect: gabbro Large drops from 94 to 80, so it covers less of the starburst — check on device.
-- **Fonts:** Small = `LECO_36_BOLD_NUMBERS` (already bold), Large = `LECO_60_BOLD_NUMBERS_AM_PM` (was the regular cut). Medium = regular `LECO_42_NUMBERS` — **Pebble has no Leco 42 bold** (system bold Lecos are 20, 26_AM_PM, 32, 36, 38, 60_BOLD_NUMBERS_AM_PM). A 3×3 overstrike hack for Medium was tried and removed the same day at Sterling's request; Sterling will decide after using it whether Large stays bold or reverts to regular, and whether Medium should become `LECO_38_BOLD_NUMBERS` (a downsize close to Small's 36).
+- **Circles standardized** to **60 / 70 / 80** (`OVERLAY_SMALL_R / MEDIUM_R / LARGE_R`) on every platform; the per-platform `#if` for Large is gone. Small was 58. Side effect: gabbro Large dropped from 94 to 80. (Large was later raised to **90** — see the final-state section below.)
+- **Fonts (as of 2026-10-14; Large was reverted to regular on 2026-10-16):** Small = `LECO_36_BOLD_NUMBERS` (already bold), Large = `LECO_60_BOLD_NUMBERS_AM_PM` (was the regular cut). Medium = regular `LECO_42_NUMBERS` — **Pebble has no Leco 42 bold** (system bold Lecos are 20, 26_AM_PM, 32, 36, 38, 60_BOLD_NUMBERS_AM_PM). A 3×3 overstrike hack for Medium was tried and removed the same day at Sterling's request; Sterling found the bold Large too heavy on device and reverted it; he has not asked for Medium to become `LECO_38_BOLD_NUMBERS` (a downsize close to Small's 36).
 - **Next Gothic Bold size up** from 24 is `GOTHIC_28_BOLD` (then 36) — not implemented; it would need a ≈20px icon set and probably a bigger circle.
+
+**Final state after device review (Sterling, 2026-10-16 / 2026-10-17; code on `master` at `d3ae670`, uncompiled except for what Sterling has run on a Round 2):**
+- **Fonts:** Small `LECO_36_BOLD_NUMBERS` (no regular 36 exists), Medium `LECO_42_NUMBERS` regular, Large `LECO_60_NUMBERS_AM_PM` **regular** (reverted from bold 2026-10-16, commit `783ce91`). TODO 2b is resolved for Large.
+- **Circles are radii 60 / 70 / 90** (diameters 120 / 140 / 180). `OVERLAY_*_R` are passed to `graphics_fill_circle`, which draws 2r+1 px across — they are radii, not diameters (Sterling remembered "70/80/90"; the real values were 60/70/80 until Large moved). Large's path: 80 → 86 (commit `82dbb7d`, "+6px" read as +6 radius) → 91 (`615b57d`, "+10px" stacked on 86) → 85 (`2005812`, "+10 diameter from the original 80", which looked identical on device) → **90** (`b677182`, Sterling's call after seeing 85). One constant for all platforms, so emery's Large is also 90 and reaches into the tick zone there (the ticks start around radius 92 horizontally); emery defaults to Medium so this only shows if Large is chosen.
+- **Large top info lines** moved +4px toward the time (`top1_nudge` 4, `top2_nudge` 1) in `82dbb7d`.
+- **Gabbro ring 8 / gap 6**, notch ring + 3 (see Ring and gap above).
+- **Gabbro defaults to Large** in `prv_default_settings`. Saved settings win: `prv_load_settings` applies the defaults then `persist_read_data`, so an existing gabbro install keeps its saved size until Large is picked once in the config page. **Known inconsistency:** `config.js` still has the Medium radio `checked` by default for every platform (see the platform table), so a gabbro with nothing saved would show Medium in the page and send Medium on save.
+- **Pace marker color** picker moved to Colors → Lit → Outer Ring (commit `23ab04e`).
 
 ### Version history
 
 | Version | SETTINGS_KEY | Summary |
 |---------|-------------|---------|
-| v2.4 (unreleased; includes the 2026-10-14 "v2.5" overlay pass) | 8 | Three overlay sizes (60/70/80 circles), TallBoy icon set, bold Small/Large Leco, UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on) + marker color, optional battery ring color override (default off), gabbro ring gap 4, Quick View on round, gabbro option, aplite/solar fixes |
+| v2.4 (unreleased; includes the 2026-10-14 "v2.5" overlay pass) | 8 | Three overlay sizes (60/70/90 radii; Large default on gabbro), TallBoy icon set, bold Small Leco only (Medium/Large regular), UV/AQI/pace/typical/light-left/sleep lines, pace color + marker (default on) + marker color, optional battery ring color override (default off), gabbro ring 8 / gap 6, Quick View on round, gabbro option, aplite/solar fixes |
 | v2.3.1 | 8 | HR API fix, large overlay config fix (emery), health polling consolidation |
 | v2.3 | 8 | Solar ring, BT disconnect indicator, HR field, solar info lines |
 | v2.2 | 7 | Four configurable info lines, live weather, distance, calories, preset overhaul |
@@ -146,8 +154,8 @@ SterlingEly/Radium2 (branch: master)
 | gabbro | Pebble Round 2 (Core Devices 2026) | **260×260 round** | 64-color | **No** | Yes (Sterling, 2026-10-13) |
 
 **HR sensors: emery and diorite (HR model) only.** flint, gabbro, basalt, chalk, aplite have none.
-**Overlay sizes:** emery and gabbro get Small / Medium / Large (Medium default); chalk and the rest only have the small overlay (no size selector).
-**Large LECO_60 (Bold) font:** emery and gabbro only (SDK 4.9.148+) — guarded with `HAS_LARGE_OVERLAY`.
+**Overlay sizes:** emery and gabbro get Small / Medium / Large (Medium default on emery, Large default on gabbro since 2026-10-17); chalk and the rest only have the small overlay (no size selector).
+**Large LECO_60 (regular) font:** emery and gabbro only (SDK 4.9.148+) — guarded with `HAS_LARGE_OVERLAY`.
 **Store copy for HR:** always say "on supported models" — never list specific platforms.
 (Naming note: an earlier version of this table called diorite "Pebble 2 SE" and flint "Pebble 2". Per the store listing and Pixel Sampler's hardware reference, flint is the Pebble 2 Duo, and diorite covers the Pebble 2 SE and HR models with the HR sensor only on the HR model.)
 
@@ -177,15 +185,15 @@ SterlingEly/Radium2 (branch: master)
 
 ### Outer ring — rect
 
-- Constants: `RING_GAP=2`, `RING_THICK=6`, `half_w=cx-gap`, `total=half_w+h+half_w`
+- Constants: `RING_GAP=2`, `RING_THICK=6` (rect is never gabbro), `half_w=cx-gap`, `total=half_w+h+half_w`
 - Battery / day (right): left-anchored at `(cx+gap, h-t)`, fills CW — bottom → right → top
 - Steps (left): right-anchored, fills CCW — bottom → left → top
 - Solar night (left): anchored at 12-end, fills toward 6 — opposite of steps
-- Pace marker: a 3px notch along the steps path at `total * (typical ÷ goal)`, protruding 2px inward (into the ring gap strip), drawn in the marker color (`TimeColor` unless a custom marker color has been set)
+- Pace marker: a 3px notch along the steps path at `total * (typical ÷ goal)`, protruding `MARKER_EXTRA` (2) px inward (into the ring gap strip), drawn in the marker color (`TimeColor` unless a custom marker color has been set)
 
 ### Outer ring — round
 
-`graphics_fill_radial` on the full bounds. Steps arc spans 183°→357°; battery 3°→177°. Pace marker is a ~3° arc at `183 + 174 * (typical ÷ goal)`, thickness `RING_THICK + 2`, in the marker color. On gabbro `RING_GAP` is 4 (radius 124..130, ticks end at 120); other round/rect platforms use 2.
+`graphics_fill_radial` on the full bounds. Steps arc spans 183°→357°; battery 3°→177°. Pace marker is a ~3° arc at `183 + 174 * (typical ÷ goal)`, thickness `RING_THICK + MARKER_EXTRA`, in the marker color. On gabbro `RING_THICK` is 8, `RING_GAP` 6 and `MARKER_EXTRA` 3 (ring radius 122..130, notch to 119, ticks end at 116); other round/rect platforms use 6 / 2 / 2.
 
 ### Overlay sizes and fonts
 
@@ -193,9 +201,9 @@ SterlingEly/Radium2 (branch: master)
 |------|---------------|--------|-----------|------------------------|
 | Small | 0 | 60px | `LECO_36_BOLD_NUMBERS` | `GOTHIC_18_BOLD`, 12px icons, gap 3, icon top +4 of a 20px box |
 | Medium | 1 (was "Large" through v2.3.1) | 70px | `LECO_42_NUMBERS` (regular — no bold cut exists) | `GOTHIC_24_BOLD`, 16px icons, gap 4, icon top +9 of a 28px box |
-| Large | 2 (emery/gabbro only) | 80px (`OVERLAY_LARGE_R`, all platforms) | `LECO_60_BOLD_NUMBERS_AM_PM` | `GOTHIC_24_BOLD`, 16px icons (same as Medium) |
+| Large | 2 (emery/gabbro only) | 90px (`OVERLAY_LARGE_R`, all platforms; radius, 180px across) | `LECO_60_NUMBERS_AM_PM` (regular) | `GOTHIC_24_BOLD`, 16px icons (same as Medium) |
 
-Medium is the default on emery and gabbro. In `draw_layer`, the local `large` means "Medium or Large" (the 16px icon tier) and `xl` means Large. Per-size layout metrics (`time_h`, `cap_h`, `line_gap`, `single_offset`, `time_dy`, and the three info-line nudges) are set in one block in the overlay section; the Large values are estimates (Medium's scaled by font size) and are the first thing to tune. A future bigger Large could use `GOTHIC_28_BOLD` lines but would need a third (≈20px) icon set.
+Medium is the default on emery; Large is the default on gabbro. In `draw_layer`, the local `large` means "Medium or Large" (the 16px icon tier) and `xl` means Large. Per-size layout metrics (`time_h`, `cap_h`, `line_gap`, `single_offset`, `time_dy`, and the three info-line nudges) are set in one block in the overlay section; the Large values started as estimates (Medium's scaled by font size) and have been tuned on device once (top lines +4); they are still the first thing to adjust. A future bigger Large could use `GOTHIC_28_BOLD` lines but would need a third (≈20px) icon set.
 
 ### Health data polling
 
@@ -258,8 +266,8 @@ Fields were appended, so an older 2-byte blob loads fine and the new fields keep
 |--------|-----------|--------|
 | `'aplite'` | aplite | B&W section, no health (no step goal, no pace) |
 | `'bw'` | diorite, flint | B&W section, health shown; pace marker only (no pace color, no marker color, no battery override) |
-| `'emery'` | emery | Color, Small/Medium/Large overlay selector (Medium checked by default) |
-| `'gabbro'` | gabbro | Color, Small/Medium/Large overlay selector (Medium checked by default) |
+| `'emery'` | emery | Color, Small/Medium/Large overlay selector (Medium checked by default — matches the C default) |
+| `'gabbro'` | gabbro | Color, Small/Medium/Large overlay selector (Medium checked by default in `config.js`, but the C default is now Large — **mismatch to fix**) |
 | `'color'` | basalt, chalk | Color, no overlay-size selector |
 
 `applyPlatform()` shows the color section only when the platform is neither `'bw'` nor `'aplite'`. The overlay size radio group is `name="osize"` (ids `os0`–`os2`), saved with `rad("osize")`; platforms without the selector send 0. For `'bw'` and `'aplite'`, `PaceMarkerColor` and `BattColorOverride` are deleted from the saved payload.
@@ -275,8 +283,9 @@ Fields were appended, so an older 2-byte blob loads fine and the new fields keep
 #define SOLAR_KEY            9    // solar cache, separate from settings
 #define PACE_KEY             10   // pace options, separate from settings (v2.4)
 #define DEFAULT_STEP_GOAL    10000
-#define RING_GAP             2    // 4 on gabbro (2026-10-14)
-#define RING_THICK           6
+#define RING_GAP             2    // 6 on gabbro (2026-10-17)
+#define RING_THICK           6    // 8 on gabbro (2026-10-17)
+#define MARKER_EXTRA         2    // pace notch reach past the ring; 3 on gabbro
 #define ENV_MAX_AGE          (3*3600)   // UV/AQI age-out
 #define PACE_MIN_EXPECTED    300        // below this, pace is hidden
 
@@ -286,10 +295,10 @@ Fields were appended, so an older 2-byte blob loads fine and the new fields keep
 #define OVERLAY_AUTO         3    // shake to show, auto-hides after 60 seconds
 #define OVERLAY_AUTO_HIDE_MS 60000
 #define OVERLAY_SMALL        0
-#define OVERLAY_MEDIUM       1    // the old "large" (value unchanged); default on emery/gabbro
+#define OVERLAY_MEDIUM       1    // the old "large" (value unchanged); default on emery
 #define OVERLAY_LARGE        2    // v2.4: emery/gabbro only, LECO_60
 // HAS_LARGE_OVERLAY is defined for emery/gabbro (SDK 4.9.148+ has the LECO_60 fonts)
-// OVERLAY_SMALL_R / MEDIUM_R / LARGE_R = 60 / 70 / 80 on every platform (2026-10-14)
+// OVERLAY_SMALL_R / MEDIUM_R / LARGE_R = 60 / 70 / 90 radii on every platform (Large 80 -> 90 on 2026-10-17); gabbro defaults to Large
 
 #define FIELD_NONE           0
 #define FIELD_DAY_LONG       1    // "SATURDAY"
@@ -398,13 +407,14 @@ Radium+ (slot 39): green hours/battery, cyan minutes/steps, white tips.
 
 **LIVE** — Update as work progresses.
 
-1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro overlay size selector; Quick View on gabbro; gabbro ring gap 4; UV/AQI lines populate; pace color + marker + marker color; battery ring override on dark and light themes; new info lines; aplite config page and aplite binary size
-2. **Tune the overlays** on emery and gabbro (and the 60px Small elsewhere) now that circles are 60/70/80 and icons/text boxes changed: time box height, and the info-line nudges in the Large block of the overlay section; check the LECO_60 time fits the circle at 24h and with long date strings
-2b. **Sterling's font call after using it:** keep Large on the real Leco 60 Bold or go back to regular; leave Medium on regular Leco 42 or move it to `LECO_38_BOLD_NUMBERS`
+1. **Build v2.4 in CloudPebble and device-test** (nothing in v2.4 has been compiled yet). Priorities: gabbro overlay size selector; Quick View on gabbro; gabbro ring 8 / gap 6 and the Large default; UV/AQI lines populate; pace color + marker + marker color; battery ring override on dark and light themes; new info lines; aplite config page and aplite binary size
+2. **Tune the overlays** on emery (gabbro Large has had a first pass): time box height and the info-line nudges in the Large block; check the LECO_60 time fits the 90px circle at 24h and with long date strings, and that emery's Large 90 is acceptable (consider a per-platform radius)
+2b. ~~Large bold vs regular~~ resolved 2026-10-16 (regular). Still open only if Sterling wants Medium on `LECO_38_BOLD_NUMBERS`
+2c. **Config page default:** make the `config.js` overlay-size radio default to Large on gabbro so it matches the C default
 3. Decide whether Large should also get bigger info lines (`GOTHIC_28_BOLD` + a ≈17px icon set) — larger job, not started
 4. Tune `PACE_MIN_EXPECTED` (300) if the early-morning cutoff feels wrong
 5. Sterling is reviewing whether emery should keep its fit-to-Quick-View behavior or ignore Quick View like the round watches (he currently likes the fitted behavior)
-6. Possibly make ring thickness and gap configurable (8/4 floated) after Sterling sees the gabbro ring on device
+6. Possibly make ring thickness and gap user-configurable (gabbro is now 8 / 6, chosen by Sterling on device 2026-10-17)
 7. Before release: add the CAMS ENSEMBLE / Open-Meteo attribution to `STORE_LISTING.md` and README; add v2.4 release notes; set `package.json` version (currently the stale `2.3.0`); create the GitHub release tag via the web UI
 8. Candidate lines not yet added: typical full-day step total, total (active + resting) calories
 
@@ -453,16 +463,18 @@ Before shipping any new version:
 
 ## Unresolved Questions
 
-- Whether the 80px Large overlay fits well on emery's 200px width and still leaves enough starburst on gabbro (down from 94) — judge on device.
+- Whether the 90px-radius Large overlay fits emery's 200px width (it reaches the tick zone there) — judge on device; gabbro Large at 90 looks right to Sterling.
 - Whether gabbro exposes calories/sleep/steps in the SDK as expected (PixelSampler flagged calories as unconfirmed pending hardware).
 - Whether an appended `RadiumSettings` field would have been safe without a `SETTINGS_KEY` bump (never tested; avoided by using `PACE_KEY`).
-- Whether the 4px gabbro ring gap (and a possible thicker ring) looks right on the real watch.
+- Whether the new gabbro 8px ring / 6px gap reads well over a longer wear (Sterling: "damn near perfect" on first look, 2026-10-17).
 
 (Resolved 2026-10-13: gabbro has a touchscreen, per Sterling; the earlier "touch: emery only" note was wrong.)
 
 ---
 
 ## Last Updated
+
+2026-10-24 — Final overlay/ring state documented: Large radius 90 (regular LECO_60), gabbro ring 8 / gap 6, notch ring + 3 (`MARKER_EXTRA`), gabbro defaults to Large, marker color under Colors → Lit → Outer Ring; stale 80px / bold-Large / gap-4 statements corrected. Code on `master` at `d3ae670`. Known follow-up: `config.js` size default on gabbro (TODO 2c).
 
 2026-10-15 — Overlay alignment pass documented (TallBoy icons/spacing, 60/70/80 circles, bold Small/Large Leco, Medium overstrike hack removed); stale 84/100 radii corrected. Code pushed: `641a7f4` then `88fde31`.
 
