@@ -8,18 +8,43 @@
 #define SOLAR_KEY         9          // separate persist key for solar timestamps
 #define PACE_KEY          10         // separate persist key for pace options (keeps RadiumSettings layout untouched)
 #define DEFAULT_STEP_GOAL 10000
-// Outer ring thickness and the gap between it and the tick radials (bg-colored).
-// Gabbro: gap doubled to 4 on 2026-10-14, then ring 6 -> 8 and gap 4 -> 6 on 2026-10-17 (Sterling).
-// Round ring on gabbro: radius 122..130, ticks end at 130-8-6 = 116. Other platforms: ring 6, gap 2.
-#if defined(PBL_PLATFORM_GABBRO)
-#define RING_GAP          6
-#define RING_THICK        8          // outer ring thickness (px)
-#define MARKER_EXTRA      3          // pace notch reaches ring + 3 = halfway across the 6px gap (Sterling, 2026-10-17)
-#else
+// Per-platform geometry, defined explicitly for each screen (Sterling, 2026-11-04): aim for parity
+// across platforms, tweak per platform as needed.
+//   RING_THICK / RING_GAP : outer ring thickness and the bg-colored gap between it and the tick radials (px)
+//   MARKER_W              : pace notch width in px on rectangular screens (round screens use a 3 degree arc)
+//   OVERLAY_*_R           : overlay circle RADII (graphics_fill_circle draws 2r+1 px across, so 90 -> 181 px)
+// Pace notch length is not set per platform: it is always ring + half the gap (MARKER_EXTRA below).
+// Large only exists on emery/gabbro (LECO_60); on the other platforms OVERLAY_LARGE_R is defined but unused.
+#if defined(PBL_PLATFORM_GABBRO)          // 260x260 round
+#define RING_THICK        8
+#define RING_GAP          6              // 2026-10-17: ring 6 -> 8, gap 4 -> 6 (Sterling); ticks end at 130-8-6 = 116
+#define MARKER_W          3
+#define OVERLAY_SMALL_R   60
+#define OVERLAY_MEDIUM_R  70
+#define OVERLAY_LARGE_R   90
+#elif defined(PBL_PLATFORM_EMERY)         // 200x228
+#define RING_THICK        6
+#define RING_GAP          4              // 2026-11-04: gap 2 -> 4 (inset 10/side = 180px interior, the Large overlay width)
+#define MARKER_W          5              // 2026-11-04: 3 -> 5
+#define OVERLAY_SMALL_R   60
+#define OVERLAY_MEDIUM_R  70
+#define OVERLAY_LARGE_R   90             // 2026-10-17: 80 -> 85 looked unchanged on device, so 90 (181px drawn)
+#elif defined(PBL_PLATFORM_CHALK)         // 180x180 round
+#define RING_THICK        6
 #define RING_GAP          2
-#define RING_THICK        6          // outer ring thickness (px)
-#define MARKER_EXTRA      2          // pace notch protrudes 2px past the ring
+#define MARKER_W          3
+#define OVERLAY_SMALL_R   60
+#define OVERLAY_MEDIUM_R  70
+#define OVERLAY_LARGE_R   90             // unused: no LECO_60 on chalk
+#else                                     // aplite, basalt, diorite, flint: 144x168
+#define RING_THICK        6
+#define RING_GAP          2
+#define MARKER_W          3
+#define OVERLAY_SMALL_R   60
+#define OVERLAY_MEDIUM_R  70
+#define OVERLAY_LARGE_R   90             // unused: no LECO_60 on these platforms
 #endif
+#define MARKER_EXTRA      (RING_GAP / 2) // pace notch length = ring + half the gap (Sterling, 2026-11-04)
 
 // UV / AQI age out after this long without a phone update ("hide > mislead").
 // Sunrise/sunset are astronomical and never age out; temperature keeps its old behavior.
@@ -44,9 +69,7 @@
 #define OVERLAY_SMALL   0   // LECO_36 Bold time (only cut at that size), GOTHIC_18_BOLD lines, 12px icons, 60px circle
 #define OVERLAY_MEDIUM  1   // LECO_42 (regular) time, GOTHIC_24_BOLD lines, 16px icons, 70px circle (default on emery)
 #define OVERLAY_LARGE   2   // emery/gabbro only: LECO_60 (regular) time, same lines/icons as medium, 90px circle (default on gabbro)
-#define OVERLAY_SMALL_R   60
-#define OVERLAY_MEDIUM_R  70
-#define OVERLAY_LARGE_R   90   // 2026-10-17: 80 -> 85 looked unchanged on device, so 90 (diameter 180); briefly 86 and 91 on 2026-10-16
+// Circle radii are defined per platform in the geometry block near the top of this file.
 // The system has no LECO_42 bold (the bold cuts are 20/26/32/36/38/60_BOLD_NUMBERS_AM_PM), so Medium uses regular 42.
 
 // The LECO_60 fonts only exist in the emery/gabbro SDK headers (SDK 4.9.148+); referencing them
@@ -1455,18 +1478,18 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       }
 
       if (marker_pct >= 0) {
-        // Pace notch along the steps path (bottom -> left -> top), 3px wide, protruding MARKER_EXTRA px inward.
+        // Pace notch along the steps path (bottom -> left -> top), MARKER_W px wide, protruding MARKER_EXTRA px inward.
         int pos = (total * marker_pct) / 100;
         graphics_context_set_fill_color(ctx, col_marker);
         if (pos <= half_w) {
           int x = cx - gap - pos;
-          graphics_fill_rect(ctx, GRect(x - 1, h - t - MARKER_EXTRA, 3, t + MARKER_EXTRA), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(x - MARKER_W / 2, h - t - MARKER_EXTRA, MARKER_W, t + MARKER_EXTRA), 0, GCornerNone);
         } else if (pos <= half_w + h) {
           int y = h - (pos - half_w);
-          graphics_fill_rect(ctx, GRect(0, y - 1, t + MARKER_EXTRA, 3), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(0, y - MARKER_W / 2, t + MARKER_EXTRA, MARKER_W), 0, GCornerNone);
         } else {
           int x = pos - half_w - h;
-          graphics_fill_rect(ctx, GRect(x - 1, 0, 3, t + MARKER_EXTRA), 0, GCornerNone);
+          graphics_fill_rect(ctx, GRect(x - MARKER_W / 2, 0, MARKER_W, t + MARKER_EXTRA), 0, GCornerNone);
         }
       }
     }
