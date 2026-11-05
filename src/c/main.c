@@ -23,8 +23,8 @@
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   90
 #elif defined(PBL_PLATFORM_EMERY)         // 200x228
-#define RING_THICK        8
-#define RING_GAP          6              // 2026-11-04: ring 8 / gap 6 to match gabbro (tried 6/4 first); inset 14/side
+#define RING_THICK        6
+#define RING_GAP          4              // 2026-11-04: back to 6/4 (8/6 tried and rejected): inset 10/side = 180px interior vs the 181px Large circle
 #define MARKER_W          5              // 2026-11-04: 3 -> 5
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
