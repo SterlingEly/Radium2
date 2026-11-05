@@ -924,6 +924,9 @@ static void draw_layer(Layer *layer, GContext *ctx) {
 #if !defined(HAS_LARGE_OVERLAY)
   if (osize > OVERLAY_MEDIUM) osize = OVERLAY_MEDIUM;   // the largest LECO font only exists on emery/gabbro
 #endif
+#if !defined(PBL_ROUND) && !defined(HAS_LARGE_OVERLAY)
+  osize = OVERLAY_SMALL;   // 144x168 rects (aplite/basalt/diorite/flint): Small only; Medium is too big (Sterling, 2026-11-04)
+#endif
   bool large = (osize >= OVERLAY_MEDIUM);
   bool xl    = (osize == OVERLAY_LARGE);
 
