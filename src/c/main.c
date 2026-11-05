@@ -23,22 +23,22 @@
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   90
 #elif defined(PBL_PLATFORM_EMERY)         // 200x228
-#define RING_THICK        6
-#define RING_GAP          4              // 2026-11-04: gap 2 -> 4 (inset 10/side = 180px interior, the Large overlay width)
+#define RING_THICK        8
+#define RING_GAP          6              // 2026-11-04: ring 8 / gap 6 to match gabbro (tried 6/4 first); inset 14/side
 #define MARKER_W          5              // 2026-11-04: 3 -> 5
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   90             // 2026-10-17: 80 -> 85 looked unchanged on device, so 90 (181px drawn)
 #elif defined(PBL_PLATFORM_CHALK)         // 180x180 round
-#define RING_THICK        6
-#define RING_GAP          2
+#define RING_THICK        4
+#define RING_GAP          3
 #define MARKER_W          3
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
 #define OVERLAY_LARGE_R   90             // unused: no LECO_60 on chalk
 #else                                     // aplite, basalt, diorite, flint: 144x168
-#define RING_THICK        6
-#define RING_GAP          2
+#define RING_THICK        4
+#define RING_GAP          3
 #define MARKER_W          3
 #define OVERLAY_SMALL_R   60
 #define OVERLAY_MEDIUM_R  70
