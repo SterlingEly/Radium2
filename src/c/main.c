@@ -836,8 +836,12 @@ static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
   graphics_fill_rect(ctx, GRect(0, y, w, box_h), 0, GCornerNone);
 
   // Ruler: digits, with a letter marking each full ten characters so the count is unambiguous.
+  // Rows alternate: yellow/white rows = no spaces (pure character cut); cyan/gray rows = a space after
+  // every 5th/10th character, to test whether GTextOverflowModeFill wraps at a space (a wrapped second
+  // line, or a whole word vanishing, would show up here).
   graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, "123456789A123456789B123456789C123456789D123456789E", font,
+  graphics_draw_text(ctx, odd ? "12345 6789A 12345 6789B 12345 6789C 12345 6789D 12345 6789E 12345 6789F"
+                              : "123456789A123456789B123456789C123456789D123456789E", font,
     GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
   // Pixel ruler along the bottom edge of the box.
