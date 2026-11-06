@@ -107,6 +107,9 @@
 
 // Debug rulers in every info line slot (see "DEBUG LINES" above draw_info_line). Leave commented out for release.
 // #define DEBUG_FIELDS 1
+// Text-width measurement: logs the pixel width of every glyph and of the worst-case info line strings in
+// GOTHIC_18_BOLD and GOTHIC_24_BOLD once at startup (read the "MEAS" lines in the app log). Release builds: leave off.
+// #define DEBUG_MEASURE 1
 
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
@@ -1937,6 +1940,46 @@ static void window_unload(Window *window) {
   layer_destroy(s_canvas_layer);
 }
 
+#ifdef DEBUG_MEASURE
+static int prv_text_w(const char *s, GFont f) {
+  return graphics_text_layout_get_content_size(s, f, GRect(0, 0, 600, 40),
+                                               GTextOverflowModeFill, GTextAlignmentLeft).w;
+}
+
+// One log line per ~10 glyphs: "MEAS G18 0=11 1=7 ...". A space is logged as "_".
+static void prv_measure_font(const char *tag, GFont f) {
+  static const char glyphs[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz :,.%-+/!";
+  char line[96];
+  int n = 0;
+  line[0] = 0;
+  for (const char *g = glyphs; *g; g++) {
+    char one[2] = { *g, 0 };
+    n += snprintf(line + n, sizeof(line) - n, " %c=%d", (*g == ' ') ? '_' : *g, prv_text_w(one, f));
+    if (n > 70) {
+      APP_LOG(APP_LOG_LEVEL_INFO, "MEAS %s%s", tag, line);
+      n = 0;
+      line[0] = 0;
+    }
+  }
+  if (n > 0) APP_LOG(APP_LOG_LEVEL_INFO, "MEAS %s%s", tag, line);
+
+  // Worst-case strings for each info field (text only; the icon and its gap are separate).
+  static const char *strs[] = {
+    "WEDNESDAY", "WED SEP 30", "SEP 30", "99,999", "100F", "-10C", "100%", "99.9mi", "99.9km",
+    "9999cal", "199bpm", "12:59pm", "13h59m", "UV 11", "AQI 500", "999%", "typ 99,999", "Zz 12h59m",
+    "MMMMMMMMMM", "WWWWWWWWWW", "0000000000", "1111111111", "iiiiiiiiii"
+  };
+  for (unsigned i = 0; i < sizeof(strs) / sizeof(strs[0]); i++) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "MEAS %s \"%s\" w=%d", tag, strs[i], prv_text_w(strs[i], f));
+  }
+}
+
+static void prv_debug_measure(void) {
+  prv_measure_font("G18B", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  prv_measure_font("G24B", fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+}
+#endif
+
 static void init(void) {
   prv_load_settings();
   prv_load_pace();
@@ -1992,6 +2035,9 @@ static void init(void) {
   s_bt_connected = connection_service_peek_pebble_app_connection();
   app_message_register_inbox_received(inbox_received);
   app_message_open(768, 64);
+#ifdef DEBUG_MEASURE
+  prv_debug_measure();
+#endif
 }
 
 static void deinit(void) {
