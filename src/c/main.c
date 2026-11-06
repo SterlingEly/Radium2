@@ -105,6 +105,9 @@
 #define FIELD_LIGHT_LEFT 19  // sun icon + daylight left (day) or time until sunrise (night)
 #define FIELD_SLEEP      20  // "Zz 7h05m" -- sleep since 6pm yesterday
 
+// Debug rulers in every info line slot (see "DEBUG LINES" above draw_info_line). Leave commented out for release.
+// #define DEBUG_FIELDS 1
+
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
 #define RING_SOLAR          1   // right=day progress, left=night progress toward sunrise
@@ -793,9 +796,77 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int typ
 // ============================================================
 // INFO LINE DRAWING
 // ============================================================
+// ------------------------------------------------------------
+// DEBUG LINES (build-time only; remove the #define to ship)
+// Uncomment `#define DEBUG_FIELDS 1` (or 2) near the top of this file. Every info line then becomes a
+// ruler: a colored box exactly the size of the line's text box, a left-aligned ruler string that is
+// simply cut off at the box edge (no ellipsis), 10px ticks along the box bottom (taller every 50px),
+// and two marks at the overlay circle's usable width at that line (the narrowest point of the box).
+// Numbers go to the app log: "DBG y=.. box=WxH chord=.. icon_text=..". icon_text is the chord minus
+// the icon and its gap, i.e. the pixel budget for a line that has an icon.
+//   DEBUG_FIELDS 1: four lines (two above + two below the time)  -- the tight stacked layout
+//   DEBUG_FIELDS 2: one line above + one below the time           -- the roomier single layout
+// Change the overlay size in the config page to measure Small / Medium / Large.
+// ------------------------------------------------------------
+#ifdef DEBUG_FIELDS
+#define FIELD_DEBUG 21
+static int s_dbg_cy  = 0;
+static int s_dbg_r   = 0;
+static int s_dbg_row = 0;
+
+static int prv_isqrt(int n) {
+  int r = 0;
+  while ((r + 1) * (r + 1) <= n) r++;
+  return r;
+}
+
+static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
+  GFont font = large ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
+                     : fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  int box_h    = large ? LARGE_BOX_H   : SMALL_BOX_H;
+  int icon_w   = large ? LARGE_ICON_W  : SMALL_ICON_W;
+  int icon_gap = large ? LARGE_ICON_GAP : SMALL_ICON_GAP;
+
+  bool odd = (s_dbg_row++ % 2) != 0;
+  graphics_context_set_fill_color(ctx, odd ? PBL_IF_COLOR_ELSE(GColorCyan, GColorLightGray)
+                                           : PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
+  graphics_fill_rect(ctx, GRect(0, y, w, box_h), 0, GCornerNone);
+
+  // Ruler: digits, with a letter marking each full ten characters so the count is unambiguous.
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_text(ctx, "123456789A123456789B123456789C123456789D123456789E", font,
+    GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+
+  // Pixel ruler along the bottom edge of the box.
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_width(ctx, 1);
+  for (int x = 0; x < w; x += 10) {
+    int len = (x % 50 == 0) ? 6 : 3;
+    graphics_draw_line(ctx, GPoint(x, y + box_h - 1), GPoint(x, y + box_h - 1 - len));
+  }
+
+  // Usable width inside the overlay circle: measured at the box edge farthest from center.
+  int top_d = y - s_dbg_cy;            if (top_d < 0) top_d = -top_d;
+  int bot_d = y + box_h - s_dbg_cy;    if (bot_d < 0) bot_d = -bot_d;
+  int far_d = (top_d > bot_d) ? top_d : bot_d;
+  int c2    = s_dbg_r * s_dbg_r - far_d * far_d;
+  int half  = (c2 > 0) ? prv_isqrt(c2) : 0;
+  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
+  graphics_draw_line(ctx, GPoint(cx - half, y), GPoint(cx - half, y + box_h - 1));
+  graphics_draw_line(ctx, GPoint(cx + half, y), GPoint(cx + half, y + box_h - 1));
+
+  int chord = 2 * half + 1;
+  APP_LOG(APP_LOG_LEVEL_INFO, "DBG y=%d box=%dx%d chord=%d icon_text=%d",
+          y, w, box_h, chord, chord - icon_w - icon_gap);
+}
+#endif
+
 static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
                            GColor col, bool large) {
   if (field == FIELD_NONE) return;
+#ifdef DEBUG_FIELDS
+  if (field == FIELD_DEBUG) { draw_debug_line(ctx, y, w, cx, large); return; }
+#endif
 
   GFont font   = large ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
                        : fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
@@ -1561,6 +1632,14 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     int f2 = s_settings.Line2Field;
     int f3 = s_settings.Line3Field;
     int f4 = s_settings.Line4Field;
+#ifdef DEBUG_FIELDS
+  #if DEBUG_FIELDS == 2
+    f1 = FIELD_NONE;  f2 = FIELD_DEBUG;  f3 = FIELD_DEBUG;  f4 = FIELD_NONE;
+  #else
+    f1 = f2 = f3 = f4 = FIELD_DEBUG;
+  #endif
+    s_dbg_cy = cy;  s_dbg_r = overlay_r;  s_dbg_row = 0;
+#endif
     int top_count = (f1 ? 1 : 0) + (f2 ? 1 : 0);
     int bot_count = (f3 ? 1 : 0) + (f4 ? 1 : 0);
 
@@ -1590,6 +1669,12 @@ static void draw_layer(Layer *layer, GContext *ctx) {
       draw_info_line(ctx, f3, inner_y, w, cx, col_l3, large);
       draw_info_line(ctx, f4, outer_y, w, cx, col_l4, large);
     }
+#ifdef DEBUG_FIELDS
+    // Outline of the overlay circle (normally invisible: it is the same color as the background).
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_circle(ctx, GPoint(cx, cy), overlay_r);
+#endif
   }
 }
 
