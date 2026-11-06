@@ -106,10 +106,10 @@
 #define FIELD_SLEEP      20  // "Zz 7h05m" -- sleep since 6pm yesterday
 
 // Debug rulers in every info line slot (see "DEBUG LINES" above draw_info_line). Leave commented out for release.
-// #define DEBUG_FIELDS 1
+#define DEBUG_FIELDS 1   // TEMPORARY test build (Sterling, 2026-11-06): re-comment before release
 // Text-width measurement: logs the pixel width of every glyph and of the worst-case info line strings in
 // GOTHIC_18_BOLD and GOTHIC_24_BOLD once at startup (read the "MEAS" lines in the app log). Release builds: leave off.
-// #define DEBUG_MEASURE 1
+#define DEBUG_MEASURE 1  // TEMPORARY test build (Sterling, 2026-11-06): re-comment before release
 
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
