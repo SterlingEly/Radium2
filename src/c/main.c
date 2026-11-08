@@ -106,14 +106,14 @@
 #define FIELD_SLEEP      20  // "Zz 7h05m" -- sleep since 6pm yesterday
 
 // Debug rulers in every info line slot (see "DEBUG LINES" above draw_info_line). Leave commented out for release.
-#define DEBUG_FIELDS 1   // TEMPORARY test build (Sterling, 2026-11-06): re-comment before release
+// #define DEBUG_FIELDS 1
 // Text-width measurement: logs the pixel width of every glyph and of the worst-case info line strings in
 // GOTHIC_18_BOLD and GOTHIC_24_BOLD once at startup (read the "MEAS" lines in the app log). Release builds: leave off.
-#define DEBUG_MEASURE 1  // TEMPORARY test build (Sterling, 2026-11-06): re-comment before release
+// #define DEBUG_MEASURE 1
 // Alignment test for the debug rulers (needs DEBUG_FIELDS): draw order rows 0-1 are RIGHT-aligned and rows 2-3 CENTERED
 // (left-aligned was tested 2026-11-06). Shows which end Fill clips when aligned text is wider than its box, which
 // TallBoy's right-aligned stacked column and centered lines depend on. Release builds: leave off.
-#define DEBUG_ALIGN 1    // TEMPORARY test build (2026-11-08): re-comment before release
+// #define DEBUG_ALIGN 1
 
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
