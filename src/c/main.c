@@ -110,6 +110,10 @@
 // Text-width measurement: logs the pixel width of every glyph and of the worst-case info line strings in
 // GOTHIC_18_BOLD and GOTHIC_24_BOLD once at startup (read the "MEAS" lines in the app log). Release builds: leave off.
 #define DEBUG_MEASURE 1  // TEMPORARY test build (Sterling, 2026-11-06): re-comment before release
+// Alignment test for the debug rulers (needs DEBUG_FIELDS): draw order rows 0-1 are RIGHT-aligned and rows 2-3 CENTERED
+// (left-aligned was tested 2026-11-06). Shows which end Fill clips when aligned text is wider than its box, which
+// TallBoy's right-aligned stacked column and centered lines depend on. Release builds: leave off.
+#define DEBUG_ALIGN 1    // TEMPORARY test build (2026-11-08): re-comment before release
 
 // Ring mode
 #define RING_STEPS_BATTERY  0   // right=battery, left=steps (default)
@@ -830,7 +834,16 @@ static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
   int icon_w   = large ? LARGE_ICON_W  : SMALL_ICON_W;
   int icon_gap = large ? LARGE_ICON_GAP : SMALL_ICON_GAP;
 
-  bool odd = (s_dbg_row++ % 2) != 0;
+  int row  = s_dbg_row++;
+  bool odd = (row % 2) != 0;
+  GTextAlignment align = GTextAlignmentLeft;
+  const char *align_name = "L";
+#ifdef DEBUG_ALIGN
+  // Draw order is f2, f1, f3, f4. On screen top to bottom that is: row 1 (outer top, spaced, right), row 0 (inner top,
+  // unspaced, right), row 2 (inner bottom, unspaced, center), row 3 (outer bottom, spaced, center).
+  if (row % 4 < 2) { align = GTextAlignmentRight;  align_name = "R"; }
+  else             { align = GTextAlignmentCenter; align_name = "C"; }
+#endif
   graphics_context_set_fill_color(ctx, odd ? PBL_IF_COLOR_ELSE(GColorCyan, GColorLightGray)
                                            : PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
   graphics_fill_rect(ctx, GRect(0, y, w, box_h), 0, GCornerNone);
@@ -842,7 +855,7 @@ static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, odd ? "12345 6789A 12345 6789B 12345 6789C 12345 6789D 12345 6789E 12345 6789F"
                               : "123456789A123456789B123456789C123456789D123456789E", font,
-    GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    GRect(0, y, w, box_h), GTextOverflowModeFill, align, NULL);
 
   // Pixel ruler along the bottom edge of the box.
   graphics_context_set_stroke_color(ctx, GColorBlack);
@@ -863,8 +876,8 @@ static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
   graphics_draw_line(ctx, GPoint(cx + half, y), GPoint(cx + half, y + box_h - 1));
 
   int chord = 2 * half + 1;
-  APP_LOG(APP_LOG_LEVEL_INFO, "DBG y=%d box=%dx%d chord=%d icon_text=%d",
-          y, w, box_h, chord, chord - icon_w - icon_gap);
+  APP_LOG(APP_LOG_LEVEL_INFO, "DBG y=%d box=%dx%d chord=%d icon_text=%d align=%s",
+          y, w, box_h, chord, chord - icon_w - icon_gap, align_name);
 }
 #endif
 
@@ -1971,7 +1984,12 @@ static void prv_measure_font(const char *tag, GFont f) {
   static const char *strs[] = {
     "WEDNESDAY", "WED SEP 30", "SEP 30", "99,999", "100F", "-10C", "100%", "99.9mi", "99.9km",
     "9999cal", "199bpm", "12:59pm", "13h59m", "UV 11", "AQI 500", "999%", "typ 99,999", "Zz 12h59m",
-    "MMMMMMMMMM", "WWWWWWWWWW", "0000000000", "1111111111", "iiiiiiiiii"
+    "MMMMMMMMMM", "WWWWWWWWWW", "0000000000", "1111111111", "iiiiiiiiii",
+    // 2026-11-08 additions: the middle dot TallBoy uses in combined lines (UTF-8, split literals so the hex escape
+    // cannot swallow the next character), candidate shorter forms, and combo lines.
+    "\xc2\xb7", " " "\xc2\xb7" " ", "100 F", "12,345 steps", "12,345 " "\xc2\xb7" " 4.2mi",
+    "Mon, May 10", "Mon 5/10", "Wed, Sep 10", "WED", "MON 01", "MON MAR 01", "typ 12k", "typ 4,200", "10:00am", "10:00a", "6:23am",
+    "100F " "\xc2\xb7" " UV 11", "100F " "\xc2\xb7" " UV 11 " "\xc2\xb7" " AQI 42", "100F UV 11 AQI 42", "UV 11 " "\xc2\xb7" " AQI 42"
   };
   for (unsigned i = 0; i < sizeof(strs) / sizeof(strs[0]); i++) {
     APP_LOG(APP_LOG_LEVEL_INFO, "MEAS %s \"%s\" w=%d", tag, strs[i], prv_text_w(strs[i], f));
