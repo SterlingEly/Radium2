@@ -54,6 +54,11 @@
 // that number is tiny and the percentage swings wildly, so below this floor pace is hidden.
 #define PACE_MIN_EXPECTED 300
 
+// Info-line fit-or-shrink (v2.6): a few fields have a shorter backup text (WEDNESDAY -> WED, MON MAR 01 -> MON 01,
+// typ 4,200 -> typ 4.2k, 10:00am -> 10:00a). The backup is used only when the normal text (plus its icon) is wider than the
+// overlay circle at that line. INFO_FIT_MARGIN px are held back from the circle width; 0 = text may touch the circle edge.
+#define INFO_FIT_MARGIN 0
+
 // Overlay visibility modes
 #define OVERLAY_ALWAYS_ON   0
 #define OVERLAY_OFF         1
@@ -318,8 +323,10 @@ static bool   s_aqi_ok   = false;
 
 static char s_time_buffer[8];
 static char s_day_buffer[12];
+static char s_day_short_buffer[4];        // "WED" (backup for the long day name)
 static char s_date_buffer[10];
 static char s_day_date_buffer[14];
+static char s_day_date_short_buffer[8];   // "MON 01" (backup for "MON MAR 01")
 static char s_steps_buffer[12];
 static char s_battery_buffer[6];
 static char s_temp_f_buffer[8];
@@ -329,12 +336,15 @@ static char s_calories_buffer[8];
 static char s_heart_rate_buffer[8];
 static char s_sunrise_buffer[8];
 static char s_sunset_buffer[8];
+static char s_sunrise_short_buffer[8];    // "6:23a" (backup: no "m")
+static char s_sunset_short_buffer[8];
 static char s_daylight_buffer[8];
 static char s_light_buffer[10];
 static char s_uv_buffer[8];
 static char s_aqi_buffer[10];
 static char s_pace_buffer[8];
 static char s_typical_buffer[16];
+static char s_typical_short_buffer[12];   // "typ 4.2k" / "typ 12k" (backup for "typ 4,200")
 static char s_sleep_buffer[12];
 
 static AppTimer *s_overlay_timer = NULL;
@@ -420,6 +430,8 @@ static void update_solar_buffers(void) {
   if (s_sunrise == 0) {
     snprintf(s_sunrise_buffer,  sizeof(s_sunrise_buffer),  "--");
     snprintf(s_sunset_buffer,   sizeof(s_sunset_buffer),   "--");
+    snprintf(s_sunrise_short_buffer, sizeof(s_sunrise_short_buffer), "--");
+    snprintf(s_sunset_short_buffer,  sizeof(s_sunset_short_buffer),  "--");
     snprintf(s_daylight_buffer, sizeof(s_daylight_buffer), "--");
     snprintf(s_light_buffer,    sizeof(s_light_buffer),    "--");
     return;
@@ -428,11 +440,15 @@ static void update_solar_buffers(void) {
   int h_rise = sr->tm_hour % 12; if (h_rise == 0) h_rise = 12;
   snprintf(s_sunrise_buffer, sizeof(s_sunrise_buffer),
            "%d:%02d%s", h_rise, sr->tm_min, sr->tm_hour >= 12 ? "pm" : "am");
+  snprintf(s_sunrise_short_buffer, sizeof(s_sunrise_short_buffer),
+           "%d:%02d%s", h_rise, sr->tm_min, sr->tm_hour >= 12 ? "p" : "a");   // must stay before localtime() is called again
 
   struct tm *ss = localtime(&s_sunset);
   int h_set = ss->tm_hour % 12; if (h_set == 0) h_set = 12;
   snprintf(s_sunset_buffer, sizeof(s_sunset_buffer),
            "%d:%02d%s", h_set, ss->tm_min, ss->tm_hour >= 12 ? "pm" : "am");
+  snprintf(s_sunset_short_buffer, sizeof(s_sunset_short_buffer),
+           "%d:%02d%s", h_set, ss->tm_min, ss->tm_hour >= 12 ? "p" : "a");
 
   if (s_sunset > s_sunrise) {
     int secs = (int)(s_sunset - s_sunrise);
@@ -503,8 +519,15 @@ static void update_pace_buffers(void) {
     char nb[12];
     prv_fmt_steps(nb, sizeof(nb), s_steps_expected);
     snprintf(s_typical_buffer, sizeof(s_typical_buffer), "typ %s", nb);
+    if (s_steps_expected >= 10000) {
+      snprintf(s_typical_short_buffer, sizeof(s_typical_short_buffer), "typ %dk", s_steps_expected / 1000);
+    } else {
+      snprintf(s_typical_short_buffer, sizeof(s_typical_short_buffer), "typ %d.%dk",
+               s_steps_expected / 1000, (s_steps_expected % 1000) / 100);
+    }
   } else {
     snprintf(s_typical_buffer, sizeof(s_typical_buffer), "--");
+    snprintf(s_typical_short_buffer, sizeof(s_typical_short_buffer), "--");
   }
 
   if (s_sleep_seconds > 0) {
@@ -815,17 +838,17 @@ static void draw_weather_icon(GContext *ctx, int ox, int oy, GColor col, int typ
 //   DEBUG_FIELDS 2: one line above + one below the time           -- the roomier single layout
 // Change the overlay size in the config page to measure Small / Medium / Large.
 // ------------------------------------------------------------
-#ifdef DEBUG_FIELDS
-#define FIELD_DEBUG 21
-static int s_dbg_cy  = 0;
-static int s_dbg_r   = 0;
-static int s_dbg_row = 0;
-
 static int prv_isqrt(int n) {
   int r = 0;
   while ((r + 1) * (r + 1) <= n) r++;
   return r;
 }
+
+#ifdef DEBUG_FIELDS
+#define FIELD_DEBUG 21
+static int s_dbg_cy  = 0;
+static int s_dbg_r   = 0;
+static int s_dbg_row = 0;
 
 static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
   GFont font = large ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
@@ -881,8 +904,30 @@ static void draw_debug_line(GContext *ctx, int y, int w, int cx, bool large) {
 }
 #endif
 
+// Width in px the overlay circle allows for a text line whose text box top is `y`. Measured at the farthest corner of the
+// digit/cap ink inside the box (rows 7..17 of a 20px box with Gothic 18, rows 10..23 of a 28px box with Gothic 24 -- measured
+// on device 2026-11-07), because the glyphs sit low in the box. Inner/outer and top/bottom slots fall out of the geometry.
+static int prv_slot_budget(int cy, int r, int y, bool large) {
+  int a  = large ? 10 : 7;
+  int b  = large ? 23 : 17;
+  int d1 = y + a - cy;  if (d1 < 0) d1 = -d1;
+  int d2 = y + b - cy;  if (d2 < 0) d2 = -d2;
+  int d  = (d1 > d2) ? d1 : d2;
+  int c2 = r * r - d * d;
+  return (c2 > 0) ? (2 * prv_isqrt(c2) + 1 - INFO_FIT_MARGIN) : 0;
+}
+
+// Fit-or-shrink: return `full` if (extra + its width) fits `budget`, otherwise `shorter`. `extra` is icon + gap for icon
+// lines, 0 for plain text. No backup text, or no budget, means `full` (the behavior before v2.6).
+static const char *prv_fit(GFont font, int extra, int budget, const char *full, const char *shorter) {
+  if (budget <= 0 || !shorter || !shorter[0]) return full;
+  GSize sz = graphics_text_layout_get_content_size(full, font, GRect(0, 0, 400, 40),
+                                                   GTextOverflowModeFill, GTextAlignmentLeft);
+  return (extra + sz.w <= budget) ? full : shorter;
+}
+
 static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
-                           GColor col, bool large) {
+                           GColor col, bool large, int budget) {
   if (field == FIELD_NONE) return;
 #ifdef DEBUG_FIELDS
   if (field == FIELD_DEBUG) { draw_debug_line(ctx, y, w, cx, large); return; }
@@ -917,13 +962,13 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   graphics_context_set_text_color(ctx, col);
 
   if (field == FIELD_DAY_LONG) {
-    graphics_draw_text(ctx, s_day_buffer, font,
+    graphics_draw_text(ctx, prv_fit(font, 0, budget, s_day_buffer, s_day_short_buffer), font,
       GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_DATE) {
     graphics_draw_text(ctx, s_date_buffer, font,
       GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_DAY_DATE) {
-    graphics_draw_text(ctx, s_day_date_buffer, font,
+    graphics_draw_text(ctx, prv_fit(font, 0, budget, s_day_date_buffer, s_day_date_short_buffer), font,
       GRect(0, y, w, box_h), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   } else if (field == FIELD_STEPS) {
     DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_steps_buffer);
@@ -942,9 +987,11 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
   } else if (field == FIELD_HEART_RATE) {
     DRAW_ICON_TEXT(draw_heart_icon(ctx, icon_x, iy, col, large), s_heart_rate_buffer);
   } else if (field == FIELD_SUNRISE) {
-    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_sunrise_buffer);
+    const char *tx = prv_fit(font, icon_w + icon_gap, budget, s_sunrise_buffer, s_sunrise_short_buffer);
+    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), tx);
   } else if (field == FIELD_SUNSET) {
-    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_sunset_buffer);
+    const char *tx = prv_fit(font, icon_w + icon_gap, budget, s_sunset_buffer, s_sunset_short_buffer);
+    DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), tx);
   } else if (field == FIELD_DAYLIGHT) {
     DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_daylight_buffer);
   } else if (field == FIELD_UV) {
@@ -957,7 +1004,10 @@ static void draw_info_line(GContext *ctx, int field, int y, int w, int cx,
     if (prv_pace_pct() >= 0) { DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_pace_buffer); }
     else                     { DRAW_NODATA(); }
   } else if (field == FIELD_TYPICAL) {
-    if (s_steps_expected >= PACE_MIN_EXPECTED) { DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), s_typical_buffer); }
+    if (s_steps_expected >= PACE_MIN_EXPECTED) {
+      const char *tx = prv_fit(font, icon_w + icon_gap, budget, s_typical_buffer, s_typical_short_buffer);
+      DRAW_ICON_TEXT(draw_steps_icon(ctx, icon_x, iy, col, large), tx);
+    }
     else                                       { DRAW_NODATA(); }
   } else if (field == FIELD_LIGHT_LEFT) {
     if (prv_solar_present()) { DRAW_ICON_TEXT(draw_sun_icon(ctx, icon_x, iy, col, large), s_light_buffer); }
@@ -1671,23 +1721,25 @@ static void draw_layer(Layer *layer, GContext *ctx) {
     if (top_count == 1) {
       int field  = f2 ? f2 : f1;
       GColor col = f2 ? col_l2 : col_l1;
-      draw_info_line(ctx, field, time_y - single_offset - cap_h + 5 + top1_nudge, w, cx, col, large);
+      int y1 = time_y - single_offset - cap_h + 5 + top1_nudge;
+      draw_info_line(ctx, field, y1, w, cx, col, large, prv_slot_budget(cy, overlay_r, y1, large));
     } else if (top_count == 2) {
       int inner_y = time_y - font_pad - line_gap + 1 + top2_nudge;
       int outer_y = inner_y - stride;
-      draw_info_line(ctx, f2, inner_y, w, cx, col_l2, large);
-      draw_info_line(ctx, f1, outer_y, w, cx, col_l1, large);
+      draw_info_line(ctx, f2, inner_y, w, cx, col_l2, large, prv_slot_budget(cy, overlay_r, inner_y, large));
+      draw_info_line(ctx, f1, outer_y, w, cx, col_l1, large, prv_slot_budget(cy, overlay_r, outer_y, large));
     }
 
     if (bot_count == 1) {
       int field  = f3 ? f3 : f4;
       GColor col = f3 ? col_l3 : col_l4;
-      draw_info_line(ctx, field, time_y + time_h + single_offset - cap_h + bot1_nudge, w, cx, col, large);
+      int y1 = time_y + time_h + single_offset - cap_h + bot1_nudge;
+      draw_info_line(ctx, field, y1, w, cx, col, large, prv_slot_budget(cy, overlay_r, y1, large));
     } else if (bot_count == 2) {
       int inner_y = time_y + time_h + line_gap - font_pad - 3 + bot2_nudge;
       int outer_y = inner_y + stride;
-      draw_info_line(ctx, f3, inner_y, w, cx, col_l3, large);
-      draw_info_line(ctx, f4, outer_y, w, cx, col_l4, large);
+      draw_info_line(ctx, f3, inner_y, w, cx, col_l3, large, prv_slot_budget(cy, overlay_r, inner_y, large));
+      draw_info_line(ctx, f4, outer_y, w, cx, col_l4, large, prv_slot_budget(cy, overlay_r, outer_y, large));
     }
 #ifdef DEBUG_FIELDS
     // Outline of the overlay circle (normally invisible: it is the same color as the background).
@@ -1791,6 +1843,8 @@ static void tick_handler(struct tm *t, TimeUnits units_changed) {
            get_month_abbr(t->tm_mon), t->tm_mday);
   snprintf(s_day_date_buffer, sizeof(s_day_date_buffer), "%s %s %02d",
            s_short_days[t->tm_wday], get_month_abbr(t->tm_mon), t->tm_mday);
+  snprintf(s_day_short_buffer, sizeof(s_day_short_buffer), "%s", s_short_days[t->tm_wday]);
+  snprintf(s_day_date_short_buffer, sizeof(s_day_date_short_buffer), "%s %02d", s_short_days[t->tm_wday], t->tm_mday);
   update_solar_buffers();
   update_env_buffers();
 #if defined(PBL_HEALTH)
